@@ -1,0 +1,2 @@
+# SplitEra
+Smart Expense Manager
