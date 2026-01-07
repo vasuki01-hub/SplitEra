@@ -397,10 +397,13 @@
         }
 
         .mobile-menu {
+            margin: 1rem;
+            border-radius: 4rem;
+            height: 44rem;
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
+            top: 2.5rem;
+            left: 4rem;
             right: 0;
             bottom: 0;
             background: var(--bg-white);
@@ -2338,6 +2341,11 @@
                             <a href="#" class="mobile-nav-link" data-page="details" onclick="mobileNavigate('details')">${t('details')}</a>
                             <a href="#" class="mobile-nav-link" data-page="settings" onclick="mobileNavigate('settings')">${t('settings')}</a>
                         </div>
+                        <div class="dropdown-item" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i>Logout</div>
+
+                                        <div class="dropdown-divider"></div>
+
+                        <div class="dropdown-item" onclick="handleDeleteAccount()" style="color: var(--danger);"><i class="fas fa-trash"></i>Delete Account</div>
                     </div>
                     <main class="main-content" id="mainContent">
                         <!-- Page content will be rendered here -->
