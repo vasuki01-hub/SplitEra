@@ -401,9 +401,9 @@
             border-radius: 1.6rem;
             display: none;
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
+            bottom: 2PX;
+            left: 4PX;
+            right: 4PX;
             background: #000000a8;
             border-top: 1px solid #374151;
             z-index: 1000;
@@ -1503,8 +1503,7 @@
             appId: "1:808906988475:web:26768298ec96ac0200429e"
         };
 
-     
-
+        
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
@@ -5718,6 +5717,32 @@
                     console.error('Google Sign-In Error:', error);
                     if (error.code === 'auth/operation-not-supported-in-this-environment') {
                         showToast('Auth Error', 'Google Sign-In is not supported in this environment. Please use Email/Password.', 'error');
+                    } else if (error.code === 'auth/unauthorized-domain') {
+                        console.error('🚨 DOMAIN NOT AUTHORIZED FOR OAUTH 🚨');
+                        console.error('Your current domain:', window.location.origin);
+                        console.error('');
+                        console.error('TO FIX THIS ERROR:');
+                        console.error('1. Go to Firebase Console: https://console.firebase.google.com');
+                        console.error('2. Select project: animai-studio-jtpei');
+                        console.error('3. Go to Authentication > Sign-in method > Google');
+                        console.error('4. Scroll to "Web SDK configuration"');
+                        console.error('5. Add your domain to "Authorized domains":');
+                        console.error('   -', window.location.origin);
+                        console.error('   - For Vercel: your-app-name.vercel.app');
+                        console.error('   - For Netlify: your-app-name.netlify.app');
+                        console.error('   - For GitHub Pages: your-username.github.io');
+                        console.error('');
+                        console.error('6. Also add to Google Cloud Console:');
+                        console.error('   - https://console.cloud.google.com/apis/credentials');
+                        console.error('   - OAuth 2.0 client IDs > Web client > Authorized redirect URIs');
+                        console.error('   - Add:', window.location.origin);
+                        console.error('');
+                        console.error('7. Wait 5-10 minutes for changes to propagate');
+                        console.error('8. Refresh this page and try again');
+                        console.error('');
+                        console.error('Current domain that needs to be added:', window.location.origin);
+
+                        showToast('Domain Error', 'Domain not authorized. Check console for setup instructions.', 'error');
                     } else if (error.code === 'auth/invalid-api-key' || error.code === 'auth/app-deleted') {
                         showToast('Config Error', 'Firebase configuration error. Please check your API keys.', 'error');
                     } else if (error.code === 'auth/auth-domain-config-required') {
@@ -5837,6 +5862,32 @@
                     console.error('Google Sign-Up Error:', error);
                     if (error.code === 'auth/operation-not-supported-in-this-environment') {
                         showToast('Auth Error', 'Google Sign-In is not supported in this environment. Please use Email/Password.', 'error');
+                    } else if (error.code === 'auth/unauthorized-domain') {
+                        console.error('🚨 DOMAIN NOT AUTHORIZED FOR OAUTH 🚨');
+                        console.error('Your current domain:', window.location.origin);
+                        console.error('');
+                        console.error('TO FIX THIS ERROR:');
+                        console.error('1. Go to Firebase Console: https://console.firebase.google.com');
+                        console.error('2. Select project: animai-studio-jtpei');
+                        console.error('3. Go to Authentication > Sign-in method > Google');
+                        console.error('4. Scroll to "Web SDK configuration"');
+                        console.error('5. Add your domain to "Authorized domains":');
+                        console.error('   -', window.location.origin);
+                        console.error('   - For Vercel: your-app-name.vercel.app');
+                        console.error('   - For Netlify: your-app-name.netlify.app');
+                        console.error('   - For GitHub Pages: your-username.github.io');
+                        console.error('');
+                        console.error('6. Also add to Google Cloud Console:');
+                        console.error('   - https://console.cloud.google.com/apis/credentials');
+                        console.error('   - OAuth 2.0 client IDs > Web client > Authorized redirect URIs');
+                        console.error('   - Add:', window.location.origin);
+                        console.error('');
+                        console.error('7. Wait 5-10 minutes for changes to propagate');
+                        console.error('8. Refresh this page and try again');
+                        console.error('');
+                        console.error('Current domain that needs to be added:', window.location.origin);
+
+                        showToast('Domain Error', 'Domain not authorized. Check console for setup instructions.', 'error');
                     } else if (error.code === 'auth/invalid-api-key' || error.code === 'auth/app-deleted') {
                         showToast('Config Error', 'Firebase configuration error. Please check your API keys.', 'error');
                     } else if (error.code === 'auth/auth-domain-config-required') {
@@ -5926,6 +5977,31 @@
                 // Only show user-facing errors for actual auth failures
                 if (error.code === 'auth/operation-not-supported-in-this-environment') {
                     showToast('Auth Error', 'Google Sign-In is not supported in this environment. Please use Email/Password.', 'error');
+                } else if (error.code === 'auth/unauthorized-domain') {
+                    console.error('🚨 DOMAIN NOT AUTHORIZED FOR OAUTH 🚨');
+                    console.error('Your current domain:', window.location.origin);
+                    console.error('');
+                    console.error('TO FIX THIS ERROR FOR VERCEL DEPLOYMENT:');
+                    console.error('1. Go to Firebase Console: https://console.firebase.google.com');
+                    console.error('2. Select project: animai-studio-jtpei');
+                    console.error('3. Go to Authentication > Sign-in method > Google');
+                    console.error('4. Scroll to "Web SDK configuration"');
+                    console.error('5. Add your Vercel domain to "Authorized domains":');
+                    console.error('   -', window.location.origin);
+                    console.error('   - Example: https://your-app-name.vercel.app');
+                    console.error('');
+                    console.error('6. Also add to Google Cloud Console:');
+                    console.error('   - https://console.cloud.google.com/apis/credentials');
+                    console.error('   - OAuth 2.0 client IDs > Web client > Authorized redirect URIs');
+                    console.error('   - Add:', window.location.origin);
+                    console.error('');
+                    console.error('7. Wait 5-10 minutes for changes to propagate');
+                    console.error('8. Redeploy your Vercel app');
+                    console.error('9. Try Google sign-in again');
+                    console.error('');
+                    console.error('Your Vercel domain that needs authorization:', window.location.origin);
+
+                    showToast('Vercel Domain Error', 'Domain not authorized. Check console for Vercel setup instructions.', 'error');
                 } else if (error.code === 'auth/user-disabled') {
                     showToast('Auth Error', 'This account has been disabled.', 'error');
                 } else if (error.code === 'auth/user-not-found') {
