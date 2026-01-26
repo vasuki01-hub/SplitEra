@@ -5950,18 +5950,16 @@
 
                 showLoading();
                 try {
-                    // Check for duplicate accounts (email + phone combination)
-                    if (phone) {
-                        const phoneSnapshot = await db.collection('users').where('phone', '==', phone).get();
-                        if (!phoneSnapshot.empty) {
-                            phoneSnapshot.forEach(doc => {
-                                const existingUser = doc.data();
-                                if (existingUser.email === email.toLowerCase()) {
-                                    throw new Error('Account with this email and phone number already exists.');
-                                }
-                            });
-                        }
-                    }
+                    // Store signup data in sessionStorage as fallback for onAuthStateChanged
+                    const newUserData = {
+                        firstName,
+                        lastName,
+                        email: email.toLowerCase(),
+                        phone,
+                        countryCode,
+                        timestamp: Date.now()
+                    };
+                    sessionStorage.setItem('newUserData', JSON.stringify(newUserData));
 
                     const result = await auth.createUserWithEmailAndPassword(email, password);
                     const userId = generateUserId(firstName, lastName, email);
@@ -6121,10 +6119,10 @@
         async function handleGoogleAuthSignIn(user) {
             showLoading();
             try {
-                // Check if user exists by email
-                const emailSnapshot = await db.collection('users').where('email', '==', user.email).get();
+                // Check if user exists by UID (Standard practice for restrictive security rules)
+                const userDoc = await db.collection('users').doc(user.uid).get();
 
-                if (emailSnapshot.empty) {
+                if (!userDoc.exists) {
                     // Account doesn't exist - prompt to sign up instead
                     await auth.signOut();
                     showToast('Info', 'Account not found. Please sign up instead.', 'info');
@@ -6132,18 +6130,7 @@
                     return;
                 }
 
-                // Check for duplicate accounts with same email and mobile
-                let existingUser = null;
-                emailSnapshot.forEach(doc => {
-                    existingUser = { id: doc.id, ...doc.data() };
-                });
-
-                if (!existingUser) {
-                    await auth.signOut();
-                    showToast('Error', 'Account not found. Please sign up first.', 'error');
-                    hideLoading();
-                    return;
-                }
+                const existingUser = { id: userDoc.id, ...userDoc.data() };
 
                 // User exists - proceed with sign-in
                 currentUser = { uid: user.uid, ...existingUser };
@@ -6168,23 +6155,8 @@
         async function handleGoogleAuthSignUp(user) {
             showLoading();
             try {
-                // Check if account already exists
-                const emailSnapshot = await db.collection('users').where('email', '==', user.email).get();
-
-                if (!emailSnapshot.empty) {
-                    // Account already exists - check if mobile matches
-                    let existingUser = null;
-                    emailSnapshot.forEach(doc => {
-                        existingUser = { id: doc.id, ...doc.data() };
-                    });
-
-                    if (existingUser) {
-                        await auth.signOut();
-                        showToast('Error', 'Account with this email already exists. Please sign in instead.', 'error');
-                        hideLoading();
-                        return;
-                    }
-                }
+                // Skip redundant collection-wide check by email as it often triggers permission errors.
+                // We will rely on checking for the user document by UID below.
 
                 // Check if user document exists (by UID)
                 const userDoc = await db.collection('users').doc(user.uid).get();
@@ -6263,18 +6235,9 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
-                // Check for duplicate accounts (email + phone combination)
-                if (phone) {
-                    const phoneSnapshot = await db.collection('users').where('phone', '==', phone).get();
-                    if (!phoneSnapshot.empty) {
-                        phoneSnapshot.forEach(doc => {
-                            const existingUser = doc.data();
-                            if (existingUser.email === email) {
-                                throw new Error('Account with this email and phone number already exists.');
-                            }
-                        });
-                    }
-                }
+                // Removed phone duplicate check as it requires collection-wide read permission 
+                // which is often restricted in secure Firestore setups. 
+                // Creating/Updating the user document now.
 
                 await db.collection('users').doc(uid).set(userData);
                 currentUser = userData;
