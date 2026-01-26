@@ -5153,6 +5153,163 @@
         let currentPage = 'dashboard';
         let editingRowId = null;
 
+        // Global Data State for Real-time Updates
+        const dataState = {
+            credits: [],
+            personalExpenses: [],
+            groups: [],
+            groupExpenses: [],
+            groupInvites: [],
+            listeners: [],
+            isLoaded: {
+                credits: false,
+                personalExpenses: false,
+                groups: false,
+                groupExpenses: false,
+                groupInvites: false
+            }
+        };
+
+        function refreshCurrentPage() {
+            if (typeof navigate === 'function') {
+                navigate(currentPage);
+            }
+        }
+
+        // Debounced refresh to handle multiple simultaneous updates
+        let refreshTimeout;
+        function debouncedRefresh() {
+            clearTimeout(refreshTimeout);
+            refreshTimeout = setTimeout(refreshCurrentPage, 150);
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                const context = this;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), wait);
+            };
+        }
+
+        function throttle(func, limit) {
+            let inThrottle;
+            return function (...args) {
+                const context = this;
+                if (!inThrottle) {
+                    func.apply(context, args);
+                    inThrottle = true;
+                    setTimeout(() => inThrottle = false, limit);
+                }
+            };
+        }
+
+        const debouncedLoadCredits = debounce(() => loadCredits(), 300);
+        const debouncedLoadPersonal = debounce(() => loadPersonal(), 300);
+        const debouncedLoadDetailsData = debounce(() => loadDetailsData(), 300);
+
+        async function setupDataListeners(userId, email, phone) {
+            // Unsubscribe from existing listeners
+            dataState.listeners.forEach(unsubscribe => {
+                if (typeof unsubscribe === 'function') unsubscribe();
+            });
+            dataState.listeners = [];
+            dataState._inviteSnapshots = {}; // Temporary storage for merging invites
+
+            console.log('📡 Initializing real-time listeners for:', email);
+
+            // 1. Credits Listener
+            const creditsUnsub = db.collection('credits')
+                .where('userId', '==', userId)
+                .onSnapshot(snapshot => {
+                    dataState.credits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    dataState.isLoaded.credits = true;
+                    debouncedRefresh();
+                }, error => console.error('Credits listener error:', error));
+            dataState.listeners.push(creditsUnsub);
+
+            // 2. Personal Expenses Listener
+            const personalUnsub = db.collection('personal_expenses')
+                .where('userId', '==', userId)
+                .onSnapshot(snapshot => {
+                    dataState.personalExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    dataState.isLoaded.personalExpenses = true;
+                    debouncedRefresh();
+                }, error => console.error('Personal expenses listener error:', error));
+            dataState.listeners.push(personalUnsub);
+
+            // 3. Groups Listener
+            const groupsUnsub = db.collection('groups')
+                .where('members', 'array-contains', userId)
+                .onSnapshot(snapshot => {
+                    dataState.groups = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    dataState.isLoaded.groups = true;
+
+                    const groupIds = dataState.groups.map(g => g.id);
+                    setupGroupExpensesListeners(groupIds);
+                    debouncedRefresh();
+                }, error => console.error('Groups listener error:', error));
+            dataState.listeners.push(groupsUnsub);
+
+            // 4. Group Invites Listeners (Multiple to cover UID, Email, Phone)
+            const handleInvites = (snapshot, source) => {
+                dataState._inviteSnapshots[source] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                // Deduplicate invites by ID
+                const allInvitesMap = new Map();
+                Object.values(dataState._inviteSnapshots).forEach(invites => {
+                    invites.forEach(inv => allInvitesMap.set(inv.id, inv));
+                });
+
+                dataState.groupInvites = Array.from(allInvitesMap.values());
+                dataState.isLoaded.groupInvites = true;
+                debouncedRefresh();
+            };
+
+            const unsubInvitesUID = db.collection('group_invites')
+                .where('toUserId', '==', userId)
+                .where('status', '==', 'pending')
+                .onSnapshot(snap => handleInvites(snap, 'uid'), err => console.error('Invite UID listener error:', err));
+            dataState.listeners.push(unsubInvitesUID);
+
+            if (email) {
+                const unsubInvitesEmail = db.collection('group_invites')
+                    .where('toEmail', '==', email.toLowerCase())
+                    .where('status', '==', 'pending')
+                    .onSnapshot(snap => handleInvites(snap, 'email'), err => console.error('Invite email listener error:', err));
+                dataState.listeners.push(unsubInvitesEmail);
+            }
+
+            if (phone) {
+                const cleanPhone = phone.replace(/[^\d+]/g, '');
+                const unsubInvitesPhone = db.collection('group_invites')
+                    .where('toPhone', '==', cleanPhone)
+                    .where('status', '==', 'pending')
+                    .onSnapshot(snap => handleInvites(snap, 'phone'), err => console.error('Invite phone listener error:', err));
+                dataState.listeners.push(unsubInvitesPhone);
+            }
+        }
+
+        let expensesUnsub = null;
+        function setupGroupExpensesListeners(groupIds) {
+            if (expensesUnsub) expensesUnsub();
+            if (groupIds.length === 0) {
+                dataState.groupExpenses = [];
+                dataState.isLoaded.groupExpenses = true;
+                return;
+            }
+
+            // Firestore 'in' limit is 10.
+            expensesUnsub = db.collection('group_expenses')
+                .where('groupId', 'in', groupIds.slice(0, 10))
+                .onSnapshot(snapshot => {
+                    dataState.groupExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    dataState.isLoaded.groupExpenses = true;
+                    debouncedRefresh();
+                }, error => console.error('Group expenses listener error:', error));
+            dataState.listeners.push(expensesUnsub);
+        }
+
         // Translation function
         function t(key) {
             return translations[currentLang][key] || key;
@@ -6977,6 +7134,15 @@
 
         async function handleLogout() {
             try {
+                // Clear existing listeners
+                if (dataState && dataState.listeners) {
+                    dataState.listeners.forEach(unsubscribe => {
+                        if (typeof unsubscribe === 'function') unsubscribe();
+                    });
+                    dataState.listeners = [];
+                }
+                if (typeof expensesUnsub === 'function') expensesUnsub();
+
                 await auth.signOut();
                 currentUser = null;
                 renderAuthPage();
@@ -7092,20 +7258,22 @@
         }
 
         async function loadDashboardData() {
-            showLoading();
+            // Check if data is still loading
+            if (!dataState.isLoaded.credits || !dataState.isLoaded.personalExpenses || !dataState.isLoaded.groups) {
+                showLoading();
+                return;
+            }
+            hideLoading();
+
             try {
                 const yearFilter = document.getElementById('dashboardYear')?.value || 'all';
                 const monthFilter = document.getElementById('dashboardMonth')?.value || 'all';
 
-                // Load all data
-                const [creditsSnapshot, personalSnapshot, groupsSnapshot] = await Promise.all([
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
-                ]);
-
-                let credits = creditsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                let personal = personalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Use data from global state
+                let credits = [...dataState.credits];
+                let personal = [...dataState.personalExpenses];
+                const groups = dataState.groups;
+                const groupExpenses = dataState.groupExpenses;
 
                 // Apply filters
                 credits = filterByYearMonth(credits, yearFilter, monthFilter);
@@ -7116,21 +7284,14 @@
 
                 // Calculate user's share of group expenses
                 let totalGroupShare = 0;
-                if (groupsSnapshot.docs.length > 0) {
-                    const groupIds = groupsSnapshot.docs.map(doc => doc.id);
-                    const groupExpensesSnapshot = await db.collection('group_expenses')
-                        .where('groupId', 'in', groupIds.slice(0, 10)) // Firestore 'in' limit is 10
-                        .get();
-
-                    let groupExpenses = groupExpensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    groupExpenses = filterByYearMonth(groupExpenses, yearFilter, monthFilter);
+                if (groups.length > 0) {
+                    let filteredGroupExpenses = filterByYearMonth(groupExpenses, yearFilter, monthFilter);
 
                     // Calculate user's share for each group expense
-                    for (const expense of groupExpenses) {
+                    for (const expense of filteredGroupExpenses) {
                         // Get group members
-                        const groupDoc = groupsSnapshot.docs.find(g => g.id === expense.groupId);
-                        if (groupDoc) {
-                            const group = groupDoc.data();
+                        const group = groups.find(g => g.id === expense.groupId);
+                        if (group) {
                             const allMembers = [...(group.members || []), ...(group.guestMembers || []).map(name => `guest:${name}`)];
                             const memberMap = allMembers.reduce((acc, m) => {
                                 acc[m] = m.startsWith('guest:') ? { firstName: m.split(':')[1], isGuest: true } : { firstName: m };
@@ -7420,31 +7581,17 @@
          * Groups data by date, calculates user shares for group expenses, and renders the calendar months.
          */
         async function loadCalendarData() {
-            showLoading();
+            if (!dataState.isLoaded.credits || !dataState.isLoaded.personalExpenses || !dataState.isLoaded.groups) {
+                showLoading();
+                return;
+            }
+            hideLoading();
+
             try {
-                // Load all user data
-                const [creditsSnapshot, personalSnapshot, groupsSnapshot] = await Promise.all([
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
-                ]);
-
-                const credits = creditsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const personal = personalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                // Load all group expenses in batches to handle more than 10 groups (Firestore 'in' limit)
-                const groupIds = groupsSnapshot.docs.map(doc => doc.id);
-                let groupExpenses = [];
-                const batchSize = 10;
-                for (let i = 0; i < groupIds.length; i += batchSize) {
-                    const batchIds = groupIds.slice(i, i + batchSize);
-                    if (batchIds.length > 0) {
-                        const groupExpensesSnapshot = await db.collection('group_expenses')
-                            .where('groupId', 'in', batchIds)
-                            .get();
-                        groupExpenses = groupExpenses.concat(groupExpensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-                    }
-                }
+                const credits = [...dataState.credits];
+                const personal = [...dataState.personalExpenses];
+                const groupExpenses = [...dataState.groupExpenses];
+                const groups = dataState.groups;
 
                 // Group by date
                 const dateMap = {};
@@ -7465,9 +7612,8 @@
 
                 // Calculate user's share for each group expense
                 for (const expense of groupExpenses) {
-                    const groupDoc = groupsSnapshot.docs.find(g => g.id === expense.groupId);
-                    if (groupDoc) {
-                        const group = groupDoc.data();
+                    const group = groups.find(g => g.id === expense.groupId);
+                    if (group) {
                         const allMembers = [...(group.members || []), ...(group.guestMembers || []).map(name => `guest:${name}`)];
                         const memberMap = allMembers.reduce((acc, m) => {
                             acc[m] = m.startsWith('guest:') ? { firstName: m.split(':')[1], isGuest: true } : { firstName: m };
@@ -7692,7 +7838,7 @@
                     
                     <div class="filters">
                         <div class="filter-group">
-                            <input type="text" class="form-input" placeholder="${t('search')}" id="detailsSearch" oninput="loadDetailsData()">
+                            <input type="text" class="form-input" placeholder="${t('search')}" id="detailsSearch" oninput="debouncedLoadDetailsData()">
                         </div>
                         <div class="filter-group">
                             <select class="form-select" id="detailsSection" onchange="loadDetailsData()">
@@ -7712,29 +7858,26 @@
         }
 
         async function loadDetailsData() {
-            showLoading();
+            if (!dataState.isLoaded.credits || !dataState.isLoaded.personalExpenses || !dataState.isLoaded.groups) {
+                showLoading();
+                return;
+            }
+            hideLoading();
+
             try {
                 const searchTerm = document.getElementById('detailsSearch')?.value || '';
                 const sectionFilter = document.getElementById('detailsSection')?.value || 'all';
-
-                // Load all data
-                const [creditsSnapshot, personalSnapshot, groupsSnapshot] = await Promise.all([
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
-                ]);
 
                 const allTransactions = [];
 
                 // Add credits
                 if (sectionFilter === 'all' || sectionFilter === 'credits') {
-                    creditsSnapshot.docs.forEach(doc => {
-                        const data = doc.data();
+                    dataState.credits.forEach(credit => {
                         allTransactions.push({
-                            id: doc.id,
-                            date: data.date,
-                            description: data.description,
-                            amount: data.amount,
+                            id: credit.id,
+                            date: credit.date,
+                            description: credit.description,
+                            amount: credit.amount,
                             section: t('creditBalance'),
                             type: 'credit',
                             color: 'var(--success)'
@@ -7744,13 +7887,12 @@
 
                 // Add personal expenses
                 if (sectionFilter === 'all' || sectionFilter === 'personal') {
-                    personalSnapshot.docs.forEach(doc => {
-                        const data = doc.data();
+                    dataState.personalExpenses.forEach(expense => {
                         allTransactions.push({
-                            id: doc.id,
-                            date: data.date,
-                            description: data.description,
-                            amount: data.amount,
+                            id: expense.id,
+                            date: expense.date,
+                            description: expense.description,
+                            amount: expense.amount,
                             section: t('personal'),
                             type: 'personal',
                             color: 'var(--danger)'
@@ -7760,32 +7902,28 @@
 
                 // Add group expenses (with user's share)
                 if (sectionFilter === 'all' || sectionFilter === 'groups') {
-                    if (groupsSnapshot.docs.length > 0) {
-                        const groupIds = groupsSnapshot.docs.map(doc => doc.id);
-                        const groupExpensesSnapshot = await db.collection('group_expenses')
-                            .where('groupId', 'in', groupIds.slice(0, 10))
-                            .get();
+                    const groups = dataState.groups;
+                    if (groups.length > 0) {
+                        const groupExpenses = dataState.groupExpenses;
 
-                        for (const doc of groupExpensesSnapshot.docs) {
-                            const data = doc.data();
-                            const groupDoc = groupsSnapshot.docs.find(g => g.id === data.groupId);
+                        for (const expense of groupExpenses) {
+                            const group = groups.find(g => g.id === expense.groupId);
 
-                            if (groupDoc) {
-                                const group = groupDoc.data();
+                            if (group) {
                                 const allMembers = [...(group.members || []), ...(group.guestMembers || []).map(name => `guest:${name}`)];
                                 const memberMap = allMembers.reduce((acc, m) => {
                                     acc[m] = m.startsWith('guest:') ? { firstName: m.split(':')[1], isGuest: true } : { firstName: m };
                                     return acc;
                                 }, {});
 
-                                const breakdowns = calculateExpenseBreakdown([{ id: doc.id, ...data }], allMembers, memberMap);
-                                const breakdown = breakdowns[doc.id];
-                                const payerId = data.paidBy || data.userId; // Get payer for this expense
+                                const breakdowns = calculateExpenseBreakdown([expense], allMembers, memberMap);
+                                const breakdown = breakdowns[expense.id];
+                                const payerId = expense.paidBy || expense.userId; // Get payer for this expense
                                 let userShare = breakdown?.contributions?.[currentUser.uid] || 0;
 
                                 // Fallback for 0 share
-                                if (userShare === 0 && (!data.splits || Object.keys(data.splits).length === 0) && group.members.includes(currentUser.uid)) {
-                                    userShare = parseFloat(data.amount) / allMembers.length;
+                                if (userShare === 0 && (!expense.splits || Object.keys(expense.splits).length === 0) && group.members.includes(currentUser.uid)) {
+                                    userShare = parseFloat(expense.amount) / allMembers.length;
                                 }
 
                                 // Expense Visibility Rules for Non-Payer Members (same logic as calendar)
@@ -7800,11 +7938,11 @@
                                 // Only add to transactions if current user is payer, or is non-payer AND settled
                                 if (isPayer || (userShare > 0 && isSettledForCurrentUser)) {
                                     allTransactions.push({
-                                        id: doc.id,
-                                        date: data.date,
-                                        description: data.description,
+                                        id: expense.id,
+                                        date: expense.date,
+                                        description: expense.description,
                                         amount: userShare, // Show user's share, not total amount
-                                        fullAmount: data.amount,
+                                        fullAmount: expense.amount,
                                         section: `${t('groups')} - ${group.name}`,
                                         type: 'group',
                                         color: 'var(--danger)'
@@ -7917,7 +8055,7 @@
 
                     <div class="filters">
                         <div class="filter-group">
-                            <input type="text" class="form-input" placeholder="${t('search')}" id="creditsSearch" oninput="loadCredits()">
+                            <input type="text" class="form-input" placeholder="${t('search')}" id="creditsSearch" oninput="debouncedLoadCredits()">
                         </div>
                         <div class="filter-group">
                             <select class="form-select" id="creditsYear" onchange="loadCredits()">
@@ -7939,19 +8077,14 @@
         }
 
         async function loadCredits() {
-            showLoading();
-            try {
-                const snapshot = await db.collection('credits')
-                    .where('userId', '==', currentUser.uid)
-                    .get();
+            if (!dataState.isLoaded.credits) {
+                showLoading();
+                return;
+            }
+            hideLoading();
 
-                let credits = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    if (data.date && !data.date.toDate) {
-                        data.date = firebase.firestore.Timestamp.fromDate(new Date(data.date));
-                    }
-                    return { id: doc.id, ...data };
-                });
+            try {
+                let credits = [...dataState.credits];
 
                 // Apply filters
                 const searchTerm = document.getElementById('creditsSearch')?.value || '';
@@ -8536,7 +8669,7 @@
 
                     <div class="filters">
                         <div class="filter-group">
-                            <input type="text" class="form-input" placeholder="${t('search')}" id="personalSearch" oninput="loadPersonal()">
+                            <input type="text" class="form-input" placeholder="${t('search')}" id="personalSearch" oninput="debouncedLoadPersonal()">
                         </div>
                         <div class="filter-group">
                             <select class="form-select" id="personalYear" onchange="loadPersonal()">
@@ -8558,17 +8691,18 @@
         }
 
         async function loadPersonal() {
-            showLoading();
+            if (!dataState.isLoaded.personalExpenses) {
+                showLoading();
+                return;
+            }
+            hideLoading();
+
             try {
                 const searchTerm = document.getElementById('personalSearch')?.value || '';
                 const yearFilter = document.getElementById('personalYear')?.value || 'all';
                 const monthFilter = document.getElementById('personalMonth')?.value || 'all';
 
-                const snapshot = await db.collection('personal_expenses')
-                    .where('userId', '==', currentUser.uid)
-                    .get();
-
-                let expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                let expenses = [...dataState.personalExpenses];
 
                 expenses = filterBySearch(expenses, searchTerm, ['description', 'category', 'mode', 'remarks', 'amount']);
                 expenses = filterByYearMonth(expenses, yearFilter, monthFilter);
@@ -9100,58 +9234,10 @@
 
         async function loadGroupInvites() {
             try {
-                if (!currentUser) {
-                    console.log('User not available for invites');
-                    return;
-                }
+                if (!currentUser) return;
 
-                console.log('Loading invites for user:', currentUser.uid);
-
-                // Check for invites by user ID, email, or phone
-                const inviteQueries = [];
-
-                // Always check by user ID
-                inviteQueries.push(
-                    db.collection('group_invites')
-                        .where('toUserId', '==', currentUser.uid)
-                        .where('status', '==', 'pending')
-                        .get()
-                );
-
-                // Check by email if available
-                if (currentUser.email) {
-                    inviteQueries.push(
-                        db.collection('group_invites')
-                            .where('toEmail', '==', currentUser.email.toLowerCase())
-                            .where('status', '==', 'pending')
-                            .get()
-                    );
-                }
-
-                // Check by phone if available
-                if (currentUser.phone) {
-                    const cleanPhone = currentUser.phone.replace(/[^\d+]/g, '');
-                    inviteQueries.push(
-                        db.collection('group_invites')
-                            .where('toPhone', '==', cleanPhone)
-                            .where('status', '==', 'pending')
-                            .get()
-                    );
-                }
-
-                const queryResults = await Promise.all(inviteQueries);
-
-                // Combine and deduplicate invites
-                const invitesMap = new Map();
-
-                queryResults.forEach(snapshot => {
-                    snapshot.docs.forEach(doc => {
-                        const invite = { id: doc.id, ...doc.data() };
-                        invitesMap.set(doc.id, invite); // Use Map to deduplicate by ID
-                    });
-                });
-
-                const invites = Array.from(invitesMap.values());
+                // Use deduplicated invites from global state
+                const invites = dataState.groupInvites;
 
                 const container = document.getElementById('groupInvitesContainer');
                 if (invites.length === 0) {
@@ -9435,25 +9521,22 @@
         }
 
         async function loadGroups() {
-            showLoading();
-            try {
-                const snapshot = await db.collection('groups')
-                    .where('members', 'array-contains', currentUser.uid)
-                    .get();
+            if (!dataState.isLoaded.groups) {
+                showLoading();
+                return;
+            }
+            hideLoading();
 
-                const groups = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            try {
+                const groups = dataState.groups;
 
                 // Calculate user's total share in groups and individual expenses
                 let userTotalShare = 0;
                 let userIndividualExpenses = 0;
 
+                const allGroupExpenses = dataState.groupExpenses;
                 for (let group of groups) {
-                    // Get all expenses for this group
-                    const groupExpensesSnapshot = await db.collection('group_expenses')
-                        .where('groupId', '==', group.id)
-                        .get();
-
-                    const groupExpenses = groupExpensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const groupExpenses = allGroupExpenses.filter(e => e.groupId === group.id);
 
                     // Calculate user's share in this group
                     const breakdowns = calculateExpenseBreakdown(groupExpenses, [...(group.members || []), ...(group.guestMembers || [])], {});
@@ -9488,11 +9571,8 @@
                 } else {
                     let html = '<div class="groups-grid">';
                     for (let group of groups) {
-                        const expensesSnapshot = await db.collection('group_expenses')
-                            .where('groupId', '==', group.id)
-                            .get();
-                        const totalExpenses = expensesSnapshot.docs.reduce((sum, doc) => {
-                            const exp = doc.data();
+                        const groupExpensesList = allGroupExpenses.filter(e => e.groupId === group.id);
+                        const totalExpenses = groupExpensesList.reduce((sum, exp) => {
                             // Exclude settlement expenses to avoid double counting
                             if (exp.category === 'Settlement' || exp.isSettlement) return sum;
                             return sum + (parseFloat(exp.amount) || 0);
@@ -16262,6 +16342,9 @@
                         } else {
                             document.body.classList.remove('dark-mode');
                         }
+
+                        // Initialize real-time data listeners
+                        setupDataListeners(user.uid, user.email, currentUser.phone);
 
                         // Show dashboard
                         renderMainLayout();
