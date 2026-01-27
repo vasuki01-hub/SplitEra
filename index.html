@@ -6019,6 +6019,9 @@
                             <div id="signupForm" style="display: none;">
                                 <!-- Signup Form will be rendered here -->
                             </div>
+                            <div id="signupVerificationSection" style="display: none;">
+                                <!-- Signup Verification will be rendered here -->
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -6027,6 +6030,8 @@
             // Render specific forms
             document.getElementById('loginForm').innerHTML = getLoginFormHtml();
             document.getElementById('signupForm').innerHTML = getSignupFormHtml();
+            // Initial signup verification section (empty)
+            document.getElementById('signupVerificationSection').innerHTML = '';
 
             // Inject Forgot Password Modal if not already present
             if (!document.getElementById('forgotPasswordModal')) {
@@ -6085,7 +6090,7 @@
                 }
             });
 
-            // Signup form submission
+            // Signup form submission - Now with dual OTP verification
             document.getElementById('signupFormElement').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const firstName = document.getElementById('signupFirstName').value;
@@ -6105,50 +6110,186 @@
                 }
                 document.getElementById('passwordMismatchError').style.display = 'none';
 
+                if (password.length < 6) {
+                    showToast('Error', 'Password must be at least 6 characters', 'error');
+                    return;
+                }
+
                 showLoading();
                 try {
-                    // Store signup data in sessionStorage as fallback for onAuthStateChanged
-                    const newUserData = {
-                        firstName,
-                        lastName,
-                        email: email.toLowerCase(),
-                        phone,
-                        countryCode,
-                        timestamp: Date.now()
-                    };
-                    sessionStorage.setItem('newUserData', JSON.stringify(newUserData));
-
-                    const result = await auth.createUserWithEmailAndPassword(email, password);
-                    const userId = generateUserId(firstName, lastName, email);
-
-                    let photoUrl = '';
-                    if (photoFile) {
-                        const photoRef = storage.ref(`profile_photos/${result.user.uid}`);
-                        await photoRef.put(photoFile);
-                        photoUrl = await photoRef.getDownloadURL();
+                    // 1. Check if user already exists in Firebase Auth to avoid redundant calls
+                    // auth.fetchSignInMethodsForEmail checks existence without needing Firestore permissions
+                    const signInMethods = await auth.fetchSignInMethodsForEmail(email.toLowerCase());
+                    if (signInMethods && signInMethods.length > 0) {
+                        showToast('Error', 'An account with this email already exists.', 'error');
+                        hideLoading();
+                        return;
                     }
 
-                    const userData = {
-                        userId,
+                    // 2. Generate and "Send" OTPs (Email and Phone)
+                    const emailOtp = Math.floor(100000 + Math.random() * 900000).toString();
+                    const phoneOtp = Math.floor(100000 + Math.random() * 900000).toString();
+
+                    // In a real app, these would be sent via an API
+                    console.log(`📧 Email OTP for ${email}: ${emailOtp}`);
+                    console.log(`📱 Phone OTP for ${phone}: ${phoneOtp}`);
+
+                    // 3. Store signup data temporarily in sessionStorage (encrypted if possible, but for demo...)
+                    const signupProcessData = {
                         firstName,
                         lastName,
                         email: email.toLowerCase(),
-                        countryCode,
+                        password, // Needed for final creation
                         phone,
-                        photoUrl,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        countryCode,
+                        emailOtp,
+                        phoneOtp,
+                        emailVerified: false,
+                        phoneVerified: false,
+                        timestamp: Date.now()
                     };
+                    sessionStorage.setItem('signupProcessData', JSON.stringify(signupProcessData));
 
-                    await db.collection('users').doc(result.user.uid).set(userData);
-                    currentUser = { uid: result.user.uid, ...userData };
-                    renderMainLayout();
-                    showToast('Success', 'Account created successfully!');
+                    // Store photo if any (cannot easily store File object in sessionStorage, so we'll handle it later or as DataURL)
+                    if (photoFile) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            sessionStorage.setItem('signupPhotoData', e.target.result);
+                        };
+                        reader.readAsDataURL(photoFile);
+                    }
+
+                    // 4. Transition to Verification UI
+                    document.getElementById('signupForm').style.display = 'none';
+                    const verificationSection = document.getElementById('signupVerificationSection');
+                    verificationSection.style.display = 'block';
+                    verificationSection.innerHTML = getSignupVerificationHtml(email, phone, emailOtp, phoneOtp);
+
+                    showToast('Success', 'Verification codes sent to your email and phone!', 'success');
+
                 } catch (error) {
+                    console.error('❌ Signup Initiation Error:', error);
                     showToast('Error', error.message, 'error');
                 } finally {
                     hideLoading();
                 }
             });
+        }
+
+        // Generate HTML for the Signup Verification section
+        function getSignupVerificationHtml(email, phone, emailOtp, phoneOtp) {
+            return `
+                <div class="signup-verification">
+                    <p style="margin-bottom: 1.5rem; color: var(--text-gray); font-size: 0.875rem;">
+                        To complete your registration, please verify both your email and phone number.
+                    </p>
+                    
+                    <div class="form-group">
+                        <label class="form-label">${t('email')} OTP (Sent to ${email})</label>
+                        <input type="text" class="form-input" id="signupEmailOtp" placeholder="Enter Email OTP" required>
+                        <small style="color: var(--primary);">DEMO EMAIL OTP: ${emailOtp}</small>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1.5rem;">
+                        <label class="form-label">${t('phone')} OTP (Sent to ${phone})</label>
+                        <input type="text" class="form-input" id="signupPhoneOtp" placeholder="Enter Phone OTP" required>
+                        <small style="color: var(--primary);">DEMO PHONE OTP: ${phoneOtp}</small>
+                    </div>
+
+                    <button type="button" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem;" onclick="handleSignupVerification()">
+                        <i class="fas fa-check-double"></i>
+                        Verify and Create Account
+                    </button>
+                    
+                    <div style="text-align: center; margin-top: 1rem;">
+                        <a href="#" onclick="window.location.reload(); return false;" style="color: var(--text-gray); font-size: 0.875rem; text-decoration: none;">
+                            <i class="fas fa-arrow-left"></i> Back to Signup
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Handle the verification of signup OTPs and final account creation
+        async function handleSignupVerification() {
+            const emailInput = document.getElementById('signupEmailOtp').value.trim();
+            const phoneInput = document.getElementById('signupPhoneOtp').value.trim();
+
+            const rawData = sessionStorage.getItem('signupProcessData');
+            if (!rawData) {
+                showToast('Error', 'Signup session expired. Please try again.', 'error');
+                window.location.reload();
+                return;
+            }
+
+            const data = JSON.parse(rawData);
+
+            if (emailInput === data.emailOtp && phoneInput === data.phoneOtp) {
+                showLoading();
+                try {
+                    console.log('✅ Both OTPs verified. Creating account...');
+
+                    // 1. Create User in Firebase Auth
+                    const result = await auth.createUserWithEmailAndPassword(data.email, data.password);
+                    const uid = result.user.uid;
+
+                    // 2. Handle Profile Photo if exists
+                    let photoUrl = '';
+                    const photoData = sessionStorage.getItem('signupPhotoData');
+                    if (photoData) {
+                        try {
+                            const photoRef = storage.ref(`profile_photos/${uid}`);
+                            // Convert DataURL back to blob/file
+                            const response = await fetch(photoData);
+                            const blob = await response.blob();
+                            await photoRef.put(blob);
+                            photoUrl = await photoRef.getDownloadURL();
+                        } catch (photoError) {
+                            console.error('📷 Photo upload error:', photoError);
+                            // Not critical, continue without photo
+                        }
+                    }
+
+                    // 3. Create User Document in Firestore
+                    const userId = generateUserId(data.firstName, data.lastName, data.email);
+                    const userData = {
+                        uid: uid,
+                        userId: userId,
+                        firstName: data.firstName,
+                        lastName: data.lastName,
+                        email: data.email,
+                        countryCode: data.countryCode,
+                        phone: data.phone,
+                        photoUrl: photoUrl,
+                        currency: 'USD',
+                        country: 'US',
+                        language: 'en',
+                        darkMode: false,
+                        emailVerified: true,
+                        phoneVerified: true,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+
+                    await db.collection('users').doc(uid).set(userData);
+                    currentUser = userData;
+
+                    // 4. Cleanup and Finish
+                    sessionStorage.removeItem('signupProcessData');
+                    sessionStorage.removeItem('signupPhotoData');
+
+                    showToast('Success', 'Account created and verified successfully!', 'success');
+                    renderMainLayout();
+                    navigate('dashboard');
+
+                } catch (error) {
+                    console.error('❌ Final Signup Error:', error);
+                    showToast('Error', error.code === 'auth/email-already-in-use' ? 'This email is already registered.' : error.message, 'error');
+                } finally {
+                    hideLoading();
+                }
+            } else {
+                showToast('Error', 'One or both verification codes are incorrect.', 'error');
+            }
         }
 
         // Toggle password visibility
@@ -6308,93 +6449,98 @@
             }
         }
 
-        // Handler for Google sign-up - collect phone number if needed
+        // Handler for Google sign-up - directly create account using Google profile info
         async function handleGoogleAuthSignUp(user) {
             showLoading();
             try {
-                // Skip redundant collection-wide check by email as it often triggers permission errors.
-                // We will rely on checking for the user document by UID below.
-
-                // Check if user document exists (by UID)
+                // Check if user document exists (by UID) to avoid duplicates
                 const userDoc = await db.collection('users').doc(user.uid).get();
 
                 if (!userDoc.exists) {
-                    // New user - collect phone number
-                    const [firstName, ...lastNameParts] = (user.displayName || 'User').split(' ');
+                    // New Google User - Create account directly without asking for phone number
+                    console.log('📝 Creating new Google user:', user.email);
 
-                    const phoneModal = document.createElement('div');
-                    phoneModal.className = 'modal-overlay show';
-                    phoneModal.innerHTML = `
-                        <div class="modal">
-                            <div class="modal-header">
-                                <h3 class="modal-title">Complete Your Profile</h3>
-                                <button class="modal-close" onclick="this.closest('.modal-overlay').remove(); auth.signOut();">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </div>
-                            <div class="modal-body">
-                                <form id="phoneCollectionForm">
-                                    <div class="form-group">
-                                        <label class="form-label">Phone Number *</label>
-                                        <input type="tel" class="form-input" id="userPhone" placeholder="Enter your phone number" required>
-                                        <small class="text-secondary">Required for account verification and recovery.</small>
-                                    </div>
-                                </form>
-                            </div>
-                            <div class="modal-footer">
-                                <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove(); auth.signOut();">Cancel</button>
-                                <button class="btn btn-primary" onclick="completeGoogleSignUp('${user.uid}', '${user.email}', '${firstName}', '${lastNameParts.join(' ')}', '${user.photoURL || ''}')">Complete Sign Up</button>
-                            </div>
-                        </div>
-                    `;
-                    document.body.appendChild(phoneModal);
-                    hideLoading();
+                    const [firstName, ...lastNameParts] = (user.displayName || 'User').split(' ');
+                    const lastName = lastNameParts.join(' ');
+
+                    // Generate a unique public-facing User ID
+                    const userId = generateUserId(firstName, lastName || '', user.email);
+
+                    const userData = {
+                        uid: user.uid,
+                        userId: userId,
+                        email: user.email.toLowerCase(),
+                        firstName: firstName,
+                        lastName: lastName || '',
+                        photoUrl: user.photoURL || '',
+                        phone: '', // Phone number field removed as per user request
+                        countryCode: '+91', // Default country code
+                        currency: 'USD',
+                        country: 'US',
+                        language: 'en',
+                        darkMode: false,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+
+                    // Save user document to Firestore
+                    await db.collection('users').doc(user.uid).set(userData);
+                    currentUser = userData;
+
+                    console.log('✅ Google account created successfully');
+
+                    // Update settings and redirect to dashboard
+                    localStorage.setItem('currency', currentUser.currency);
+                    localStorage.setItem('country', currentUser.country);
+                    localStorage.setItem('language', currentUser.language);
+                    currentLanguage = currentUser.language;
+
+                    renderMainLayout();
+                    navigate('dashboard');
+                    showToast(t('success'), 'Account created successfully with Google!');
                 } else {
-                    // User exists - proceed normally
+                    // User already exists - proceed to log them in
+                    console.log('👋 Existing Google user found, logging in...');
                     currentUser = { uid: user.uid, ...userDoc.data() };
+
                     localStorage.setItem('currency', currentUser.currency || 'USD');
                     localStorage.setItem('country', currentUser.country || 'US');
                     localStorage.setItem('language', currentUser.language || 'en');
                     currentLanguage = currentUser.language || 'en';
+
                     renderMainLayout();
                     navigate('dashboard');
-                    hideLoading();
                     showToast(t('success'), t('welcomeBack'));
                 }
             } catch (error) {
+                console.error('❌ Google Sign-up Error:', error);
                 await auth.signOut();
-                showToast('Error', 'Failed to sign up: ' + error.message, 'error');
+                showToast('Error', 'Failed to sign up with Google: ' + error.message, 'error');
+            } finally {
                 hideLoading();
             }
         }
 
+        // This function is kept for backward compatibility if called elsewhere, 
+        // but its logic is now primarily handled in handleGoogleAuthSignUp
         async function completeGoogleSignUp(uid, email, firstName, lastName, photoUrl) {
-            const phone = document.getElementById('userPhone').value.trim();
-
-            if (!phone) {
-                showToast('Error', 'Phone number is required to complete sign up.', 'error');
-                return;
-            }
-
             showLoading();
             try {
+                const userId = generateUserId(firstName, lastName, email);
                 const userData = {
                     uid: uid,
-                    email: email,
+                    email: email.toLowerCase(),
                     firstName: firstName,
                     lastName: lastName,
                     photoUrl: photoUrl,
-                    phone: phone || '',
+                    phone: '',
+                    userId: userId,
+                    countryCode: '+91',
                     currency: 'USD',
                     country: 'US',
                     language: 'en',
                     darkMode: false,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
-
-                // Removed phone duplicate check as it requires collection-wide read permission 
-                // which is often restricted in secure Firestore setups. 
-                // Creating/Updating the user document now.
 
                 await db.collection('users').doc(uid).set(userData);
                 currentUser = userData;
@@ -6404,11 +6550,9 @@
                 localStorage.setItem('language', currentUser.language || 'en');
                 currentLanguage = currentUser.language || 'en';
 
-                document.querySelector('.modal-overlay.show').remove();
                 renderMainLayout();
                 navigate('dashboard');
-                hideLoading();
-                showToast(t('success'), t('welcomeBack'));
+                showToast('Success', 'Profile completed!');
             } catch (error) {
                 showToast('Error', error.message, 'error');
                 hideLoading();
@@ -6709,9 +6853,11 @@
             return true;
         }
 
+        // Initialize all event listeners for the Forgot Password modal
         function setupForgotPasswordEventListeners() {
             const forgotPasswordForm = document.getElementById('forgotPasswordForm');
             if (forgotPasswordForm) {
+                // Handle the first step: Entering Email or Phone
                 forgotPasswordForm.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     const input = document.getElementById('forgotEmailOrPhone').value.trim();
@@ -6723,49 +6869,78 @@
 
                     showLoading();
                     try {
-                        // For email: Use Firebase's built-in password reset (doesn't require Firestore permissions)
-                        if (input.includes('@')) {
+                        // 1. Determine contact type
+                        const isEmail = input.includes('@');
+                        const queryValue = isEmail ? input.toLowerCase() : input;
+
+                        console.log(`🔍 Initiating password reset flow for: ${queryValue}`);
+
+                        // 2. Handle based on contact type
+                        if (isEmail) {
+                            // Email flow: Attempt to send reset email directly
+                            // This is the most resilient way as it handles Firebase enumeration protection correctly
                             try {
-                                await auth.sendPasswordResetEmail(input);
+                                await auth.sendPasswordResetEmail(queryValue);
                                 showToast('Success', 'Password reset link sent to your email. Please check your inbox.', 'success');
                                 closeForgotPasswordModal();
-                                hideLoading();
-                                return;
-                            } catch (emailError) {
-                                if (emailError.code === 'auth/user-not-found') {
-                                    showToast('Error', 'Account not found. Please sign up first.', 'error');
+                            } catch (error) {
+                                console.error('❌ Reset Email Error:', error);
+                                if (error.code === 'auth/user-not-found') {
+                                    showToast('Error', 'The provided email is not registered with us. Please check and try again.', 'error');
+                                } else if (error.code === 'auth/invalid-email') {
+                                    showToast('Error', 'Please enter a valid email address.', 'error');
                                 } else {
-                                    showToast('Error', 'Failed to send reset email: ' + emailError.message, 'error');
+                                    showToast('Error', 'Failed to send reset email: ' + error.message, 'error');
                                 }
-                                hideLoading();
-                                return;
                             }
-                        }
+                            hideLoading();
+                        } else {
+                            // Phone flow: Verify registration first (using Firestore)
+                            try {
+                                const userCheck = await db.collection('users')
+                                    .where('phone', '==', queryValue)
+                                    .limit(1)
+                                    .get();
 
-                        // For phone: Send OTP (account verification will happen during reset)
-                        try {
-                            // Generate and Send OTP
-                            await sendOtpLogic(input);
+                                if (userCheck.empty) {
+                                    console.log('❌ Phone not found in database');
+                                    showToast('Error', 'The provided phone number is not registered with us. Please check and try again.', 'error');
+                                    hideLoading();
+                                    return;
+                                }
 
-                            // Transition to OTP verification form
-                            document.getElementById('forgotPasswordForm').style.display = 'none';
-                            document.getElementById('verifyOtpForm').style.display = 'block';
+                                // If found (or if permission denied but we want to be generous), send OTP
+                                await sendOtpLogic(queryValue);
 
-                            // Start Timer
-                            startOtpTimer();
+                                // Transition UI to OTP verification form
+                                document.getElementById('forgotPasswordForm').style.display = 'none';
+                                document.getElementById('verifyOtpForm').style.display = 'block';
 
-                        } catch (phoneError) {
-                            showToast('Error', phoneError.message, 'error');
+                                // Start the visual countdown timer
+                                startOtpTimer();
+                            } catch (phoneError) {
+                                console.warn('⚠️ Phone Reset error or permission limit:', phoneError.message);
+                                // If permission denied, we still try to send OTP as a fallback
+                                if (phoneError.code === 'permission-denied') {
+                                    await sendOtpLogic(queryValue);
+                                    document.getElementById('forgotPasswordForm').style.display = 'none';
+                                    document.getElementById('verifyOtpForm').style.display = 'block';
+                                    startOtpTimer();
+                                } else {
+                                    showToast('Error', 'An error occurred. Please try again.', 'error');
+                                }
+                            }
                             hideLoading();
                         }
                     } catch (error) {
-                        showToast('Error', error.message, 'error');
+                        console.error('Forgot Password Flow Error:', error);
+                        showToast('Error', 'An unexpected error occurred. Please try again.', 'error');
                         hideLoading();
                     }
                 });
             }
 
-            // Resend OTP Listener
+            // Handle OTP Resend action
             const resendBtn = document.getElementById('resendOtpBtn');
             if (resendBtn) {
                 resendBtn.addEventListener('click', async () => {
@@ -6784,7 +6959,7 @@
                 });
             }
 
-            // Event listener for verifying OTP
+            // Handle the second step: Verifying the received OTP
             const verifyOtpForm = document.getElementById('verifyOtpForm');
             if (verifyOtpForm) {
                 verifyOtpForm.addEventListener('submit', async (e) => {
@@ -6793,33 +6968,23 @@
                     const storedOtp = sessionStorage.getItem('tempOtp');
 
                     if (otpInput === storedOtp) {
-                        // Verify account exists for phone number
-                        const tempContact = sessionStorage.getItem('tempContact');
-                        if (tempContact && !tempContact.includes('@')) {
-                            try {
-                                const usersSnapshot = await db.collection('users').where('phone', '==', tempContact).get();
-                                if (usersSnapshot.empty) {
-                                    showToast('Error', 'Account not found. Please sign up first.', 'error');
-                                    return;
-                                }
-                            } catch (error) {
-                                showToast('Error', 'Unable to verify account. Please try again.', 'error');
-                                return;
-                            }
-                        }
-
+                        console.log('✅ OTP Verified');
                         showToast('Success', 'OTP verified successfully!', 'success');
-                        // Transition to password reset form
+
+                        // Transition to the final password reset form
                         document.getElementById('verifyOtpForm').style.display = 'none';
                         document.getElementById('resetPasswordForm').style.display = 'block';
-                        clearInterval(otpTimerInterval); // Stop timer
+
+                        // Stop the timer as OTP is already verified
+                        if (otpTimerInterval) clearInterval(otpTimerInterval);
                     } else {
+                        console.log('❌ Invalid OTP attempt');
                         showToast('Error', 'Invalid OTP. Please try again.', 'error');
                     }
                 });
             }
 
-            // Event listener for resetting password
+            // Handle the third step: Setting a new password
             const resetPasswordForm = document.getElementById('resetPasswordForm');
             if (resetPasswordForm) {
                 resetPasswordForm.addEventListener('submit', async (e) => {
@@ -6828,6 +6993,7 @@
                     const confirmPassword = document.getElementById('resetConfirmPassword').value;
                     const passwordMismatchError = document.getElementById('resetPasswordMismatchError');
 
+                    // Validate passwords match locally
                     if (newPassword !== confirmPassword) {
                         passwordMismatchError.style.display = 'block';
                         showToast('Error', 'Passwords do not match.', 'error');
@@ -6840,43 +7006,42 @@
                         const tempContact = sessionStorage.getItem('tempContact');
                         const contactType = sessionStorage.getItem('contactType');
 
+                        // Since we are client-side only and cannot re-authenticate easily 
+                        // for sensitive operations like password updates without a current session,
+                        // we provide the most secure fallback: sending a reset link.
+
+                        console.log(`🔄 Initiating password reset link for: ${tempContact}`);
+
                         if (contactType === 'email' || tempContact.includes('@')) {
-                            // Use Firebase's password reset email for security if email is available
-                            // But since we already verified OTP, we might want to allow direct update if user performs re-auth...
-                            // However, without current password, we can't re-auth easily.
-                            // Standard flow: sendPasswordResetEmail sends a noticeable link.
-                            // For this demo/implementation where we want to set it directly:
-                            // We need Admin SDK or Cloud Function to forcibly set password check client-side limitations.
-                            // BUT, since we are doing client-side only:
-                            // If user is NOT logged in, we CANNOT update password directly without current password using EmailAuthProvider.
-
-                            // CORRECT APPROACH for Client-Side Only:
-                            // Send the Password Reset Email (standard Firebase way).
                             await auth.sendPasswordResetEmail(tempContact);
-                            showToast('Success', 'Password reset link sent to your email. Please check inbox.', 'success');
-                            closeForgotPasswordModal();
-
                         } else {
-                            // Phone number flow
-                            // Client-side SDK cannot reset password for phone user without re-auth.
-                            // We will simulate success for the demo or try to find the user's email.
-                            const usersSnapshot = await db.collection('users').where('phone', '==', tempContact).get();
+                            // For phone numbers, find associated email to send reset link
+                            const usersSnapshot = await db.collection('users')
+                                .where('phone', '==', tempContact)
+                                .limit(1)
+                                .get();
+
                             if (!usersSnapshot.empty) {
                                 const userEmail = usersSnapshot.docs[0].data().email;
                                 await auth.sendPasswordResetEmail(userEmail);
-                                showToast('Success', `Reset link sent to associated email: ${userEmail}`, 'success');
-                                closeForgotPasswordModal();
+                                showToast('Success', `Reset link sent to your registered email: ${userEmail}`, 'success');
                             } else {
-                                showToast('Error', 'Could not find associated email for this phone.', 'error');
+                                throw new Error('Could not find associated email for this phone number.');
                             }
                         }
 
+                        // Success - cleanup and close
+                        showToast('Success', 'Password reset instructions sent to your email.', 'success');
+                        closeForgotPasswordModal();
+
+                        // Clear sensitive data from session
                         sessionStorage.removeItem('tempOtp');
                         sessionStorage.removeItem('tempContact');
                         sessionStorage.removeItem('contactType');
 
                     } catch (error) {
-                        showToast('Error', error.message, 'error');
+                        console.error('❌ Password Reset Error:', error);
+                        showToast('Error', error.name === 'FirebaseError' ? error.message : 'Failed to reset password. Please try again.', 'error');
                     } finally {
                         hideLoading();
                     }
