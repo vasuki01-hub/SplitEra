@@ -8432,8 +8432,9 @@
                                 <textarea class="form-textarea" id="creditRemarks" rows="3"></textarea>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">${t('attachments')} (Optional)</label>
-                                <input type="file" class="form-input" id="creditAttachments" multiple accept="image/*">
+                                 <label class="form-label">${t('attachments')} (Optional)</label>
+                                 <input type="file" class="form-input" id="creditAttachments" multiple accept="image/*">
+                                 <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 files, 9MB each</small>
                                 <div id="creditAttachmentPreview" class="attachment-grid" style="margin-top: 0.5rem;"></div>
                             </div>
                         </form>
@@ -8451,20 +8452,55 @@
             document.body.appendChild(modal);
 
             // Preview attachments
+            window.uploadedFiles = [];
             document.getElementById('creditAttachments').addEventListener('change', (e) => {
                 const preview = document.getElementById('creditAttachmentPreview');
-                preview.innerHTML = '';
-                Array.from(e.target.files).forEach((file, idx) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const div = document.createElement('div');
-                        div.className = 'attachment';
-                        div.innerHTML = `<img src="${e.target.result}" alt="Preview ${idx + 1}">`;
-                        preview.appendChild(div);
-                    };
-                    reader.readAsDataURL(file);
-                });
+                const files = Array.from(e.target.files);
+                
+                // Reset queue for new selection if desired, or append. 
+                // Let's match group expense logic: append but respect total limit.
+                
+                for (const file of files) {
+                    if (window.uploadedFiles.length >= 5) {
+                        showToast('Warning', 'Maximum 5 attachments allowed', 'error');
+                        break;
+                    }
+                    if (file.size > 9 * 1024 * 1024) {
+                        showToast('Warning', `File ${file.name} exceeds 9MB limit`, 'error');
+                        continue;
+                    }
+                    window.uploadedFiles.push(file);
+                }
+                
+                renderCreditNewAttachments();
+                e.target.value = ''; // Reset input to allow re-selection
             });
+        }
+
+        function renderCreditNewAttachments() {
+            const preview = document.getElementById('creditAttachmentPreview');
+            if (!preview) return;
+            preview.innerHTML = '';
+            window.uploadedFiles.forEach((file, idx) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const div = document.createElement('div');
+                    div.className = 'attachment';
+                    div.innerHTML = `
+                        <img src="${e.target.result}" alt="Preview ${idx + 1}">
+                        <button class="attachment-remove" onclick="removeCreditNewAttachment(${idx})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    preview.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function removeCreditNewAttachment(index) {
+            window.uploadedFiles.splice(index, 1);
+            renderCreditNewAttachments();
         }
 
         async function saveCredit() {
@@ -8484,7 +8520,7 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
-                const files = document.getElementById('creditAttachments').files;
+                const files = window.uploadedFiles;
                 const attachments = [];
 
                 for (let file of files) {
@@ -8497,6 +8533,7 @@
                 creditData.attachments = attachments;
 
                 await db.collection('credits').add(creditData);
+                window.uploadedFiles = []; // Clear queue
                 document.querySelector('.modal-overlay').remove();
                 await loadCredits();
                 showToast('Success', 'Credit added successfully!');
@@ -8550,7 +8587,9 @@
                                 </div>
                             `).join('') : ''}
                         </div>
+                        <div id="edit-credit-new-attachments-preview-${id}" class="attachments" style="margin-top: 0.5rem;"></div>
                         <input type="file" class="form-input" id="edit-new-attachments-${id}" multiple accept="image/*" style="margin-top: 0.5rem;">
+                        <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 total files, 9MB each</small>
                     </td>
                     <td>
                         <div class="actions">
@@ -8563,6 +8602,56 @@
                         </div>
                     </td>
                 `;
+
+                // Setup attachment handling for edit
+                window.uploadedFiles = [];
+                const existingCount = credit.attachments ? credit.attachments.length : 0;
+                document.getElementById(`edit-new-attachments-${id}`).addEventListener('change', (e) => {
+                    const preview = document.getElementById(`edit-credit-new-attachments-preview-${id}`);
+                    const files = Array.from(e.target.files);
+                    
+                    for (const file of files) {
+                        if (window.uploadedFiles.length + existingCount >= 5) {
+                            showToast('Warning', 'Maximum 5 attachments allowed', 'error');
+                            break;
+                        }
+                        if (file.size > 9 * 1024 * 1024) {
+                            showToast('Warning', `File ${file.name} exceeds 9MB limit`, 'error');
+                            continue;
+                        }
+                        window.uploadedFiles.push(file);
+                    }
+                    
+                    renderCreditEditNewAttachments(id);
+                    e.target.value = '';
+                });
+
+                window.renderCreditEditNewAttachments = (id) => {
+                    const preview = document.getElementById(`edit-credit-new-attachments-preview-${id}`);
+                    if (!preview) return;
+                    preview.innerHTML = '';
+                    window.uploadedFiles.forEach((file, idx) => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            const div = document.createElement('div');
+                            div.className = 'attachment';
+                            div.innerHTML = `
+                                <img src="${ev.target.result}" alt="Preview ${idx + 1}">
+                                <button class="attachment-remove" onclick="removeCreditEditNewAttachment('${id}', ${idx})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            `;
+                            preview.appendChild(div);
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                };
+
+                window.removeCreditEditNewAttachment = (id, index) => {
+                    window.uploadedFiles.splice(index, 1);
+                    renderCreditEditNewAttachments(id);
+                };
+
             } catch (error) {
                 showToast('Error', error.message, 'error');
             } finally {
@@ -8585,7 +8674,7 @@
                     attachments: oldData.attachments || []
                 };
 
-                const newFiles = document.getElementById(`edit-new-attachments-${id}`).files;
+                const newFiles = window.uploadedFiles;
                 for (let file of newFiles) {
                     const ref = storage.ref(`credits/${currentUser.uid}/${Date.now()}_${file.name}`);
                     await ref.put(file);
@@ -8594,6 +8683,7 @@
                 }
 
                 await db.collection('credits').doc(id).update(updateData);
+                window.uploadedFiles = []; // Clear queue
                 editingRowId = null;
                 await loadCredits();
                 showToast('Success', 'Credit updated successfully!');
@@ -9011,6 +9101,7 @@
                             <div class="form-group">
                                 <label class="form-label">${t('attachments')} (Optional)</label>
                                 <input type="file" class="form-input" id="personalAttachments" multiple accept="image/*">
+                                <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 files, 9MB each</small>
                                 <div id="personalAttachmentPreview" class="attachment-grid" style="margin-top: 0.5rem;"></div>
                             </div>
                         </form>
@@ -9027,20 +9118,53 @@
             `;
             document.body.appendChild(modal);
 
+            // Preview attachments
+            window.uploadedFiles = [];
             document.getElementById('personalAttachments').addEventListener('change', (e) => {
                 const preview = document.getElementById('personalAttachmentPreview');
-                preview.innerHTML = '';
-                Array.from(e.target.files).forEach((file, idx) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const div = document.createElement('div');
-                        div.className = 'attachment';
-                        div.innerHTML = `<img src="${e.target.result}" alt="Preview ${idx + 1}">`;
-                        preview.appendChild(div);
-                    };
-                    reader.readAsDataURL(file);
-                });
+                const files = Array.from(e.target.files);
+                
+                for (const file of files) {
+                    if (window.uploadedFiles.length >= 5) {
+                        showToast('Warning', 'Maximum 5 attachments allowed', 'error');
+                        break;
+                    }
+                    if (file.size > 9 * 1024 * 1024) {
+                        showToast('Warning', `File ${file.name} exceeds 9MB limit`, 'error');
+                        continue;
+                    }
+                    window.uploadedFiles.push(file);
+                }
+                
+                renderPersonalNewAttachments();
+                e.target.value = ''; // Reset input
             });
+        }
+
+        function renderPersonalNewAttachments() {
+            const preview = document.getElementById('personalAttachmentPreview');
+            if (!preview) return;
+            preview.innerHTML = '';
+            window.uploadedFiles.forEach((file, idx) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const div = document.createElement('div');
+                    div.className = 'attachment';
+                    div.innerHTML = `
+                        <img src="${e.target.result}" alt="Preview ${idx + 1}">
+                        <button class="attachment-remove" onclick="removePersonalNewAttachment(${idx})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    preview.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function removePersonalNewAttachment(index) {
+            window.uploadedFiles.splice(index, 1);
+            renderPersonalNewAttachments();
         }
 
         async function savePersonal() {
@@ -9060,7 +9184,7 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
-                const files = document.getElementById('personalAttachments').files;
+                const files = window.uploadedFiles;
                 const attachments = [];
 
                 for (let file of files) {
@@ -9073,6 +9197,7 @@
                 expenseData.attachments = attachments;
 
                 await db.collection('personal_expenses').add(expenseData);
+                window.uploadedFiles = []; // Clear queue
                 document.querySelector('.modal-overlay').remove();
                 await loadPersonal();
                 showToast('Success', 'Expense added successfully!');
@@ -9126,7 +9251,9 @@
                                 </div>
                             `).join('') : ''}
                         </div>
+                        <div id="edit-personal-new-attachments-preview-${id}" class="attachments" style="margin-top: 0.5rem;"></div>
                         <input type="file" class="form-input" id="edit-new-attachments-personal-${id}" multiple accept="image/*" style="margin-top: 0.5rem;">
+                        <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 total files, 9MB each</small>
                     </td>
                     <td>
                         <div class="actions">
@@ -9139,6 +9266,56 @@
                         </div>
                     </td>
                 `;
+
+                // Setup attachment handling for edit
+                window.uploadedFiles = [];
+                const existingCount = expense.attachments ? expense.attachments.length : 0;
+                document.getElementById(`edit-new-attachments-personal-${id}`).addEventListener('change', (e) => {
+                    const preview = document.getElementById(`edit-personal-new-attachments-preview-${id}`);
+                    const files = Array.from(e.target.files);
+                    
+                    for (const file of files) {
+                        if (window.uploadedFiles.length + existingCount >= 5) {
+                            showToast('Warning', 'Maximum 5 attachments allowed', 'error');
+                            break;
+                        }
+                        if (file.size > 9 * 1024 * 1024) {
+                            showToast('Warning', `File ${file.name} exceeds 9MB limit`, 'error');
+                            continue;
+                        }
+                        window.uploadedFiles.push(file);
+                    }
+                    
+                    renderPersonalEditNewAttachments(id);
+                    e.target.value = '';
+                });
+
+                window.renderPersonalEditNewAttachments = (id) => {
+                    const preview = document.getElementById(`edit-personal-new-attachments-preview-${id}`);
+                    if (!preview) return;
+                    preview.innerHTML = '';
+                    window.uploadedFiles.forEach((file, idx) => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            const div = document.createElement('div');
+                            div.className = 'attachment';
+                            div.innerHTML = `
+                                <img src="${ev.target.result}" alt="Preview ${idx + 1}">
+                                <button class="attachment-remove" onclick="removePersonalEditNewAttachment('${id}', ${idx})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            `;
+                            preview.appendChild(div);
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                };
+
+                window.removePersonalEditNewAttachment = (id, index) => {
+                    window.uploadedFiles.splice(index, 1);
+                    renderPersonalEditNewAttachments(id);
+                };
+
             } catch (error) {
                 showToast('Error', error.message, 'error');
             } finally {
@@ -9161,7 +9338,7 @@
                     attachments: oldData.attachments || []
                 };
 
-                const newFiles = document.getElementById(`edit-new-attachments-personal-${id}`).files;
+                const newFiles = window.uploadedFiles;
                 for (let file of newFiles) {
                     const ref = storage.ref(`personal/${currentUser.uid}/${Date.now()}_${file.name}`);
                     await ref.put(file);
@@ -9170,6 +9347,7 @@
                 }
 
                 await db.collection('personal_expenses').doc(id).update(updateData);
+                window.uploadedFiles = []; // Clear queue
                 editingRowId = null;
                 await loadPersonal();
                 showToast('Success', 'Expense updated successfully!');
@@ -9520,6 +9698,10 @@
                                     <input type="text" class="form-input" id="editGroupName" value="${group.name}" required>
                                 </div>
                                 <div class="form-group">
+                                    <label class="form-label">${t('date')}</label>
+                                    <input type="date" class="form-input" id="editGroupDate" value="${group.creationDate ? safeDate(group.creationDate).toISOString().split('T')[0] : safeDate(group.createdAt).toISOString().split('T')[0]}" required>
+                                </div>
+                                <div class="form-group">
                                     <label class="form-label">${t('groupDescription')}</label>
                                     <textarea class="form-textarea" id="editGroupDescription" rows="3">${group.description || ''}</textarea>
                                 </div>
@@ -9589,6 +9771,7 @@
             try {
                 const name = document.getElementById('editGroupName').value;
                 const description = document.getElementById('editGroupDescription').value;
+                const dateVal = document.getElementById('editGroupDate').value;
                 const invitesVal = document.getElementById('editGroupInvites').value;
 
                 // Process invites and guests
@@ -9624,7 +9807,12 @@
 
                 const simplifyElement = document.getElementById('editGroupSimplify');
                 const simplify = simplifyElement ? simplifyElement.checked : false;
-                const updates = { name, description, simplify };
+                const updates = { 
+                    name, 
+                    description, 
+                    simplify,
+                    creationDate: firebase.firestore.Timestamp.fromDate(new Date(dateVal))
+                };
                 if (guestNames.length > 0) {
                     updates.guestMembers = firebase.firestore.FieldValue.arrayUnion(...guestNames);
                 }
@@ -9774,7 +9962,7 @@
                                 <div class="group-body">
                                     <p><strong>${t('groupCode')}:</strong> <span class="badge badge-secondary">${group.code}</span></p>
                                     <p><strong>${t('totalExpensesLabel')}:</strong> ${formatCurrency(totalExpenses)}</p>
-                                    <p><strong>${t('created')}:</strong> ${group.createdAt.toDate().toLocaleDateString()}</p>
+                                    <p><strong>${t('created')}:</strong> ${group.creationDate ? safeDate(group.creationDate).toLocaleDateString() : group.createdAt.toDate().toLocaleDateString()}</p>
                                     ${group.description ? `<p><small>${group.description}</small></p>` : ''}
                                     ${requestsHtml}
                                 </div>
@@ -11248,7 +11436,7 @@
                 }, 0))}</strong>
                                     </div>
                                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                        <span class="text-secondary">Total Your Share:</span>
+                                        <span class="text-secondary">${t('yourShare') || 'Your Share'}:</span>
                                         <strong style="color: var(--danger);">${formatCurrency(relevantExpenses.reduce((sum, e) => {
                     // Only exclude formal 'Settlement' records
                     if (e.category === 'Settlement' || e.isSettlement) return sum;
@@ -11274,9 +11462,11 @@
                             <div style="margin-bottom: 2rem;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                     <h5 style="margin-bottom: 0; color: var(--text-primary);">${t('members')}</h5>
+                                    ${group.createdBy === currentUser.uid ? `
                                     <button class="btn btn-sm btn-outline-primary" style="padding: 2px 8px;" onclick="openAddMemberModal('${groupId}', '${group.name}')" title="Add Member">
                                         <i class="fas fa-user-plus"></i>
                                     </button>
+                                    ` : ''}
                                 </div>
                                 <div style="display: flex; flex-direction: column; gap: 8px;">
                                     ${currentGroupMembers.map(m => `
@@ -11795,35 +11985,24 @@
                         throw new Error('Expense not found');
                     }
                     const expense = expenseDoc.data();
+                    const payerId = expense.paidBy || expense.userId;
                     // Determine correct settlement direction (fixed condition)
                     // If currentBalance < 0, member owes (from member to payer)
                     // If currentBalance > 0, member is owed (from payer to member)
-                    const payerId = expense.paidBy || expense.userId;
                     const fromUser = currentBalance < 0 ? memberId : payerId;
                     const toUser = currentBalance < 0 ? payerId : memberId;
                     const amount = Math.abs(currentBalance);
-                    // 1. Create a "Settlement" expense entry for Statement History
-                    const settlementRef = db.collection('group_expenses').doc();
-                    batch.set(settlementRef, {
-                        groupId: groupId,
-                        description: `Settlement: Individual balance settlement`,
-                        category: 'Settlement', // Important: Used to filter summary
-                        amount: amount,
-                        date: timestamp,
-                        paidBy: fromUser,
-                        userId: currentUser.uid,
-                        isSettlement: true, // Helper flag
-                        createdAt: timestamp
-                    });
-                    // 2. Update the original expense with settlement record
+                    
+                    // 1. Create Settlement Record (Embedded only)
+                    const uniqueId = `settlement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                     const settlementRecord = {
-                        id: `settlement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        id: uniqueId,
                         fromUser: fromUser,
                         toUser: toUser,
                         amount: amount,
                         date: timestamp,
                         recordedBy: currentUser.uid,
-                        settlementId: settlementRef.id
+                        settlementId: uniqueId
                     };
                     batch.update(expenseRef, {
                         settlements: firebase.firestore.FieldValue.arrayUnion(settlementRecord),
@@ -11892,19 +12071,8 @@
                 try {
                     const batch = db.batch();
                     const timestamp = firebase.firestore.Timestamp.now();
-                    // 1. Create a "Settlement" expense entry for Statement History
-                    const settlementRef = db.collection('group_expenses').doc();
-                    batch.set(settlementRef, {
-                        groupId: groupId,
-                        description: `Settlement: ${fromUid.includes('guest:') ? fromUid.split(':')[1] : 'Member'} to ${toUid.includes('guest:') ? toUid.split(':')[1] : 'Member'}`,
-                        category: 'Settlement', // Important: Used to filter summary
-                        amount: amountVal,
-                        date: timestamp,
-                        paidBy: fromUid,
-                        userId: currentUser.uid,
-                        isSettlement: true, // Helper flag
-                        createdAt: timestamp
-                    });
+                    const batchSettlementId = `settlement_batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    
                     // 2. RECONCILE: Find original expenses to mark them as settled
                     // This is what removes the row from the "Total Balances" table
                     const expensesSnapshot = await db.collection('group_expenses')
@@ -11932,7 +12100,7 @@
                                         toUser: toUid,
                                         amount: amountToApply,
                                         date: timestamp,
-                                        settlementId: settlementRef.id
+                                        settlementId: batchSettlementId
                                     }),
                                     updatedAt: timestamp
                                 });
@@ -11977,6 +12145,10 @@
             for (const exp of group.expenses) {
                 // Skip expenses where all paid individually
                 if (exp.allPaidIndividually) {
+                    continue;
+                }
+                // Skip settlement expenses (we rely on embedded settlements or settlements array)
+                if (exp.category === 'Settlement' || exp.isSettlement) {
                     continue;
                 }
                 const amount = parseFloat(exp.amount);
@@ -12206,6 +12378,26 @@
          * @param {string} groupName - The name of the group.
          */
         function openAddGroupExpenseModal(groupId, groupName) {
+            window.uploadedFiles = []; // Initialize upload queue
+            
+            // Helper to render new attachment previews
+            window.renderNewAttachments = function() {
+                const preview = document.getElementById('groupExpenseAttachmentPreview');
+                if (!preview) return;
+                preview.innerHTML = window.uploadedFiles.map((file, idx) => `
+                    <div class="attachment" style="position: relative; display: inline-block; margin: 5px;">
+                        <img src="${URL.createObjectURL(file)}" alt="Preview" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
+                        <span onclick="removeNewAttachment(${idx})" style="position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; width: 15px; height: 15px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; title="Remove">&times;</span>
+                    </div>
+                `).join('');
+            };
+
+            // Helper to remove new attachment
+            window.removeNewAttachment = function(index) {
+                window.uploadedFiles.splice(index, 1);
+                window.renderNewAttachments();
+            };
+
             const memberOptions = currentGroupMembers.map(m =>
                 `<option value="${m.id}" ${m.id === currentUser.uid ? 'selected' : ''}>${m.firstName} ${m.lastName}</option>`
             ).join('');
@@ -12303,9 +12495,10 @@
                     <div class="form-group">
                         <label class="form-label">${t('attachments')} (Optional)</label>
                         <input type="file" class="form-input" id="groupExpenseAttachments" multiple accept="image/*">
+                        <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 files, 9MB each</small>
                         <div id="groupExpenseExistingAttachments" class="attachment-grid" style="margin-top:0.5rem"></div>
                         <div id="groupExpenseAttachmentPreview" class="attachment-grid" style="margin-top:0.5rem"></div>
-            </div>
+                    </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
                     ${t('cancel')}
@@ -12321,18 +12514,32 @@
     `;
             document.body.appendChild(modal);
             document.getElementById('groupExpenseAttachments').addEventListener('change', (e) => {
-                const preview = document.getElementById('groupExpenseAttachmentPreview');
-                preview.innerHTML = '';
-                Array.from(e.target.files).forEach((file, idx) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const div = document.createElement('div');
-                        div.className = 'attachment';
-                        div.innerHTML = `<img src="${e.target.result}" alt="Preview ${idx + 1}">`;
-                        preview.appendChild(div);
-                    };
-                    reader.readAsDataURL(file);
-                });
+                const newFiles = Array.from(e.target.files);
+                
+                // Constraints Check
+                const existingAttachmentCount = (document.getElementById('editGroupExpenseId').value && window.editingExpense && window.editingExpense.attachments) ? window.editingExpense.attachments.length : 0;
+                const currentTotal = window.uploadedFiles.length + existingAttachmentCount;
+                
+                if (currentTotal + newFiles.length > 5) {
+                    showToast('Error', 'Maximum 5 attachments allowed.', 'error');
+                    e.target.value = ''; // Clear input
+                    return;
+                }
+                
+                for (let f of newFiles) {
+                    if (f.size > 9 * 1024 * 1024) {
+                        showToast('Error', `File ${f.name} too large (Max 9MB)`, 'error');
+                        e.target.value = ''; // Clear input
+                        return;
+                    }
+                }
+
+                // Add to queue
+                window.uploadedFiles = [...window.uploadedFiles, ...newFiles];
+                window.renderNewAttachments();
+                
+                // Clear input to allow re-selecting same file if needed
+                e.target.value = '';
             });
         }
 
@@ -12453,7 +12660,7 @@
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 // Handle Attachments
-                const files = document.getElementById('groupExpenseAttachments').files;
+                const files = window.uploadedFiles;
                 let attachments = [];
                 if (editId && window.editingExpense && window.editingExpense.attachments) {
                     attachments = [...window.editingExpense.attachments];
@@ -12890,7 +13097,10 @@
                 const debts = calculateGroupDebts(expenses, allMemberIds);
                 // Compute expense breakdowns for summary + per-expense shares
                 const breakdowns = calculateExpenseBreakdown(expenses, allMemberIds, memberMap);
-                const totalExpensesAmount = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+                const totalExpensesAmount = expenses.reduce((sum, e) => {
+                    if (e.category === 'Settlement' || e.isSettlement) return sum;
+                    return sum + (parseFloat(e.amount) || 0);
+                }, 0);
                 const totalYourShare = expenses.reduce((sum, e) => sum + (breakdowns[e.id]?.contributions?.[currentUser.uid] || 0), 0);
                 const totalReceivable = expenses.reduce((sum, e) => {
                     const payerId = e.paidBy || e.userId;
@@ -13991,7 +14201,9 @@
                                 </div>
                             `).join('') : ''}
                         </div>
-                        <input type="file" class="form-input" id="edit-details-new-attachments-${id}" multiple accept="image" style="margin-top: 0.5rem;">
+                        <div id="edit-details-new-attachments-preview-${id}" class="attachments" style="margin-top: 0.5rem;"></div>
+                        <input type="file" class="form-input" id="edit-details-new-attachments-${id}" multiple accept="image/*" style="margin-top: 0.5rem;">
+                        <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 total files, 9MB each</small>
                     </td>
                     <td><input type="number" step="0.01" class="form-input" value="${item.amount}" id="edit-details-amount-${id}"></td>
                     <td>
@@ -14005,6 +14217,56 @@
                         </div>
                     </td>
                 `;
+
+                // Setup attachment handling for edit
+                window.uploadedFiles = [];
+                const existingCount = item.attachments ? item.attachments.length : 0;
+                document.getElementById(`edit-details-new-attachments-${id}`).addEventListener('change', (e) => {
+                    const preview = document.getElementById(`edit-details-new-attachments-preview-${id}`);
+                    const files = Array.from(e.target.files);
+                    
+                    for (const file of files) {
+                        if (window.uploadedFiles.length + existingCount >= 5) {
+                            showToast('Warning', 'Maximum 5 attachments allowed', 'error');
+                            break;
+                        }
+                        if (file.size > 9 * 1024 * 1024) {
+                            showToast('Warning', `File ${file.name} exceeds 9MB limit`, 'error');
+                            continue;
+                        }
+                        window.uploadedFiles.push(file);
+                    }
+                    
+                    renderEditDetailsNewAttachments(id);
+                    e.target.value = '';
+                });
+
+                window.renderEditDetailsNewAttachments = (id) => {
+                    const preview = document.getElementById(`edit-details-new-attachments-preview-${id}`);
+                    if (!preview) return;
+                    preview.innerHTML = '';
+                    window.uploadedFiles.forEach((file, idx) => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            const div = document.createElement('div');
+                            div.className = 'attachment';
+                            div.innerHTML = `
+                                <img src="${ev.target.result}" alt="Preview ${idx + 1}">
+                                <button class="attachment-remove" onclick="removeEditDetailsNewAttachment('${id}', ${idx})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            `;
+                            preview.appendChild(div);
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                };
+
+                window.removeEditDetailsNewAttachment = (id, index) => {
+                    window.uploadedFiles.splice(index, 1);
+                    renderEditDetailsNewAttachments(id);
+                };
+
             } catch (error) {
                 showToast('Error', error.message, 'error');
             } finally {
@@ -14028,7 +14290,7 @@
                     attachments: oldData.attachments || []
                 };
 
-                const newFiles = document.getElementById(`edit-details-new-attachments-${id}`).files;
+                const newFiles = window.uploadedFiles;
                 for (let file of newFiles) {
                     const ref = storage.ref(`${collection}/${currentUser.uid}/${Date.now()}_${file.name}`);
                     await ref.put(file);
@@ -14037,6 +14299,7 @@
                 }
 
                 await db.collection(collection).doc(id).update(updateData);
+                window.uploadedFiles = []; // Clear queue
                 editingRowId = null;
                 await loadDetails();
                 showToast('Success', 'Transaction updated successfully!');
@@ -14945,6 +15208,9 @@
                 // Handle photo upload
                 const photoFile = document.getElementById('newProfilePhoto').files[0];
                 if (photoFile) {
+                    if (photoFile.size > 9 * 1024 * 1024) {
+                        throw new Error('Profile photo too large (Max 9MB)');
+                    }
                     const photoRef = storage.ref(`profile_photos/${currentUser.uid}`);
                     await photoRef.put(photoFile);
                     updates.photoUrl = await photoRef.getDownloadURL();
@@ -15270,15 +15536,7 @@
                         <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
                             <div style="display: flex; align-items: center; gap: 0.75rem;">
                                 <i class="fas fa-envelope" style="color: var(--primary); width: 20px;"></i>
-                                <span>support@split-era.com</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                <i class="fas fa-globe" style="color: var(--primary); width: 20px;"></i>
-                                <span>www.split-era.com</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                <i class="fas fa-map-marker-alt" style="color: var(--primary); width: 20px;"></i>
-                                <span>123 Finance Way, Tech City, IN 400001</span>
+                                <a href="mailto:support@split-era.com" style="color: var(--text-primary); text-decoration: none;">support@split-era.com</a>
                             </div>
                         </div>
                     `;
@@ -15297,11 +15555,6 @@
                     </div>
                     <div class="modal-body">
                         ${content}
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-primary" onclick="this.closest('.modal-overlay').remove()">
-                            ${t('confirm')}
-                        </button>
                     </div>
                 </div>
             `;
