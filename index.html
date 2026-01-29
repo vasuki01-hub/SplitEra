@@ -6202,7 +6202,7 @@
                     </button>
                     
                     <div style="text-align: center; margin-top: 1rem;">
-                        <a href="#" onclick="window.location.reload(); return false;" style="color: var(--text-gray); font-size: 0.875rem; text-decoration: none;">
+                        <a href="#" onclick="renderAuth(); return false;" style="color: var(--text-gray); font-size: 0.875rem; text-decoration: none;">
                             <i class="fas fa-arrow-left"></i> Back to Signup
                         </a>
                     </div>
@@ -6218,7 +6218,7 @@
             const rawData = sessionStorage.getItem('signupProcessData');
             if (!rawData) {
                 showToast('Error', 'Signup session expired. Please try again.', 'error');
-                window.location.reload();
+                await renderSettings();
                 return;
             }
 
@@ -8456,10 +8456,10 @@
             document.getElementById('creditAttachments').addEventListener('change', (e) => {
                 const preview = document.getElementById('creditAttachmentPreview');
                 const files = Array.from(e.target.files);
-                
+
                 // Reset queue for new selection if desired, or append. 
                 // Let's match group expense logic: append but respect total limit.
-                
+
                 for (const file of files) {
                     if (window.uploadedFiles.length >= 5) {
                         showToast('Warning', 'Maximum 5 attachments allowed', 'error');
@@ -8471,7 +8471,7 @@
                     }
                     window.uploadedFiles.push(file);
                 }
-                
+
                 renderCreditNewAttachments();
                 e.target.value = ''; // Reset input to allow re-selection
             });
@@ -8609,7 +8609,7 @@
                 document.getElementById(`edit-new-attachments-${id}`).addEventListener('change', (e) => {
                     const preview = document.getElementById(`edit-credit-new-attachments-preview-${id}`);
                     const files = Array.from(e.target.files);
-                    
+
                     for (const file of files) {
                         if (window.uploadedFiles.length + existingCount >= 5) {
                             showToast('Warning', 'Maximum 5 attachments allowed', 'error');
@@ -8621,7 +8621,7 @@
                         }
                         window.uploadedFiles.push(file);
                     }
-                    
+
                     renderCreditEditNewAttachments(id);
                     e.target.value = '';
                 });
@@ -9123,7 +9123,7 @@
             document.getElementById('personalAttachments').addEventListener('change', (e) => {
                 const preview = document.getElementById('personalAttachmentPreview');
                 const files = Array.from(e.target.files);
-                
+
                 for (const file of files) {
                     if (window.uploadedFiles.length >= 5) {
                         showToast('Warning', 'Maximum 5 attachments allowed', 'error');
@@ -9135,7 +9135,7 @@
                     }
                     window.uploadedFiles.push(file);
                 }
-                
+
                 renderPersonalNewAttachments();
                 e.target.value = ''; // Reset input
             });
@@ -9273,7 +9273,7 @@
                 document.getElementById(`edit-new-attachments-personal-${id}`).addEventListener('change', (e) => {
                     const preview = document.getElementById(`edit-personal-new-attachments-preview-${id}`);
                     const files = Array.from(e.target.files);
-                    
+
                     for (const file of files) {
                         if (window.uploadedFiles.length + existingCount >= 5) {
                             showToast('Warning', 'Maximum 5 attachments allowed', 'error');
@@ -9285,7 +9285,7 @@
                         }
                         window.uploadedFiles.push(file);
                     }
-                    
+
                     renderPersonalEditNewAttachments(id);
                     e.target.value = '';
                 });
@@ -9807,9 +9807,9 @@
 
                 const simplifyElement = document.getElementById('editGroupSimplify');
                 const simplify = simplifyElement ? simplifyElement.checked : false;
-                const updates = { 
-                    name, 
-                    description, 
+                const updates = {
+                    name,
+                    description,
                     simplify,
                     creationDate: firebase.firestore.Timestamp.fromDate(new Date(dateVal))
                 };
@@ -11462,11 +11462,6 @@
                             <div style="margin-bottom: 2rem;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                     <h5 style="margin-bottom: 0; color: var(--text-primary);">${t('members')}</h5>
-                                    ${group.createdBy === currentUser.uid ? `
-                                    <button class="btn btn-sm btn-outline-primary" style="padding: 2px 8px;" onclick="openAddMemberModal('${groupId}', '${group.name}')" title="Add Member">
-                                        <i class="fas fa-user-plus"></i>
-                                    </button>
-                                    ` : ''}
                                 </div>
                                 <div style="display: flex; flex-direction: column; gap: 8px;">
                                     ${currentGroupMembers.map(m => `
@@ -11992,7 +11987,7 @@
                     const fromUser = currentBalance < 0 ? memberId : payerId;
                     const toUser = currentBalance < 0 ? payerId : memberId;
                     const amount = Math.abs(currentBalance);
-                    
+
                     // 1. Create Settlement Record (Embedded only)
                     const uniqueId = `settlement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                     const settlementRecord = {
@@ -12072,7 +12067,7 @@
                     const batch = db.batch();
                     const timestamp = firebase.firestore.Timestamp.now();
                     const batchSettlementId = `settlement_batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                    
+
                     // 2. RECONCILE: Find original expenses to mark them as settled
                     // This is what removes the row from the "Total Balances" table
                     const expensesSnapshot = await db.collection('group_expenses')
@@ -12184,10 +12179,10 @@
                     const to = s.to;
                     const sAmount = parseFloat(s.amount);
                     if (balances.hasOwnProperty(from)) {
-                        balances[from] -= sAmount;
+                        balances[from] += sAmount; // Fixed: Payer's debt decreases (balance goes up/less negative)
                     }
                     if (balances.hasOwnProperty(to)) {
-                        balances[to] += sAmount;
+                        balances[to] -= sAmount; // Fixed: Receiver's receivable decreases (balance goes down/less positive)
                     }
                 }
             } else {
@@ -12199,10 +12194,10 @@
                             const to = settlement.toUser || settlement.to;
                             const sAmount = parseFloat(settlement.amount);
                             if (balances.hasOwnProperty(from)) {
-                                balances[from] -= sAmount;
+                                balances[from] += sAmount; // Fixed
                             }
                             if (balances.hasOwnProperty(to)) {
-                                balances[to] += sAmount;
+                                balances[to] -= sAmount; // Fixed
                             }
                         }
                     }
@@ -12212,14 +12207,53 @@
         }
 
         /**
-         * Calculates simplified group debts using a greedy algorithm for minimal transactions.
+         * Calculates simplified group debts using Pairwise Netting (Specific User Requirement).
+         * Aggregates all debts between two people and nets them out.
          * @param {array} expenses - List of expenses.
          * @param {array} memberIds - List of member IDs.
          * @param {array} [settlements=null] - List of settlements.
-         * @returns {array} - List of simplified debt objects {from, to, amount}.
+         * @returns {array} - List of net debt objects {from, to, amount}.
          */
         function calculateGroupDebts(expenses, memberIds, settlements = null) {
-            // Use provided settlements or collect from expenses
+            const debtMatrix = {}; // { from: { to: amount } }
+
+            // Initialize matrix
+            memberIds.forEach(m1 => {
+                debtMatrix[m1] = {};
+                memberIds.forEach(m2 => {
+                    if (m1 !== m2) debtMatrix[m1][m2] = 0;
+                });
+            });
+
+            // 1. Accumulate Debts from Expenses
+            expenses.forEach(expense => {
+                // Skip if all paid individually or settlement
+                if (expense.allPaidIndividually || expense.category === 'Settlement' || expense.isSettlement) return;
+
+                const amount = parseFloat(expense.amount);
+                const payer = expense.paidBy || expense.userId;
+                const splits = expense.splits || expense.splitDetails || {};
+
+                if (Object.keys(splits).length > 0) {
+                    // Use normalized splits
+                    for (const [memberId, owed] of Object.entries(splits)) {
+                        if (memberId !== payer && debtMatrix[memberId] && debtMatrix[memberId][payer] !== undefined) {
+                            debtMatrix[memberId][payer] += parseFloat(owed) || 0;
+                        }
+                    }
+                } else {
+                    // Fallback: Equal split
+                    const splitAmount = amount / memberIds.length;
+                    memberIds.forEach(memberId => {
+                        if (memberId !== payer && debtMatrix[memberId] && debtMatrix[memberId][payer] !== undefined) {
+                            debtMatrix[memberId][payer] += splitAmount;
+                        }
+                    });
+                }
+            });
+
+            // 2. Subtract Settlements (Reduce Debts)
+            // Settlements are payments: "From" pays "To". This reduces the debt "From" owes "To".
             const allSettlements = settlements || [];
             if (!settlements) {
                 expenses.forEach(expense => {
@@ -12233,44 +12267,43 @@
                     });
                 });
             }
-            // Create a temporary group structure for calculateBalances
-            const tempGroup = {
-                members: memberIds.map(id => ({ id })),
-                expenses: expenses,
-                settlements: allSettlements
-            };
-            // Get balances
-            const balances = calculateBalances(tempGroup);
-            // Apply debt simplification (greedy algorithm)
-            let debtors = [];
-            let creditors = [];
-            Object.entries(balances).forEach(([uid, amount]) => {
-                const val = Math.round(amount * 100) / 100;
-                if (val < -0.01) debtors.push({ uid, amount: val });
-                else if (val > 0.01) creditors.push({ uid, amount: val });
-            });
-            // Sort: debtors ascending (most negative first), creditors descending (biggest first)
-            debtors.sort((a, b) => a.amount - b.amount);
-            creditors.sort((a, b) => b.amount - a.amount);
-            const debts = [];
-            let i = 0;
-            let j = 0;
-            while (i < debtors.length && j < creditors.length) {
-                const debtor = debtors[i];
-                const creditor = creditors[j];
-                const debt = Math.abs(debtor.amount);
-                const credit = creditor.amount;
-                const trans = Math.min(debt, credit);
-                if (trans > 0.01) {
-                    debts.push({ from: debtor.uid, to: creditor.uid, amount: trans });
+
+            allSettlements.forEach(s => {
+                const from = s.from;
+                const to = s.to;
+                const amount = parseFloat(s.amount);
+
+                // If From owes To, reduce that debt
+                if (debtMatrix[from] && debtMatrix[from][to] !== undefined) {
+                    debtMatrix[from][to] -= amount;
+                } else {
+                    // If not tracked (e.g. users removed), ignore or handle gracefully
                 }
-                // Update balances
-                debtor.amount += trans;
-                creditor.amount -= trans;
-                // Remove if settled
-                if (Math.abs(debtor.amount) < 0.01) i++;
-                if (Math.abs(creditor.amount) < 0.01) j++;
+            });
+
+            // 3. Pairwise Netting
+            const debts = [];
+
+            // Iterate unique pairs to net them out
+            // We can iterate all and if bond (A->B) > (B->A), result is A->B (diff)
+            for (let i = 0; i < memberIds.length; i++) {
+                for (let j = i + 1; j < memberIds.length; j++) {
+                    const A = memberIds[i];
+                    const B = memberIds[j];
+
+                    const debtAB = debtMatrix[A][B] || 0; // A owes B
+                    const debtBA = debtMatrix[B][A] || 0; // B owes A
+
+                    if (debtAB > debtBA) {
+                        const net = debtAB - debtBA;
+                        if (net > 0.01) debts.push({ from: A, to: B, amount: net });
+                    } else if (debtBA > debtAB) {
+                        const net = debtBA - debtAB;
+                        if (net > 0.01) debts.push({ from: B, to: A, amount: net });
+                    }
+                }
             }
+
             return debts;
         }
 
@@ -12379,9 +12412,9 @@
          */
         function openAddGroupExpenseModal(groupId, groupName) {
             window.uploadedFiles = []; // Initialize upload queue
-            
+
             // Helper to render new attachment previews
-            window.renderNewAttachments = function() {
+            window.renderNewAttachments = function () {
                 const preview = document.getElementById('groupExpenseAttachmentPreview');
                 if (!preview) return;
                 preview.innerHTML = window.uploadedFiles.map((file, idx) => `
@@ -12393,7 +12426,7 @@
             };
 
             // Helper to remove new attachment
-            window.removeNewAttachment = function(index) {
+            window.removeNewAttachment = function (index) {
                 window.uploadedFiles.splice(index, 1);
                 window.renderNewAttachments();
             };
@@ -12515,17 +12548,17 @@
             document.body.appendChild(modal);
             document.getElementById('groupExpenseAttachments').addEventListener('change', (e) => {
                 const newFiles = Array.from(e.target.files);
-                
+
                 // Constraints Check
                 const existingAttachmentCount = (document.getElementById('editGroupExpenseId').value && window.editingExpense && window.editingExpense.attachments) ? window.editingExpense.attachments.length : 0;
                 const currentTotal = window.uploadedFiles.length + existingAttachmentCount;
-                
+
                 if (currentTotal + newFiles.length > 5) {
                     showToast('Error', 'Maximum 5 attachments allowed.', 'error');
                     e.target.value = ''; // Clear input
                     return;
                 }
-                
+
                 for (let f of newFiles) {
                     if (f.size > 9 * 1024 * 1024) {
                         showToast('Error', `File ${f.name} too large (Max 9MB)`, 'error');
@@ -12537,7 +12570,7 @@
                 // Add to queue
                 window.uploadedFiles = [...window.uploadedFiles, ...newFiles];
                 window.renderNewAttachments();
-                
+
                 // Clear input to allow re-selecting same file if needed
                 e.target.value = '';
             });
@@ -13998,6 +14031,10 @@
 
                     // Process each expense individually
                     const groupEntries = groupExpenses.map(expense => {
+                        // FILTER: Skip settlement entries for the details list
+                        if (expense.category === 'Settlement' || (expense.description && expense.description.includes('Settlement')) || expense.isSettlement) {
+                            return null;
+                        }
                         const groupId = expense.groupId;
                         const group = groupsDataMap[groupId];
 
@@ -14224,7 +14261,7 @@
                 document.getElementById(`edit-details-new-attachments-${id}`).addEventListener('change', (e) => {
                     const preview = document.getElementById(`edit-details-new-attachments-preview-${id}`);
                     const files = Array.from(e.target.files);
-                    
+
                     for (const file of files) {
                         if (window.uploadedFiles.length + existingCount >= 5) {
                             showToast('Warning', 'Maximum 5 attachments allowed', 'error');
@@ -14236,7 +14273,7 @@
                         }
                         window.uploadedFiles.push(file);
                     }
-                    
+
                     renderEditDetailsNewAttachments(id);
                     e.target.value = '';
                 });
@@ -15318,11 +15355,9 @@
                 document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
                 currentLang = language;
 
-                showToast('Success', 'Settings saved successfully! Reloading...');
-
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
+                showToast('Success', t('settingsSaved'));
+            // Re-render settings to apply changes
+            await renderSettings();
 
             } catch (error) {
                 console.error('Error saving settings:', error);
@@ -16800,7 +16835,14 @@
                             sessionStorage.removeItem('newUserData');
 
                             // Reload to get the new user data
-                            window.location.reload();
+                            // Instead of reload, trigger state update
+                            showToast('Success', 'Account created! Welcome ' + newUserData.firstName);
+                            // We can try to just let the auth listener pick it up or re-trigger
+                            // But since we just set the doc, we can proceed.
+                            currentUser = { ...newUserData, uid: user.uid };
+                             
+                            await renderMainLayout();
+                            await navigate('dashboard');
                         } else {
                             // Give it one last chance if handleGoogleAuthRedirect is still working
                             // If we still have redirect result pending, don't sign out
