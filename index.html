@@ -8433,7 +8433,7 @@
                             </div>
                             <div class="form-group">
                                  <label class="form-label">${t('attachments')} (Optional)</label>
-                                 <input type="file" class="form-input" id="creditAttachments" multiple accept="image/*">
+                                 <input type="file" class="form-input" id="creditAttachments" multiple accept="image">
                                  <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 files, 9MB each</small>
                                 <div id="creditAttachmentPreview" class="attachment-grid" style="margin-top: 0.5rem;"></div>
                             </div>
@@ -8588,7 +8588,7 @@
                             `).join('') : ''}
                         </div>
                         <div id="edit-credit-new-attachments-preview-${id}" class="attachments" style="margin-top: 0.5rem;"></div>
-                        <input type="file" class="form-input" id="edit-new-attachments-${id}" multiple accept="image/*" style="margin-top: 0.5rem;">
+                        <input type="file" class="form-input" id="edit-new-attachments-${id}" multiple accept="image" style="margin-top: 0.5rem;">
                         <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 total files, 9MB each</small>
                     </td>
                     <td>
@@ -9100,7 +9100,7 @@
                             </div>
                             <div class="form-group">
                                 <label class="form-label">${t('attachments')} (Optional)</label>
-                                <input type="file" class="form-input" id="personalAttachments" multiple accept="image/*">
+                                <input type="file" class="form-input" id="personalAttachments" multiple accept="image">
                                 <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 files, 9MB each</small>
                                 <div id="personalAttachmentPreview" class="attachment-grid" style="margin-top: 0.5rem;"></div>
                             </div>
@@ -14239,7 +14239,7 @@
                             `).join('') : ''}
                         </div>
                         <div id="edit-details-new-attachments-preview-${id}" class="attachments" style="margin-top: 0.5rem;"></div>
-                        <input type="file" class="form-input" id="edit-details-new-attachments-${id}" multiple accept="image/*" style="margin-top: 0.5rem;">
+                        <input type="file" class="form-input" id="edit-details-new-attachments-${id}" multiple accept="image" style="margin-top: 0.5rem;">
                         <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 total files, 9MB each</small>
                     </td>
                     <td><input type="number" step="0.01" class="form-input" value="${item.amount}" id="edit-details-amount-${id}"></td>
@@ -14459,13 +14459,53 @@
                 }));
 
                 const groups = groupsSnapshot.docs.map(doc => {
-                    const data = doc.data();
+                    const expense = { id: doc.id, ...doc.data() };
+                    
+                    // FILTER: Skip settlement entries
+                    if (expense.category === 'Settlement' || (expense.description && expense.description.includes('Settlement')) || expense.isSettlement) {
+                        return null;
+                    }
+
+                    const groupId = expense.groupId;
+                    const groupName = groupsMap[groupId] || 'Unknown';
+                    
+                    // To calculate share, we need the group document for member list
+                    const groupDoc = groupsListSnapshot.docs.find(d => d.id === groupId);
+                    if (!groupDoc) return null;
+                    const groupData = groupDoc.data();
+
+                    // Calculate Member Map for calculation (same as loadDetails)
+                    const allMembers = [...(groupData.members || []), ...(groupData.guestMembers || []).map(name => `guest:${name}`)];
+                    const memberMap = allMembers.reduce((acc, m) => {
+                        acc[m] = m.startsWith('guest:') ? { firstName: m.split(':')[1], isGuest: true } : { firstName: m };
+                        return acc;
+                    }, {});
+
+                    // Calculate Breakdown
+                    const breakdowns = calculateExpenseBreakdown([expense], allMembers, memberMap);
+                    const breakdown = breakdowns[expense.id];
+                    let userShare = breakdown?.contributions?.[currentUser.uid] || 0;
+
+                    // Fallback for legacy equal splits
+                    if (userShare === 0 && (!expense.splits || Object.keys(expense.splits).length === 0) && groupData.members.includes(currentUser.uid)) {
+                        userShare = parseFloat(expense.amount) / allMembers.length;
+                    }
+
+                    // Guest Alias Fallback
+                    if (userShare === 0) {
+                        const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                        userShare = breakdown?.contributions?.[guestKey] || 0;
+                    }
+
+                    if (userShare <= 0) return null;
+
                     return {
-                        section: `Group: ${groupsMap[data.groupId] || 'Unknown'}`,
+                        section: `Group: ${groupName}`,
                         sectionType: 'group',
-                        ...data
+                        ...expense,
+                        amount: userShare // Override with user's share
                     };
-                });
+                }).filter(e => e !== null);
 
                 let allData = [];
                 if (typeFilter === 'all' || typeFilter === 'credit') {
@@ -15379,7 +15419,7 @@
                             </div>
                             <h3>About Us</h3>
                         </div>
-                        <p style="margin-bottom: 1rem;">At SplitEra, we're passionate about simplifying the way people handle their finances in an increasingly shared world. Founded in 2023 in Surat, Gujarat, India, our mission is to empower individuals and groups to track, manage, and split expenses effortlessly, turning financial chaos into clarity and collaboration.</p>
+                        <p style="margin-bottom: 1rem;">At SplitEra, we're passionate about simplifying the way people handle their finances in an increasingly shared world. Founded in 2025 in Chikhli, Gujarat, India, our mission is to empower individuals and groups to track, manage, and split expenses effortlessly, turning financial chaos into clarity and collaboration.</p>
 
                         <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Our Story</h4>
                         <p style="margin-bottom: 1rem;">SplitEra was born out of a simple frustration: splitting bills with friends, family, or roommates often leads to awkward conversations, forgotten IOUs, and lost receipts. Our founders, a team of tech enthusiasts and finance buffs, experienced this firsthand during group trips and shared living situations. We set out to build a smart, user-friendly platform that leverages intuitive technology to make expense management seamless and stress-free. Hosted on modern infrastructure, SplitEra combines secure data handling with features like real-time group splits, customizable categories, and insightful reports—all accessible from your desktop or mobile device.</p>
@@ -15401,8 +15441,8 @@
                         </ul>
 
                         <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Meet the Team</h4>
-                        <p style="margin-bottom: 1rem;">Our small but dedicated team in Surat brings together expertise in software development, UI/UX design, and financial analytics. We're committed to growing SplitEra into a go-to tool for millions, one split at a time.</p>
-                        <p style="margin-bottom: 1rem;">If you'd like to learn more or share ideas, reach out to us at support@split-era.com. Join us in redefining expense management—because sharing costs shouldn't cost you peace of mind.</p>
+                        <p style="margin-bottom: 1rem;">Our small but dedicated team in Chikhli brings together expertise in software development, UI/UX design, and financial analytics. We're committed to growing SplitEra into a go-to tool for millions, one split at a time.</p>
+                        <p style="margin-bottom: 1rem;">If you'd like to learn more or share ideas, reach out to us at support-splitera@gmail.com. Join us in redefining expense management—because sharing costs shouldn't cost you peace of mind.</p>
                     `;
                     break;
                 case 'terms':
@@ -15481,13 +15521,13 @@
                         <p style="margin-bottom: 1rem;">You agree to indemnify us against any claims arising from your use of the Service, violation of these Terms, or infringement of third-party rights.</p>
 
                         <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">11. Governing Law</h4>
-                        <p style="margin-bottom: 1rem;">These Terms are governed by the laws of India, without regard to conflict of laws principles. Any disputes shall be resolved in the courts of Surat, Gujarat, India.</p>
+                        <p style="margin-bottom: 1rem;">These Terms are governed by the laws of India, without regard to conflict of laws principles. Any disputes shall be resolved in the courts of Chikhli, Gujarat, India.</p>
 
                         <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">12. Changes to Terms</h4>
                         <p style="margin-bottom: 1rem;">We may update these Terms at any time. Continued use of the Service after changes constitutes acceptance.</p>
 
                         <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">13. Contact Us</h4>
-                        <p style="margin-bottom: 1rem;">For questions, contact us at <a href="mailto:support@split-era.com" style="color: var(--primary);">support@split-era.com</a>.</p>
+                        <p style="margin-bottom: 1rem;">For questions, contact us at <a href="mailto:support-splitera@gmail.com" style="color: var(--primary);">support-splitera@gmail.com</a>.</p>
                     `;
                     break;
                 case 'privacy':
@@ -15560,7 +15600,7 @@
                         <p style="margin-bottom: 1rem;">We may update this Policy. Changes will be posted here, and significant updates may be notified via email.</p>
 
                         <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">12. Contact Us</h4>
-                        <p style="margin-bottom: 1rem;">For privacy questions, contact us at <a href="mailto:privacy@split-era.com" style="color: var(--primary);">privacy@split-era.com</a>.</p>
+                        <p style="margin-bottom: 1rem;">For privacy questions, contact us at <a href="mailto:privacy-split-era@gmail.com" style="color: var(--primary);">privacy-split-era@gmail.com</a>.</p>
                         <p style="margin-top: 1rem; font-size: 0.875rem; color: var(--text-gray);">This Privacy Policy complies with applicable laws, including the Digital Personal Data Protection Act, 2023 (India), where relevant.</p>
                     `;
                     break;
@@ -15571,7 +15611,7 @@
                         <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
                             <div style="display: flex; align-items: center; gap: 0.75rem;">
                                 <i class="fas fa-envelope" style="color: var(--primary); width: 20px;"></i>
-                                <a href="mailto:support@split-era.com" style="color: var(--text-primary); text-decoration: none;">support@split-era.com</a>
+                                <a href="mailto:support-splitera@gmail.com" style="color: var(--text-primary); text-decoration: none;">support-splitera@gmail.com</a>
                             </div>
                         </div>
                     `;
