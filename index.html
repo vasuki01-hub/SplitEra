@@ -9251,7 +9251,7 @@
                             `).join('') : ''}
                         </div>
                         <div id="edit-personal-new-attachments-preview-${id}" class="attachments" style="margin-top: 0.5rem;"></div>
-                        <input type="file" class="form-input" id="edit-new-attachments-personal-${id}" multiple accept="image/*" style="margin-top: 0.5rem;">
+                        <input type="file" class="form-input" id="edit-new-attachments-personal-${id}" multiple accept="image" style="margin-top: 0.5rem;">
                         <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 total files, 9MB each</small>
                     </td>
                     <td>
@@ -11051,151 +11051,177 @@
          * Fetches data from Firestore, processes expenses, calculates debts and breakdowns, and renders a modal.
          * @param {string} groupId - The ID of the group to view.
          */
-        async function viewGroupDetails(groupId) {
-            // Check if modal is already open - if so, just update it instead of creating a new one
-            const existingModal = document.querySelector('.modal-overlay.show');
-            const isUpdating = existingModal && existingModal.querySelector('.modal-large');
-            if (!isUpdating) {
-                showLoading();
-            } else {
-                // Remove existing modal to prevent overlap
-                existingModal.remove();
+    async function viewGroupDetails(groupId) {
+    // Check if modal is already open - if so, just update it instead of creating a new one
+    const existingModal = document.querySelector('.modal-overlay.show');
+    const isUpdating = existingModal && existingModal.querySelector('.modal-large');
+    if (!isUpdating) {
+        showLoading();
+    } else {
+        // Remove existing modal to prevent overlap
+        existingModal.remove();
+    }
+
+    try {
+        const groupDoc = await db.collection('groups').doc(groupId).get();
+        const group = { id: groupDoc.id, ...groupDoc.data() };
+
+        // Fetch members
+        const memberDocs = await Promise.all(
+            group.members.map(uid => db.collection('users').doc(uid).get())
+        );
+        const members = memberDocs.map(d => ({ id: d.id, ...d.data() }));
+
+        // Add guest members
+        const guests = (group.guestMembers || []).map(name => ({
+            id: `guest:${name}`,
+            firstName: name,
+            lastName: `(${t('guest')})`,
+            photoUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+            isGuest: true
+        }));
+
+        const allMembers = [...members, ...guests];
+        currentGroupMembers = allMembers;
+
+        const memberMap = allMembers.reduce((acc, m) => { acc[m.id] = m; return acc; }, {});
+
+        const expensesSnapshot = await db.collection('group_expenses')
+            .where('groupId', '==', groupId)
+            .get();
+
+        const yearFilter = document.getElementById('groupYearFilter')?.value || 'all';
+        const monthFilter = document.getElementById('groupMonthFilter')?.value || 'all';
+
+        let allExpenses = expensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Collect settlements from ALL expenses before filtering
+        const allSettlements = [];
+        allExpenses.forEach(expense => {
+            const settlements = expense.settlements || [];
+            settlements.forEach(settlement => {
+                allSettlements.push({
+                    from: settlement.fromUser,
+                    to: settlement.toUser,
+                    amount: settlement.amount
+                });
+            });
+        });
+
+        // Filter out settlement expenses for display
+        let expenses = allExpenses.filter(expense => 
+            expense.category !== 'Settlement' && 
+            !expense.description?.includes('Settlement')
+        );
+
+        expenses = filterByYearMonth(expenses, yearFilter, monthFilter);
+        expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+
+        // Calculate Debts
+        const simplify = group.simplify !== false; // Default to true
+        const debts = calculateGroupDebts(expenses, allMembers.map(m => m.id), allSettlements);
+
+        // Calculate breakdowns
+        const breakdowns = calculateExpenseBreakdown(expenses, allMembers.map(m => m.id), memberMap);
+
+        // ────────────────────────────────────────────────
+        // IMPORTANT CHANGE: Show ALL expenses to every group member
+        // ────────────────────────────────────────────────
+        const displayExpenses = expenses;
+
+        // Classify active / settled per current user
+        const activeExpenses = [];
+        const settledExpenses = [];
+
+        displayExpenses.forEach(expense => {
+            const breakdown = breakdowns[expense.id];
+            const payerId = expense.paidBy || expense.userId;
+            const splits = expense.splits || expense.splitDetails || {};
+            const settlements = expense.settlements || [];
+
+            let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+
+            // Guest fallback
+            if (myShare === 0) {
+                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                myShare = breakdown?.contributions?.[guestKey] || 0;
             }
-            try {
-                const groupDoc = await db.collection('groups').doc(groupId).get();
-                const group = { id: groupDoc.id, ...groupDoc.data() };
-                // Fetch members
-                const memberDocs = await Promise.all(
-                    group.members.map(uid => db.collection('users').doc(uid).get())
-                );
-                const members = memberDocs.map(d => ({ id: d.id, ...d.data() }));
-                // Add guest members
-                const guests = (group.guestMembers || []).map(name => ({
-                    id: `guest:${name}`,
-                    firstName: name,
-                    lastName: `(${t('guest')})`,
-                    photoUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
-                    isGuest: true
-                }));
-                const allMembers = [...members, ...guests];
-                currentGroupMembers = allMembers;
-                const memberMap = allMembers.reduce((acc, m) => { acc[m.id] = m; return acc; }, {});
-                const expensesSnapshot = await db.collection('group_expenses')
-                    .where('groupId', '==', groupId)
-                    .get();
-                const yearFilter = document.getElementById('groupYearFilter')?.value || 'all';
-                const monthFilter = document.getElementById('groupMonthFilter')?.value || 'all';
-                let allExpenses = expensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                // Collect settlements from ALL expenses before filtering
-                const allSettlements = [];
-                allExpenses.forEach(expense => {
-                    const settlements = expense.settlements || [];
-                    settlements.forEach(settlement => {
-                        allSettlements.push({
-                            from: settlement.fromUser,
-                            to: settlement.toUser,
-                            amount: settlement.amount
-                        });
-                    });
-                });
-                // Filter out settlement expenses for display
-                let expenses = allExpenses.filter(expense => expense.category !== 'Settlement' && !expense.description?.includes('Settlement'));
-                expenses = filterByYearMonth(expenses, yearFilter, monthFilter);
-                expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
-                // Calculate Debts - use simplify flag to determine display mode
-                const simplify = group.simplify !== false; // Default to true
-                // Always calculate simplified debts (greedy algorithm)
-                // The simplify flag controls whether we show minimal transactions or detailed balances
-                const debts = calculateGroupDebts(expenses, allMembers.map(m => m.id), allSettlements);
-                // Logic moved outside template literal
-                const breakdowns = calculateExpenseBreakdown(expenses, allMembers.map(m => m.id), memberMap);
-                // Filter expenses to show only those relevant to current user
-                // An expense is relevant if: user paid it OR user is in the split
-                const relevantExpenses = expenses.filter(expense => {
-                    const payerId = expense.paidBy || expense.userId;
-                    const splits = expense.splits || expense.splitDetails || {};
-                    // User is relevant if they paid it or are in the split
-                    return payerId === currentUser.uid || splits[currentUser.uid] > 0;
-                });
-                const activeExpenses = [];
-                const settledExpenses = [];
-                relevantExpenses.forEach(expense => {
-                    const breakdown = breakdowns[expense.id];
-                    const payerId = expense.paidBy || expense.userId;
-                    const splits = expense.splits || expense.splitDetails || {};
-                    const settlements = expense.settlements || [];
-                    // Check if expense is fully settled FOR THE CURRENT USER
-                    let isFullySettledForUser = false;
-                    if (payerId === currentUser.uid) {
-                        // For payer: Check if all others have paid
-                        const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                        const totalReceived = settlements.reduce((sum, s) => {
-                            return sum + (s.toUser === currentUser.uid ? parseFloat(s.amount) : 0);
-                        }, 0);
-                        const remaining = parseFloat(expense.amount) - myShare - totalReceived;
-                        isFullySettledForUser = remaining <= 0.01;
-                    } else if (splits[currentUser.uid] > 0) {
-                        // For non-payer: Check if they've paid their share
-                        const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                        const totalPaid = settlements.reduce((sum, s) => {
-                            return sum + (s.fromUser === currentUser.uid ? parseFloat(s.amount) : 0);
-                        }, 0);
-                        isFullySettledForUser = (myShare - totalPaid) <= 0.01;
-                    }
-                    if (isFullySettledForUser) {
-                        settledExpenses.push(expense);
-                    } else {
-                        activeExpenses.push(expense);
-                    }
-                });
-                const renderExpenseRow = (expense, isSettledRow = false) => {
-                    const payerId = expense.paidBy || expense.userId;
-                    const payer = memberMap[payerId] || { firstName: 'Unknown' };
-                    const expenseBreakdown = breakdowns[expense.id];
-                    const settlements = expense.settlements || [];
-                    let displayAmount = 0;
-                    let amountColor = '';
-                    let totalExpenseForUser = 0;
-                    let myShare = expenseBreakdown?.contributions?.[currentUser.uid] || 0;
-                    // Fallback logic for share calculation
-                    const splits = expense.splits || expense.splitDetails || {};
-                    if (myShare === 0 && Object.keys(splits).length === 0) {
-                        const isMember = allMembers.some(m => m.id === currentUser.uid);
-                        if (isMember) {
-                            myShare = parseFloat(expense.amount) / allMembers.length;
-                        }
-                    }
-                    if (payerId === currentUser.uid) {
-                        // For payer: Display = Expense Amount - My Share - Settlements Received
-                        const totalReceived = settlements.reduce((sum, s) => {
-                            return sum + (s.toUser === currentUser.uid ? parseFloat(s.amount) : 0);
-                        }, 0);
-                        // myShare is already calculated above
-                        // Display: Expense Amount - My Share - Settlements Received
-                        displayAmount = parseFloat(expense.amount) - myShare - totalReceived;
-                        totalExpenseForUser = displayAmount;
-                        amountColor = 'var(--success)';
-                    } else if (myShare > 0) {
-                        // For non-payers: Show their share as the expense (what they owe)
-                        const totalPaid = settlements.reduce((sum, s) => {
-                            return sum + (s.fromUser === currentUser.uid ? parseFloat(s.amount) : 0);
-                        }, 0);
-                        // Display: Their share (what they owe) - what they've paid
-                        displayAmount = myShare - totalPaid;
-                        totalExpenseForUser = myShare;
-                        amountColor = 'var(--danger)';
-                    }
-                    // Fix for registered users who might have been guests in old expenses
-                    let displayMyShare = myShare;
-                    if (displayMyShare === 0) {
-                        const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                        displayMyShare = expenseBreakdown?.contributions?.[guestKey] || 0;
-                    }
-                    displayAmount = Math.max(0, displayAmount);
-                    const isFullySettledForMe = displayAmount <= 0.01;
-                    const isExpenseSettled = expenseBreakdown?.isSettled || false;
-                    // Each expense is wrapped in its own tbody to ensure a single parent element for the two rows
-                    return `
+
+            // Equal split fallback only when really appropriate
+            if (myShare === 0 && Object.keys(splits).length === 0) {
+                const splitType = (expense.splitType || 'equal').toLowerCase();
+                if (splitType === 'equal') {
+                    myShare = parseFloat(expense.amount) / allMembers.length;
+                }
+            }
+
+            let displayAmount = 0;
+            let isFullySettledForUser = true;
+
+            if (payerId === currentUser.uid) {
+                const totalReceived = settlements.reduce((sum, s) => 
+                    sum + (s.toUser === currentUser.uid ? parseFloat(s.amount) : 0), 0);
+                displayAmount = parseFloat(expense.amount) - myShare - totalReceived;
+            } else {
+                const totalPaid = settlements.reduce((sum, s) => 
+                    sum + (s.fromUser === currentUser.uid ? parseFloat(s.amount) : 0), 0);
+                displayAmount = myShare - totalPaid;
+            }
+
+            displayAmount = Math.max(0, displayAmount);
+            isFullySettledForUser = displayAmount <= 0.01;
+
+            if (isFullySettledForUser) {
+                settledExpenses.push(expense);
+            } else {
+                activeExpenses.push(expense);
+            }
+        });
+
+        const renderExpenseRow = (expense, isSettledRow = false) => {
+            const payerId = expense.paidBy || expense.userId;
+            const payer = memberMap[payerId] || { firstName: 'Unknown' };
+            const expenseBreakdown = breakdowns[expense.id];
+            const settlements = expense.settlements || [];
+
+            let displayAmount = 0;
+            let amountColor = 'var(--danger)'; // ← always red for total amount as requested
+            let totalExpenseForUser = 0;
+            let myShare = expenseBreakdown?.contributions?.[currentUser.uid] || 0;
+
+            // Guest fallback for share display
+            if (myShare === 0) {
+                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                myShare = expenseBreakdown?.contributions?.[guestKey] || 0;
+            }
+
+            // Equal fallback only for real equal splits
+            if (myShare === 0 && Object.keys(expense.splits || expense.splitDetails || {}).length === 0) {
+                const splitType = (expense.splitType || 'equal').toLowerCase();
+                if (splitType === 'equal') {
+                    myShare = parseFloat(expense.amount) / allMembers.length;
+                }
+            }
+
+            if (payerId === currentUser.uid) {
+                const totalReceived = settlements.reduce((sum, s) => 
+                    sum + (s.toUser === currentUser.uid ? parseFloat(s.amount) : 0), 0);
+                displayAmount = parseFloat(expense.amount) - myShare - totalReceived;
+                totalExpenseForUser = displayAmount;
+                // amountColor remains red (total expense), receivable shown separately in green
+            } else if (myShare > 0) {
+                const totalPaid = settlements.reduce((sum, s) => 
+                    sum + (s.fromUser === currentUser.uid ? parseFloat(s.amount) : 0), 0);
+                displayAmount = myShare - totalPaid;
+                totalExpenseForUser = myShare;
+                // amountColor remains red for what they owe
+            }
+
+            displayAmount = Math.max(0, displayAmount);
+            const isFullySettledForMe = displayAmount <= 0.01;
+            const isExpenseSettled = expenseBreakdown?.isSettled || false;
+
+            return `
                 <tbody class="expense-row-group ${isSettledRow ? 'settled-expense-row-' + groupId + ' hidden' : ''}"
                        style="${isSettledRow ? 'background: rgba(0,0,0,0.02);' : ''}">
                     <tr class="${isFullySettledForMe ? 'expense-settled' : ''} ${isExpenseSettled ? 'fully-settled-row' : ''}">
@@ -11215,33 +11241,33 @@
                             <div style="font-size: 0.8rem; color: var(--text-gray);">${t('totalExpense')}</div>
                             ${formatCurrency(parseFloat(expense.amount))}
                             ${(() => {
-                            if (payerId === currentUser.uid && displayAmount > 0.01) {
-                                return `<div style="font-size: 0.7rem; color: var(--success); margin-top: 2px;">${t('receivable')}: ${formatCurrency(displayAmount)}</div>`;
-                            }
-                            return '';
-                        })()}
+                                if (payerId === currentUser.uid && displayAmount > 0.01) {
+                                    return `<div style="font-size: 0.7rem; color: var(--success); margin-top: 2px;">${t('receivable')}: ${formatCurrency(displayAmount)}</div>`;
+                                }
+                                return '';
+                            })()}
                         </td>
                         <td style="font-weight: 600; color: var(--text-dark);">
-                            ${formatCurrency(displayMyShare)}
+                            ${formatCurrency(myShare)}
                         </td>
                         <td>
                             <small class="text-secondary">${(() => {
-                            const st = expense.splitType || 'equal';
-                            const normalized = st.toLowerCase();
-                            if (normalized === 'equal') return t('equal');
-                            if (normalized === 'exact' || normalized === 'custom') return t('exact') || 'Exact';
-                            if (normalized === 'percent') return t('percent') || 'Percent';
-                            if (normalized === 'shares') return t('shares') || 'Shares';
-                            return t(st) || st;
-                        })()}</small>
+                                const st = expense.splitType || 'equal';
+                                const normalized = st.toLowerCase();
+                                if (normalized === 'equal') return t('equal');
+                                if (normalized === 'exact' || normalized === 'custom') return t('exact') || 'Exact';
+                                if (normalized === 'percent') return t('percent') || 'Percent';
+                                if (normalized === 'shares') return t('shares') || 'Shares';
+                                return t(st) || st;
+                            })()}</small>
                         </td>
                         <td>
                             ${expense.remarks || '-'}
                         </td>
                         <td>
                             ${isExpenseSettled ?
-                            '<span style="color: var(--success); font-weight: 600;">✓ ' + t('settled') + '</span>' :
-                            (isFullySettledForMe ? '<span style="color: var(--success);">✓ ' + t('paid') + '</span>' : '<span style="color: var(--warning);">⏳ ' + t('pending') + '</span>')}
+                                '<span style="color: var(--success); font-weight: 600;">✓ ' + t('settled') + '</span>' :
+                                (isFullySettledForMe ? '<span style="color: var(--success);">✓ ' + t('paid') + '</span>' : '<span style="color: var(--warning);">⏳ ' + t('pending') + '</span>')}
                         </td>
                         <td>
                             <div class="actions">
@@ -11264,80 +11290,80 @@
                                     <div class="col-md-6">
                                         <h5 style="color: var(--primary); margin-bottom: 1rem;">Individual Balances</h5>
                                         ${(() => {
-                            if (!expenseBreakdown) return '<p>No balance data available</p>';
-                            const pId = expense.paidBy || expense.userId;
-                            return Object.entries(expenseBreakdown.individualBalances || {})
-                                .filter(([mId, amt]) => amt !== 0)
-                                .map(([mId, _]) => {
-                                    const member = memberMap[mId] || { firstName: mId.startsWith('guest:') ? mId.split(':')[1] : 'Unknown', lastName: mId.startsWith('guest:') ? '(Guest)' : '' };
-                                    const isP = mId === pId;
-                                    const remainingBalance = expenseBreakdown.remainingBalances[mId] || 0;
-                                    let displayStatus = '';
-                                    let balanceColor = 'var(--text-gray)';
-                                    if (isP) {
-                                        displayStatus = 'Payer';
-                                        balanceColor = 'var(--primary)';
-                                    } else if (Math.abs(remainingBalance) < 0.01) {
-                                        displayStatus = 'Settled';
-                                        balanceColor = 'var(--success)';
-                                    } else {
-                                        displayStatus = `Owes ${formatCurrency(Math.abs(remainingBalance))}`;
-                                        balanceColor = 'var(--danger)';
-                                    }
-                                    return `
-                                <div id="individual-balance-${expense.id}-${mId}" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; margin-bottom: 0.25rem; border-radius: 4px; background: var(--bg-card);">
-                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                        <span style="font-weight: 500;">${member.firstName} ${member.lastName}</span>
-                                        ${isP ? '<span class="badge badge-primary" style="font-size: 0.7rem;">Payer</span>' : ''}
-                                    </div>
-                                    <div style="text-align: right;">
-                                        <div style="font-weight: 600; color: ${balanceColor};">
-                                            ${displayStatus}
-                                        </div>
-                                        <div style="display: flex; gap: 0.25rem; margin-top: 0.25rem;">
-                                            <button class="btn btn-sm btn-outline-primary" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="editIndividualBalance('${expense.id}', '${mId}', ${remainingBalance}, '${groupId}')">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            ${!isP && Math.abs(remainingBalance) > 0.01 ? `
-                                            <button class="btn btn-sm btn-outline-success" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="settleIndividualBalance('${expense.id}', '${mId}', ${remainingBalance}, '${groupId}')">
-                                                <i class="fas fa-check-circle"></i>
-                                            </button>
-                                            ` : ''}
-                                            <button class="btn btn-sm btn-outline-danger" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="deleteIndividualBalance('${expense.id}', '${mId}', '${groupId}')">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>`;
-                                }).join('');
-                        })()}
+                                            if (!expenseBreakdown) return '<p>No balance data available</p>';
+                                            const pId = expense.paidBy || expense.userId;
+                                            return Object.entries(expenseBreakdown.individualBalances || {})
+                                                .filter(([mId, amt]) => amt !== 0)
+                                                .map(([mId, _]) => {
+                                                    const member = memberMap[mId] || { firstName: mId.startsWith('guest:') ? mId.split(':')[1] : 'Unknown', lastName: mId.startsWith('guest:') ? '(Guest)' : '' };
+                                                    const isP = mId === pId;
+                                                    const remainingBalance = expenseBreakdown.remainingBalances[mId] || 0;
+                                                    let displayStatus = '';
+                                                    let balanceColor = 'var(--text-gray)';
+                                                    if (isP) {
+                                                        displayStatus = 'Payer';
+                                                        balanceColor = 'var(--primary)';
+                                                    } else if (Math.abs(remainingBalance) < 0.01) {
+                                                        displayStatus = 'Settled';
+                                                        balanceColor = 'var(--success)';
+                                                    } else {
+                                                        displayStatus = `Owes ${formatCurrency(Math.abs(remainingBalance))}`;
+                                                        balanceColor = 'var(--danger)';
+                                                    }
+                                                    return `
+                                                        <div id="individual-balance-${expense.id}-${mId}" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; margin-bottom: 0.25rem; border-radius: 4px; background: var(--bg-card);">
+                                                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                                <span style="font-weight: 500;">${member.firstName} ${member.lastName}</span>
+                                                                ${isP ? '<span class="badge badge-primary" style="font-size: 0.7rem;">Payer</span>' : ''}
+                                                            </div>
+                                                            <div style="text-align: right;">
+                                                                <div style="font-weight: 600; color: ${balanceColor};">
+                                                                    ${displayStatus}
+                                                                </div>
+                                                                <div style="display: flex; gap: 0.25rem; margin-top: 0.25rem;">
+                                                                    <button class="btn btn-sm btn-outline-primary" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="editIndividualBalance('${expense.id}', '${mId}', ${remainingBalance}, '${groupId}')">
+                                                                        <i class="fas fa-edit"></i>
+                                                                    </button>
+                                                                    ${!isP && Math.abs(remainingBalance) > 0.01 ? `
+                                                                    <button class="btn btn-sm btn-outline-success" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="settleIndividualBalance('${expense.id}', '${mId}', ${remainingBalance}, '${groupId}')">
+                                                                        <i class="fas fa-check-circle"></i>
+                                                                    </button>
+                                                                    ` : ''}
+                                                                    <button class="btn btn-sm btn-outline-danger" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="deleteIndividualBalance('${expense.id}', '${mId}', '${groupId}')">
+                                                                        <i class="fas fa-trash"></i>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>`;
+                                                }).join('');
+                                        })()}
                                     </div>
                                     <div class="col-md-6">
                                         <h5 style="color: var(--primary); margin-bottom: 1rem;">Settlement History</h5>
                                         ${(() => {
-                            if (settlements.length === 0) {
-                                return '<div style="padding: 0.75rem; background: var(--bg-card); border-radius: 4px; text-align: center; color: var(--text-gray);">No settlements recorded for this expense</div>';
-                            }
-                            return settlements.map(settlement => {
-                                const sPayer = memberMap[settlement.fromUser] || { firstName: settlement.fromUser?.startsWith('guest:') ? settlement.fromUser.split(':')[1] : 'Unknown', lastName: settlement.fromUser?.startsWith('guest:') ? '(Guest)' : '' };
-                                const sReceiver = memberMap[settlement.toUser] || { firstName: settlement.toUser?.startsWith('guest:') ? settlement.toUser.split(':')[1] : 'Unknown', lastName: settlement.toUser?.startsWith('guest:') ? '(Guest)' : '' };
-                                return `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; margin-bottom: 0.25rem; background: var(--success-light); border-radius: 4px; border-left: 3px solid var(--success);">
-                                <div>
-                                    <div style="font-weight: 600; color: var(--success);">${sPayer.firstName} ${sPayer.lastName} → ${sReceiver.firstName} ${sReceiver.lastName}: ${formatCurrency(settlement.amount)} Settled</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-gray);">${settlement.date.toDate().toLocaleDateString()}</div>
-                                </div>
-                                <div style="display: flex; gap: 0.25rem;">
-                                    <button class="btn btn-sm btn-outline-primary" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="editSettlement('${expense.id}', '${settlement.id || settlement.settlementId || (settlement.fromUser + '_' + settlement.toUser + '_' + settlement.amount + '_' + (settlement.date?.toMillis?.() || settlement.date))}', '${groupId}')">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="deleteSettlement('${expense.id}', '${settlement.id || settlement.settlementId || (settlement.fromUser + '_' + settlement.toUser + '_' + settlement.amount + '_' + (settlement.date?.toMillis?.() || settlement.date))}', '${groupId}')">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>`;
-                            }).join('');
-                        })()}
+                                            if (settlements.length === 0) {
+                                                return '<div style="padding: 0.75rem; background: var(--bg-card); border-radius: 4px; text-align: center; color: var(--text-gray);">No settlements recorded for this expense</div>';
+                                            }
+                                            return settlements.map(settlement => {
+                                                const sPayer = memberMap[settlement.fromUser] || { firstName: settlement.fromUser?.startsWith('guest:') ? settlement.fromUser.split(':')[1] : 'Unknown', lastName: settlement.fromUser?.startsWith('guest:') ? '(Guest)' : '' };
+                                                const sReceiver = memberMap[settlement.toUser] || { firstName: settlement.toUser?.startsWith('guest:') ? settlement.toUser.split(':')[1] : 'Unknown', lastName: settlement.toUser?.startsWith('guest:') ? '(Guest)' : '' };
+                                                return `
+                                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; margin-bottom: 0.25rem; background: var(--success-light); border-radius: 4px; border-left: 3px solid var(--success);">
+                                                        <div>
+                                                            <div style="font-weight: 600; color: var(--success);">${sPayer.firstName} ${sPayer.lastName} → ${sReceiver.firstName} ${sReceiver.lastName}: ${formatCurrency(settlement.amount)} Settled</div>
+                                                            <div style="font-size: 0.8rem; color: var(--text-gray);">${settlement.date.toDate().toLocaleDateString()}</div>
+                                                        </div>
+                                                        <div style="display: flex; gap: 0.25rem;">
+                                                            <button class="btn btn-sm btn-outline-primary" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="editSettlement('${expense.id}', '${settlement.id || settlement.settlementId || (settlement.fromUser + '_' + settlement.toUser + '_' + settlement.amount + '_' + (settlement.date?.toMillis?.() || settlement.date))}', '${groupId}')">
+                                                                <i class="fas fa-edit"></i>
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-danger" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="deleteSettlement('${expense.id}', '${settlement.id || settlement.settlementId || (settlement.fromUser + '_' + settlement.toUser + '_' + settlement.amount + '_' + (settlement.date?.toMillis?.() || settlement.date))}', '${groupId}')">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>`;
+                                            }).join('');
+                                        })()}
                                     </div>
                                 </div>
                             </div>
@@ -11345,15 +11371,16 @@
                     </tr>
                 </tbody>
             `;
-                };
-                const modal = document.createElement('div');
-                modal.className = 'modal-overlay show';
-                modal.innerHTML = `
+        };
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay show';
+        modal.innerHTML = `
             <div class="modal modal-large" style="max-width: 95vw; width: 1000px;">
                 <div class="modal-header">
                     <div>
                         <h3 class="modal-title">${group.name}</h3>
-                        <small class="text-secondary">${(group.members?.length || 0) + (group.guestMembers?.length || 0)} ${t('membersCount')} &bull; ${t('groupCode')}: ${group.code}</small>
+                        <small class="text-secondary">${(group.members?.length || 0) + (group.guestMembers?.length || 0)} ${t('membersCount')} • ${t('groupCode')}: ${group.code}</small>
                     </div>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
                         <i class="fas fa-times"></i>
@@ -11362,7 +11389,7 @@
                 <div class="modal-body" style="padding: 0;">
                     <div class="row" style="margin: 0;">
                         <div class="col-md-9" style="padding: 1.5rem;">
-                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                 <h4 style="margin:0;">${t('expenses')}</h4>
                                 <div style="display: flex; gap: 10px;">
                                     <button class="btn btn-secondary btn-sm" onclick="exportGroupPDF('${groupId}')">
@@ -11373,7 +11400,8 @@
                                     </button>
                                 </div>
                             </div>
-                            ${expenses.length === 0 ? `
+
+                            ${displayExpenses.length === 0 ? `
                                 <div class="empty-state">
                                     <div class="empty-icon"><i class="fas fa-receipt"></i></div>
                                     <div class="empty-title">${t('noExpensesFound')}</div>
@@ -11409,45 +11437,41 @@
                                         ` : ''}
                                     </table>
                                 </div>
+
                                 <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border);">
                                     <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('expenseSummary')}</h5>
                                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                         <span class="text-secondary">${t('totalExpenses')}:</span>
-                                        <strong style="color: var(--danger); font-size: 1.1rem;">${formatCurrency(relevantExpenses.reduce((sum, exp) => {
-                    if (exp.category === 'Settlement' || exp.isSettlement) return sum;
-                    return sum + (parseFloat(exp.amount) || 0);
-                }, 0))}</strong>
+                                        <strong style="color: var(--danger); font-size: 1.1rem;">${formatCurrency(displayExpenses.reduce((sum, exp) => {
+                                            if (exp.category === 'Settlement' || exp.isSettlement) return sum;
+                                            return sum + (parseFloat(exp.amount) || 0);
+                                        }, 0))}</strong>
                                     </div>
                                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                         <span class="text-secondary">${t('receivable')}:</span>
-                                        <strong style="color: var(--success);">${formatCurrency(relevantExpenses.reduce((sum, e) => {
-                    const payerId = e.paidBy || e.userId;
-                    if (payerId === currentUser.uid) {
-                        const breakdown = breakdowns[e.id];
-                        const settlements = e.settlements || [];
-                        const totalReceived = settlements.reduce((s, settlement) => {
-                            return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
-                        }, 0);
-                        const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                        return sum + (parseFloat(e.amount) - myShare - totalReceived);
-                    }
-                    return sum;
-                }, 0))}</strong>
+                                        <strong style="color: var(--success);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                                            const payerId = e.paidBy || e.userId;
+                                            if (payerId !== currentUser.uid) return sum;
+                                            const breakdown = breakdowns[e.id];
+                                            const settlements = e.settlements || [];
+                                            const totalReceived = settlements.reduce((s, settlement) => {
+                                                return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
+                                            }, 0);
+                                            const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                                            return sum + (parseFloat(e.amount) - myShare - totalReceived);
+                                        }, 0))}</strong>
                                     </div>
                                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                         <span class="text-secondary">${t('yourShare') || 'Your Share'}:</span>
-                                        <strong style="color: var(--danger);">${formatCurrency(relevantExpenses.reduce((sum, e) => {
-                    // Only exclude formal 'Settlement' records
-                    if (e.category === 'Settlement' || e.isSettlement) return sum;
-                    const breakdown = breakdowns[e.id];
-                    let s = breakdown?.contributions?.[currentUser.uid] || 0;
-                    // Fix for registered users who might have been guests
-                    if (s === 0) {
-                        const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                        s = breakdown?.contributions?.[guestKey] || 0;
-                    }
-                    return sum + s;
-                }, 0))}</strong>
+                                        <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                                            const breakdown = breakdowns[e.id];
+                                            let s = breakdown?.contributions?.[currentUser.uid] || 0;
+                                            if (s === 0) {
+                                                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                                                s = breakdown?.contributions?.[guestKey] || 0;
+                                            }
+                                            return sum + s;
+                                        }, 0))}</strong>
                                     </div>
                                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                         <span class="text-secondary">${t('totalExpensesCount')}:</span>
@@ -11456,8 +11480,8 @@
                                 </div>
                             `}
                         </div>
+
                         <div class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem;">
-                           
                             <div style="margin-bottom: 2rem;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                     <h5 style="margin-bottom: 0; color: var(--text-primary);">${t('members')}</h5>
@@ -11472,8 +11496,9 @@
                                     `).join('')}
                                 </div>
                             </div>
+
                             <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('totalBalance')}</h5>
-                           
+
                             ${debts.length === 0 ? `
                                 <div style="text-align: center; color: var(--success); padding: 1rem;">
                                     <i class="fas fa-check-circle" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
@@ -11482,61 +11507,61 @@
                             ` : `
                                 <div class="debts-list">
                                     ${debts.map(debt => {
-                    const from = memberMap[debt.from] || { firstName: 'Unknown' };
-                    const to = memberMap[debt.to] || { firstName: 'Unknown' };
-                    const isDebtor = debt.from === currentUser.uid;
-                    const isCreditor = debt.to === currentUser.uid;
-                    let actionIcons = '';
-                    let statusText = '';
-                    let cardClass = 'debt-card';
-                    if (isDebtor) {
-                        // For debtor (non-payer): Show "Settled" and "Paid" icons on right
-                        actionIcons = `
-                        <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
-                            <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
-                                <i class="fas fa-check"></i>
-                            </button>
-                            <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsPaid')}" style="padding: 4px 8px; border-radius: 4px; background: var(--success); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
-                                <i class="fas fa-check-circle"></i>
-                            </button>
-                        </div>
-                    `;
-                        statusText = `<span style="color: var(--danger); font-size: 0.8rem;">${t('youOwe')}</span>`;
-                        cardClass = 'debt-card debtor';
-                    } else if (isCreditor) {
-                        // For creditor (payer): Show "Settle" and "Received" icons on right
-                        actionIcons = `
-                        <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
-                            <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
-                                <i class="fas fa-check"></i>
-                            </button>
-                            <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsReceived')}" style="padding: 4px 8px; border-radius: 4px; background: var(--success); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
-                                <i class="fas fa-hand-holding-usd"></i>
-                            </button>
-                        </div>
-                    `;
-                        statusText = `<span style="color: var(--success); font-size: 0.8rem;">${t('owesYou')}</span>`;
-                        cardClass = 'debt-card creditor';
-                    } else {
-                        statusText = `<span class="text-secondary" style="font-size: 0.8rem;">${t('pending')}</span>`;
-                    }
-                    return `
-                        <div class="${cardClass}" id="debt-card-${groupId}-${debt.from}-${debt.to}" style="background: var(--bg-card); padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border); font-size: 0.9rem; ${isDebtor ? 'border-left: 4px solid var(--danger);' : isCreditor ? 'border-left: 4px solid var(--success);' : ''}">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="flex: 1;">
-                                    <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 2px;">
-                                        <strong style="color: var(--text-dark);">${from.firstName}</strong>
-                                        <span class="text-secondary" style="font-size: 0.8rem;">→</span>
-                                        <strong style="color: var(--text-dark);">${to.firstName}</strong>
-                                    </div>
-                                    ${statusText}
-                                    <div style="font-weight: 700; font-size: 1.1rem; color: var(--primary); margin-top: 4px;">${formatCurrency(Math.abs(debt.amount))}</div>
-                                </div>
-                                    ${actionIcons}
-                            </div>
-                        </div>
-                    `;
-                }).join('')}
+                                        const from = memberMap[debt.from] || { firstName: 'Unknown' };
+                                        const to = memberMap[debt.to] || { firstName: 'Unknown' };
+                                        const isDebtor = debt.from === currentUser.uid;
+                                        const isCreditor = debt.to === currentUser.uid;
+                                        let actionIcons = '';
+                                        let statusText = '';
+                                        let cardClass = 'debt-card';
+
+                                        if (isDebtor) {
+                                            actionIcons = `
+                                                <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
+                                                    <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                    <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsPaid')}" style="padding: 4px 8px; border-radius: 4px; background: var(--success); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                        <i class="fas fa-check-circle"></i>
+                                                    </button>
+                                                </div>
+                                            `;
+                                            statusText = `<span style="color: var(--danger); font-size: 0.8rem;">${t('youOwe')}</span>`;
+                                            cardClass = 'debt-card debtor';
+                                        } else if (isCreditor) {
+                                            actionIcons = `
+                                                <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
+                                                    <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                    <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsReceived')}" style="padding: 4px 8px; border-radius: 4px; background: var(--success); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                        <i class="fas fa-hand-holding-usd"></i>
+                                                    </button>
+                                                </div>
+                                            `;
+                                            statusText = `<span style="color: var(--success); font-size: 0.8rem;">${t('owesYou')}</span>`;
+                                            cardClass = 'debt-card creditor';
+                                        } else {
+                                            statusText = `<span class="text-secondary" style="font-size: 0.8rem;">${t('pending')}</span>`;
+                                        }
+
+                                        return `
+                                            <div class="${cardClass}" id="debt-card-${groupId}-${debt.from}-${debt.to}" style="background: var(--bg-card); padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border); font-size: 0.9rem; ${isDebtor ? 'border-left: 4px solid var(--danger);' : isCreditor ? 'border-left: 4px solid var(--success);' : ''}">
+                                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                    <div style="flex: 1;">
+                                                        <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 2px;">
+                                                            <strong style="color: var(--text-dark);">${from.firstName}</strong>
+                                                            <span class="text-secondary" style="font-size: 0.8rem;">→</span>
+                                                            <strong style="color: var(--text-dark);">${to.firstName}</strong>
+                                                        </div>
+                                                        ${statusText}
+                                                        <div style="font-weight: 700; font-size: 1.1rem; color: var(--primary); margin-top: 4px;">${formatCurrency(Math.abs(debt.amount))}</div>
+                                                    </div>
+                                                    ${actionIcons}
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
                                 </div>
                             `}
                         </div>
@@ -11544,20 +11569,22 @@
                 </div>
             </div>
         `;
-                // Remove any existing group detail modals to prevent overlap
-                document.querySelectorAll('.modal-overlay.show').forEach(m => {
-                    if (m.querySelector('.modal-large')) {
-                        m.remove();
-                    }
-                });
-                document.body.appendChild(modal);
-            } catch (error) {
-                showToast('Error', error.message, 'error');
-            } finally {
-                hideLoading();
-            }
-        }
 
+        // Remove any existing group detail modals to prevent overlap
+        document.querySelectorAll('.modal-overlay.show').forEach(m => {
+            if (m.querySelector('.modal-large')) {
+                m.remove();
+            }
+        });
+
+        document.body.appendChild(modal);
+
+    } catch (error) {
+        showToast('Error', error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
         /**
          * Deletes a specific settlement from an expense and refreshes the group view.
          * @param {string} expenseId - The ID of the expense containing the settlement.
@@ -12526,7 +12553,7 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">${t('attachments')} (Optional)</label>
-                        <input type="file" class="form-input" id="groupExpenseAttachments" multiple accept="image/*">
+                        <input type="file" class="form-input" id="groupExpenseAttachments" multiple accept="image">
                         <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 files, 9MB each</small>
                         <div id="groupExpenseExistingAttachments" class="attachment-grid" style="margin-top:0.5rem"></div>
                         <div id="groupExpenseAttachmentPreview" class="attachment-grid" style="margin-top:0.5rem"></div>
@@ -17054,7 +17081,5 @@
         }
     </script>
 </body>
-
-</html>
 
 </html>
