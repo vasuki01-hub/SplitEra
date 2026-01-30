@@ -232,7 +232,7 @@
         .btn-primary {
             background: var(--primary);
             color: white;
-            width: 100%;
+            width: 35%;
         }
 
         .btn-primary:hover {
@@ -350,19 +350,17 @@
             border: 2px solid var(--border);
         }
 
-        .user-dropdown {
-            position: absolute;
-            top: 3.5rem;
-            right: 0;
+        .user-dropdown {            
             background: var(--bg-white);
-            border: 1px solid var(--border);
-            border-radius: 0.5rem;
+            border: 2px solid var(--border);
+            border-radius: 1.5rem;
             box-shadow: var(--shadow-lg);
             min-width: 12rem;
             display: none;
         }
 
         .user-dropdown.show {
+            height: 17rem;
             display: block;
         }
 
@@ -402,10 +400,10 @@
             border-radius: 1.6rem;
             display: none;
             position: fixed;
-            bottom: 5PX;
+            bottom: 10PX;
             left: 20PX;
             right: 20PX;
-            background: #000000a8;
+            background: #000000c7;
             border-top: 0px solid #374151;
             z-index: 1000;
             padding: 0.5rem 0;
@@ -421,7 +419,7 @@
         }
 
         .mobile-nav-item {
-            margin: -3px 0.2rem -15px;
+            margin: -3px 0.2rem -8px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -436,7 +434,7 @@
         }
 
         .mobile-nav-item i {
-            font-size: 1.1rem;
+            font-size: 1.8rem;
             margin-bottom: 0.2rem;
         }
 
@@ -456,7 +454,7 @@
             width: 52px;
             height: 52px;
             border-radius: 14px;
-            margin: -5px 0.2rem -17px;
+            margin: -5px 0.2rem -8px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -465,14 +463,10 @@
             z-index: 10;
         }
 
-        .mobile-nav-item.center-button i {
-            font-size: 1.3rem;
-            margin-bottom: 1px;
-        }
 
         .mobile-nav-item.center-button span {
             display: block;
-            font-size: 0.50rem;
+            font-size: 0.55rem;
             font-weight: 600;
         }
 
@@ -862,6 +856,11 @@
         .badge-warning {
             background: #FEF3C7;
             color: #92400E;
+        }
+
+        .badge-info {
+            background: #fec7c7;
+            color: #920e0e;
         }
 
         .badge-primary {
@@ -7268,9 +7267,9 @@
                     dropdown.style.top = '60px';
                     dropdown.style.right = '1.5rem';
                 } else {
-                    dropdown.style.position = 'absolute';
-                    dropdown.style.top = '3.5rem';
-                    dropdown.style.right = '0';
+                    dropdown.style.position = 'fixed';
+                    dropdown.style.top = '4.9rem';
+                    dropdown.style.right = '20px';
                 }
                 dropdown.classList.add('show');
             }
@@ -7394,7 +7393,7 @@
                 <div class="card">
                     <div class="card-header">
                         <h2 class="card-title">${t('financialOverview')}</h2>
-                        <button class="btn btn-primary btn-sm" onclick="exportDashboardPDF()">
+                        <button class="btn btn-primary btn-sm" onclick="exportDashboardPDF()" style="background: #4949f0;  width: 20%;">
                             <i class="fas fa-file-pdf"></i>
                             ${t('exportPDF')}
                         </button>
@@ -9556,7 +9555,7 @@
                     <div class="card-header">
                         <h2 class="card-title">${t('myGroups')}</h2>
                         <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn btn-primary btn-sm" onclick="openCreateGroupModal()">
+                            <button class="btn btn-primary btn-sm" onclick="openCreateGroupModal()" style="width: 51%;">
                                 <i class="fas fa-plus"></i>
                                 ${t('createGroup')}
                             </button>
@@ -9967,7 +9966,7 @@
                                     ${requestsHtml}
                                 </div>
                                 <div class="group-footer">
-                                    <button class="btn btn-primary btn-sm" onclick="viewGroupDetails('${group.id}')">
+                                    <button class="btn btn-primary btn-sm" onclick="viewGroupDetails('${group.id}')" style="width: 50%;">
                                         <i class="fas fa-eye"></i>
                                         ${t('viewDetails')}
                                     </button>
@@ -13937,7 +13936,7 @@
                 <div class="card">
                     <div class="card-header">
                         <h2 class="card-title">${t('allTransactions')}</h2>
-                        <button class="btn btn-primary btn-sm" onclick="exportDetailsPDF()">
+                        <button class="btn btn-primary btn-sm" onclick="exportDetailsPDF()" style="background: #4949f0; width: 20%;">
                             <i class="fas fa-file-pdf"></i>
                             ${t('exportPDF')}
                         </button>
@@ -13974,169 +13973,169 @@
             await loadDetails();
         }
 
-async function loadDetails() {
-    showLoading();
-    try {
-        const searchTerm = document.getElementById('detailsSearch')?.value || '';
-        const yearFilter = document.getElementById('detailsYear')?.value || 'all';
-        const monthFilter = document.getElementById('detailsMonth')?.value || 'all';
-        const typeFilter = document.getElementById('detailsType')?.value || 'all';
+        async function loadDetails() {
+            showLoading();
+            try {
+                const searchTerm = document.getElementById('detailsSearch')?.value || '';
+                const yearFilter = document.getElementById('detailsYear')?.value || 'all';
+                const monthFilter = document.getElementById('detailsMonth')?.value || 'all';
+                const typeFilter = document.getElementById('detailsType')?.value || 'all';
 
-        // Load core user data: credits, personal expenses, and the list of groups the user is in
-        const [creditsSnapshot, personalSnapshot, groupsListSnapshot] = await Promise.all([
-            db.collection('credits').where('userId', '==', currentUser.uid).get(),
-            db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-            db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
-        ]);
+                // Load core user data: credits, personal expenses, and the list of groups the user is in
+                const [creditsSnapshot, personalSnapshot, groupsListSnapshot] = await Promise.all([
+                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
+                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
+                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
+                ]);
 
-        // Extract group IDs for the groups the current user is a member of
-        const groupIds = groupsListSnapshot.docs.map(doc => doc.id);
+                // Extract group IDs for the groups the current user is a member of
+                const groupIds = groupsListSnapshot.docs.map(doc => doc.id);
 
-        // Fetch all group expenses for the groups the user is in (this fixes the issue where only expenses added by the current user were fetched)
-        // We query per groupId to avoid Firestore 'in' query limits (which cap at 10 items)
-        let groupExpenses = [];
-        if (groupIds.length > 0) {
-            const expenseQueries = groupIds.map(id => db.collection('group_expenses').where('groupId', '==', id).get());
-            const expenseSnapshots = await Promise.all(expenseQueries);
-            groupExpenses = expenseSnapshots.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }
-
-        // console.log for debugging (can remove in production)
-        console.log({ groupExpenses, groupsListSnapshot });
-
-        // Create a map of group IDs to group names for quick lookup
-        const groupsMap = {};
-        groupsListSnapshot.docs.forEach(doc => {
-            groupsMap[doc.id] = doc.data().name;
-        });
-
-        // Create a detailed map of group data (including members) for calculations
-        const groupsDataMap = {};
-        groupsListSnapshot.docs.forEach(doc => {
-            groupsDataMap[doc.id] = { id: doc.id, ...doc.data() };
-        });
-        console.log({ groupsDataMap });
-
-        let allData = [];
-
-        // Process credits if filter allows
-        if (typeFilter === 'all' || typeFilter === 'credit') {
-            const credits = creditsSnapshot.docs.map(doc => ({
-                id: doc.id,
-                section: 'Credit',
-                sectionType: 'credit',
-                canEdit: true,
-                ...doc.data()
-            }));
-            allData = allData.concat(credits);
-        }
-
-        // Process personal expenses if filter allows
-        if (typeFilter === 'all' || typeFilter === 'personal') {
-            const personal = personalSnapshot.docs.map(doc => ({
-                id: doc.id,
-                section: 'Personal',
-                sectionType: 'personal',
-                canEdit: true,
-                ...doc.data()
-            }));
-            allData = allData.concat(personal);
-        }
-
-        // Process group expenses if filter allows
-        if (typeFilter === 'all' || typeFilter === 'group') {
-            console.log({ groupExpenses });
-
-            // Process each group expense to calculate the current user's share
-            const groupEntries = groupExpenses.map(expense => {
-                // Skip settlement entries as they are not regular expenses
-                if (expense.category === 'Settlement' || (expense.description && expense.description.includes('Settlement')) || expense.isSettlement) {
-                    return null;
-                }
-                const groupId = expense.groupId;
-                const group = groupsDataMap[groupId];
-
-                // Skip if group data is missing (edge case)
-                if (!group) return null;
-
-                // Create a list of all members (including guests) for split calculations
-                const allMembers = [...(group.members || []), ...(group.guestMembers || []).map(name => `guest:${name}`)];
-                const memberMap = allMembers.reduce((acc, m) => {
-                    acc[m] = m.startsWith('guest:') ? { firstName: m.split(':')[1], isGuest: true } : { firstName: m };
-                    return acc;
-                }, {});
-
-                // Calculate the breakdown of the expense (assumes calculateExpenseBreakdown function exists elsewhere)
-                const breakdowns = calculateExpenseBreakdown([expense], allMembers, memberMap);
-                const breakdown = breakdowns[expense.id];
-                let userShare = breakdown?.contributions?.[currentUser.uid] || 0;
-
-                // Fallback for legacy equal splits if no specific splits are defined
-                if (userShare === 0 && (!expense.splits || Object.keys(expense.splits).length === 0) && group.members.includes(currentUser.uid)) {
-                    userShare = parseFloat(expense.amount) / allMembers.length;
+                // Fetch all group expenses for the groups the user is in (this fixes the issue where only expenses added by the current user were fetched)
+                // We query per groupId to avoid Firestore 'in' query limits (which cap at 10 items)
+                let groupExpenses = [];
+                if (groupIds.length > 0) {
+                    const expenseQueries = groupIds.map(id => db.collection('group_expenses').where('groupId', '==', id).get());
+                    const expenseSnapshots = await Promise.all(expenseQueries);
+                    groupExpenses = expenseSnapshots.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
                 }
 
-                // Fallback for guest aliases if the user is matched as a guest
-                if (userShare === 0) {
-                    const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                    userShare = breakdown?.contributions?.[guestKey] || 0;
+                // console.log for debugging (can remove in production)
+                console.log({ groupExpenses, groupsListSnapshot });
+
+                // Create a map of group IDs to group names for quick lookup
+                const groupsMap = {};
+                groupsListSnapshot.docs.forEach(doc => {
+                    groupsMap[doc.id] = doc.data().name;
+                });
+
+                // Create a detailed map of group data (including members) for calculations
+                const groupsDataMap = {};
+                groupsListSnapshot.docs.forEach(doc => {
+                    groupsDataMap[doc.id] = { id: doc.id, ...doc.data() };
+                });
+                console.log({ groupsDataMap });
+
+                let allData = [];
+
+                // Process credits if filter allows
+                if (typeFilter === 'all' || typeFilter === 'credit') {
+                    const credits = creditsSnapshot.docs.map(doc => ({
+                        id: doc.id,
+                        section: 'Credit',
+                        sectionType: 'credit',
+                        canEdit: true,
+                        ...doc.data()
+                    }));
+                    allData = allData.concat(credits);
                 }
 
-                // Only include the expense if the user's share is positive (meaning they owe something for this expense)
-                // This ensures the expense is relevant to the current user
-                if (userShare <= 0) return null;
+                // Process personal expenses if filter allows
+                if (typeFilter === 'all' || typeFilter === 'personal') {
+                    const personal = personalSnapshot.docs.map(doc => ({
+                        id: doc.id,
+                        section: 'Personal',
+                        sectionType: 'personal',
+                        canEdit: true,
+                        ...doc.data()
+                    }));
+                    allData = allData.concat(personal);
+                }
 
-                // Return the entry formatted for display, with amount as the user's share
-                return {
-                    id: expense.id,
-                    section: 'Group',
-                    sectionType: 'group',
-                    canEdit: false, // Group expenses are edited in the Group View
-                    description: expense.description,
-                    amount: userShare,
-                    date: expense.date, // Firestore Timestamp
-                    mode: 'Group Split',
-                    remarks: expense.remarks || '-',
-                    attachments: expense.attachments || [],
-                    groupId: groupId,
-                    groupName: group.name
-                };
-            }).filter(e => e !== null);
+                // Process group expenses if filter allows
+                if (typeFilter === 'all' || typeFilter === 'group') {
+                    console.log({ groupExpenses });
 
-            allData = allData.concat(groupEntries);
-        }
+                    // Process each group expense to calculate the current user's share
+                    const groupEntries = groupExpenses.map(expense => {
+                        // Skip settlement entries as they are not regular expenses
+                        if (expense.category === 'Settlement' || (expense.description && expense.description.includes('Settlement')) || expense.isSettlement) {
+                            return null;
+                        }
+                        const groupId = expense.groupId;
+                        const group = groupsDataMap[groupId];
 
-        // Apply search filter across relevant fields
-        allData = filterBySearch(allData, searchTerm, ['description', 'mode', 'remarks', 'amount', 'section']);
-        // Apply year/month filters
-        allData = filterByYearMonth(allData, yearFilter, monthFilter);
-        // Sort by date descending
-        allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                        // Skip if group data is missing (edge case)
+                        if (!group) return null;
 
-        const container = document.getElementById('detailsTableContainer');
-        if (allData.length === 0) {
-            container.innerHTML = `
+                        // Create a list of all members (including guests) for split calculations
+                        const allMembers = [...(group.members || []), ...(group.guestMembers || []).map(name => `guest:${name}`)];
+                        const memberMap = allMembers.reduce((acc, m) => {
+                            acc[m] = m.startsWith('guest:') ? { firstName: m.split(':')[1], isGuest: true } : { firstName: m };
+                            return acc;
+                        }, {});
+
+                        // Calculate the breakdown of the expense (assumes calculateExpenseBreakdown function exists elsewhere)
+                        const breakdowns = calculateExpenseBreakdown([expense], allMembers, memberMap);
+                        const breakdown = breakdowns[expense.id];
+                        let userShare = breakdown?.contributions?.[currentUser.uid] || 0;
+
+                        // Fallback for legacy equal splits if no specific splits are defined
+                        if (userShare === 0 && (!expense.splits || Object.keys(expense.splits).length === 0) && group.members.includes(currentUser.uid)) {
+                            userShare = parseFloat(expense.amount) / allMembers.length;
+                        }
+
+                        // Fallback for guest aliases if the user is matched as a guest
+                        if (userShare === 0) {
+                            const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                            userShare = breakdown?.contributions?.[guestKey] || 0;
+                        }
+
+                        // Only include the expense if the user's share is positive (meaning they owe something for this expense)
+                        // This ensures the expense is relevant to the current user
+                        if (userShare <= 0) return null;
+
+                        // Return the entry formatted for display, with amount as the user's share
+                        return {
+                            id: expense.id,
+                            section: 'Group',
+                            sectionType: 'group',
+                            canEdit: false, // Group expenses are edited in the Group View
+                            description: expense.description,
+                            amount: userShare,
+                            date: expense.date, // Firestore Timestamp
+                            mode: 'Group Split',
+                            remarks: expense.remarks || '-',
+                            attachments: expense.attachments || [],
+                            groupId: groupId,
+                            groupName: group.name
+                        };
+                    }).filter(e => e !== null);
+
+                    allData = allData.concat(groupEntries);
+                }
+
+                // Apply search filter across relevant fields
+                allData = filterBySearch(allData, searchTerm, ['description', 'mode', 'remarks', 'amount', 'section']);
+                // Apply year/month filters
+                allData = filterByYearMonth(allData, yearFilter, monthFilter);
+                // Sort by date descending
+                allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+
+                const container = document.getElementById('detailsTableContainer');
+                if (allData.length === 0) {
+                    container.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-icon"><i class="fas fa-file-alt"></i></div>
                     <div class="empty-title">No transactions found</div>
                     <div class="empty-message">Try adjusting your filters</div>
                 </div>
             `;
-        } else {
-            // Group data by month for display
-            const grouped = groupByMonth(allData);
+                } else {
+                    // Group data by month for display
+                    const grouped = groupByMonth(allData);
 
-            let html = '';
-            Object.keys(grouped).sort().reverse().forEach(month => {
-                const [year, monthNum] = month.split('-');
-                const monthName = getMonthName(parseInt(monthNum) - 1);
+                    let html = '';
+                    Object.keys(grouped).sort().reverse().forEach(month => {
+                        const [year, monthNum] = month.split('-');
+                        const monthName = getMonthName(parseInt(monthNum) - 1);
 
-                // Calculate net total for the month (credits positive, expenses negative)
-                const monthTotal = grouped[month].reduce((sum, item) => {
-                    return item.sectionType === 'credit' ? sum + item.amount : sum - item.amount;
-                }, 0);
+                        // Calculate net total for the month (credits positive, expenses negative)
+                        const monthTotal = grouped[month].reduce((sum, item) => {
+                            return item.sectionType === 'credit' ? sum + item.amount : sum - item.amount;
+                        }, 0);
 
-                html += `
+                        html += `
                     <div class="month-group">
                         <div class="month-header" style="display: flex; justify-content: space-between; align-items: center;">
                             <span>${monthName} ${year}</span>
@@ -14199,16 +14198,16 @@ async function loadDetails() {
                         </div>
                     </div>
                 `;
-            });
+                    });
 
-            container.innerHTML = html;
+                    container.innerHTML = html;
+                }
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            } finally {
+                hideLoading();
+            }
         }
-    } catch (error) {
-        showToast('Error', error.message, 'error');
-    } finally {
-        hideLoading();
-    }
-}
 
         async function editDetailsRow(sectionType, id) {
             if (editingRowId) {
@@ -14439,250 +14438,250 @@ async function loadDetails() {
         }
 
         // Export Details PDF
-async function exportDetailsPDF() {
-    // Get current language from settings for translations
-    const currentLang = localStorage.getItem('language') || currentLanguage || 'en';
-    const t = (key) => translations[currentLang]?.[key] || translations['en'][key] || key;
-    
-    // Show loading indicator while processing
-    showLoading();
-    try {
-        // Initialize jsPDF library for PDF generation
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
+        async function exportDetailsPDF() {
+            // Get current language from settings for translations
+            const currentLang = localStorage.getItem('language') || currentLanguage || 'en';
+            const t = (key) => translations[currentLang]?.[key] || translations['en'][key] || key;
 
-        // Retrieve filter values from UI elements
-        const yearFilter = document.getElementById('detailsYear')?.value || 'all';
-        const monthFilter = document.getElementById('detailsMonth')?.value || 'all';
-        const typeFilter = document.getElementById('detailsType')?.value || 'all';
-        const searchTerm = document.getElementById('detailsSearch')?.value || '';
+            // Show loading indicator while processing
+            showLoading();
+            try {
+                // Initialize jsPDF library for PDF generation
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
 
-        // Load core user data: credits, personal expenses, and the list of groups the user is in
-        const [creditsSnapshot, personalSnapshot, groupsListSnapshot] = await Promise.all([
-            db.collection('credits').where('userId', '==', currentUser.uid).get(),
-            db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-            db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
-        ]);
+                // Retrieve filter values from UI elements
+                const yearFilter = document.getElementById('detailsYear')?.value || 'all';
+                const monthFilter = document.getElementById('detailsMonth')?.value || 'all';
+                const typeFilter = document.getElementById('detailsType')?.value || 'all';
+                const searchTerm = document.getElementById('detailsSearch')?.value || '';
 
-        // Extract group IDs for the groups the current user is a member of
-        const groupIds = groupsListSnapshot.docs.map(doc => doc.id);
+                // Load core user data: credits, personal expenses, and the list of groups the user is in
+                const [creditsSnapshot, personalSnapshot, groupsListSnapshot] = await Promise.all([
+                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
+                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
+                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
+                ]);
 
-        // Fetch all group expenses for the groups the user is in
-        // Query per groupId to handle Firestore query limitations (max 10 in 'in' queries)
-        let groupExpenses = [];
-        if (groupIds.length > 0) {
-            const expenseQueries = groupIds.map(id => db.collection('group_expenses').where('groupId', '==', id).get());
-            const expenseSnapshots = await Promise.all(expenseQueries);
-            groupExpenses = expenseSnapshots.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }
+                // Extract group IDs for the groups the current user is a member of
+                const groupIds = groupsListSnapshot.docs.map(doc => doc.id);
 
-        // Create a map of group IDs to group names for quick lookup
-        const groupsMap = {};
-        groupsListSnapshot.docs.forEach(doc => {
-            groupsMap[doc.id] = doc.data().name;
-        });
-
-        // Create a detailed map of group data (including members) for calculations
-        const groupsDataMap = {};
-        groupsListSnapshot.docs.forEach(doc => {
-            groupsDataMap[doc.id] = { id: doc.id, ...doc.data() };
-        });
-
-        // Process credits data
-        const credits = creditsSnapshot.docs.map(doc => ({
-            section: 'Credit',
-            sectionType: 'credit',
-            ...doc.data()
-        }));
-
-        // Process personal expenses data
-        const personal = personalSnapshot.docs.map(doc => ({
-            section: 'Personal',
-            sectionType: 'personal',
-            ...doc.data()
-        }));
-
-        // Process group expenses to calculate the current user's share
-        const groups = groupExpenses.map(expense => {
-            // Skip settlement entries as they are not regular expenses
-            if (expense.category === 'Settlement' || (expense.description && expense.description.includes('Settlement')) || expense.isSettlement) {
-                return null;
-            }
-
-            const groupId = expense.groupId;
-            const groupName = groupsMap[groupId] || 'Unknown';
-            
-            // Get group data from map (faster than finding each time)
-            const groupData = groupsDataMap[groupId];
-            if (!groupData) return null;
-
-            // Create a list of all members (including guests) for split calculations
-            const allMembers = [...(groupData.members || []), ...(groupData.guestMembers || []).map(name => `guest:${name}`)];
-            const memberMap = allMembers.reduce((acc, m) => {
-                acc[m] = m.startsWith('guest:') ? { firstName: m.split(':')[1], isGuest: true } : { firstName: m };
-                return acc;
-            }, {});
-
-            // Calculate the breakdown of the expense (assumes calculateExpenseBreakdown function exists elsewhere)
-            const breakdowns = calculateExpenseBreakdown([expense], allMembers, memberMap);
-            const breakdown = breakdowns[expense.id];
-            let userShare = breakdown?.contributions?.[currentUser.uid] || 0;
-
-            // Fallback for legacy equal splits if no specific splits are defined
-            if (userShare === 0 && (!expense.splits || Object.keys(expense.splits).length === 0) && groupData.members.includes(currentUser.uid)) {
-                userShare = parseFloat(expense.amount) / allMembers.length;
-            }
-
-            // Fallback for guest aliases if the user is matched as a guest
-            if (userShare === 0) {
-                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                userShare = breakdown?.contributions?.[guestKey] || 0;
-            }
-
-            // Include the expense if the user's share is positive or if the user added the expense (to ensure payers see their entries even if share is 0)
-            // This addresses cases where payers might have userShare = 0 but still need to see the full entry
-            // Note: Assuming 'userId' in expense is the adder/payer ID
-            if (userShare <= 0 && expense.userId !== currentUser.uid) return null;
-
-            // If userShare is 0 and user is the payer, use the full amount as their 'expense'
-            const displayAmount = (userShare > 0) ? userShare : parseFloat(expense.amount);
-
-            // Return the entry with amount as the user's share (or full if payer with 0 share)
-            return {
-                section: `Group: ${groupName}`,
-                sectionType: 'group',
-                ...expense,
-                amount: displayAmount // Override with user's share or full amount
-            };
-        }).filter(e => e !== null);
-
-        // Combine data based on type filter
-        let allData = [];
-        if (typeFilter === 'all' || typeFilter === 'credit') {
-            allData = allData.concat(credits);
-        }
-        if (typeFilter === 'all' || typeFilter === 'personal') {
-            allData = allData.concat(personal);
-        }
-        if (typeFilter === 'all' || typeFilter === 'group') {
-            allData = allData.concat(groups);
-        }
-
-        // Apply search filter if search term is provided
-        if (searchTerm) {
-            allData = filterBySearch(allData, searchTerm, ['description', 'mode', 'remarks', 'amount', 'section']);
-        }
-        // Apply year and month filters
-        allData = filterByYearMonth(allData, yearFilter, monthFilter);
-        // Sort data by date in descending order
-        allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
-
-        // Add header to PDF with green background
-        doc.setFillColor(16, 185, 129);
-        doc.rect(0, 0, 210, 30, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(20);
-        doc.text(`SplitEra - ${t('allTransactionsReport')}`, 105, 15, { align: 'center' });
-        doc.setFontSize(12);
-        doc.text(`${t('generated')}: ${new Date().toLocaleDateString()}`, 105, 23, { align: 'center' });
-
-        // Reset text color to black
-        doc.setTextColor(0, 0, 0);
-        let yPos = 40;
-
-        // Calculate totals for summary section
-        const totalCredits = credits.reduce((sum, c) => sum + c.amount, 0);
-        const totalPersonal = personal.reduce((sum, p) => sum + p.amount, 0);
-        const totalGroup = groups.reduce((sum, g) => sum + g.amount, 0);
-
-        // Add summary to PDF
-        doc.setFontSize(12);
-        doc.text(t('summary'), 14, yPos);
-        yPos += 10;
-
-        doc.setFontSize(10);
-        doc.text(`${t('totalCredits')}: ${formatCurrency(totalCredits, true)}`, 14, yPos);
-        yPos += 7;
-        doc.text(`${t('personalExpenses')}: ${formatCurrency(totalPersonal, true)}`, 14, yPos);
-        yPos += 7;
-        doc.text(`${t('groupExpenses')}: ${formatCurrency(totalGroup, true)}`, 14, yPos);
-        yPos += 15;
-
-        // Group data by month for PDF layout
-        const grouped = groupByMonth(allData);
-
-        // Iterate over each month group in reverse chronological order
-        Object.keys(grouped).sort().reverse().forEach(monthKey => {
-            const [year, month] = monthKey.split('-');
-            const monthName = getMonthName(parseInt(month) - 1);
-
-            // Add new page if nearing bottom of current page
-            if (yPos > 250) {
-                doc.addPage();
-                yPos = 20;
-            }
-
-            // Add month header
-            doc.setFontSize(12);
-            doc.setFont(undefined, 'bold');
-            doc.text(`${monthName} ${year}`, 14, yPos);
-            doc.setFont(undefined, 'normal');
-            yPos += 7;
-
-            let monthTotal = 0;
-
-            // Prepare table data for the month
-            const tableData = grouped[monthKey].map(item => {
-                const amount = item.amount;
-                // Calculate signed amount for month total (credits positive, expenses negative)
-                const signedAmount = item.sectionType === 'credit' ? amount : -amount;
-                monthTotal += signedAmount;
-
-                return [
-                    safeDate(item.date).toLocaleDateString(),
-                    item.section,
-                    item.description,
-                    item.mode,
-                    `${item.sectionType === 'credit' ? '+' : '-'}${formatCurrency(amount, true)}`
-                ];
-            });
-
-            // Add total row to the table
-            tableData.push([
-                { content: t('total'), colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } },
-                { content: formatCurrency(monthTotal, true), styles: { fontStyle: 'bold', textColor: monthTotal >= 0 ? [22, 163, 74] : [220, 38, 38] } } // Green for positive, red for negative
-            ]);
-
-            // Generate autoTable for the month's data
-            doc.autoTable({
-                startY: yPos,
-                head: [[t('date'), t('section'), t('description'), t('mode'), t('amount')]],
-                body: tableData,
-                theme: 'grid', // Borders
-                headStyles: { fillColor: [16, 185, 129], lineWidth: 0.1, lineColor: [200, 200, 200] },
-                styles: { lineWidth: 0.1, lineColor: [200, 200, 200] }, // Cell borders
-                margin: { left: 14, right: 14 },
-                didDrawPage: (data) => {
-                    // Resets yPos if page breaks
+                // Fetch all group expenses for the groups the user is in
+                // Query per groupId to handle Firestore query limitations (max 10 in 'in' queries)
+                let groupExpenses = [];
+                if (groupIds.length > 0) {
+                    const expenseQueries = groupIds.map(id => db.collection('group_expenses').where('groupId', '==', id).get());
+                    const expenseSnapshots = await Promise.all(expenseQueries);
+                    groupExpenses = expenseSnapshots.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
                 }
-            });
 
-            // Update yPos for next section
-            yPos = doc.lastAutoTable.finalY + 15;
-        });
+                // Create a map of group IDs to group names for quick lookup
+                const groupsMap = {};
+                groupsListSnapshot.docs.forEach(doc => {
+                    groupsMap[doc.id] = doc.data().name;
+                });
 
-        // Save the PDF with a timestamped filename
-        doc.save(`all-transactions-${Date.now()}.pdf`);
-        // Show success toast
-        showToast(t('success'), t('pdfExportSuccess'));
-    } catch (error) {
-        // Show error toast
-        showToast(t('error'), `${t('failedToExportPdf')}: ${error.message}`);
-    } finally {
-        // Hide loading indicator
-        hideLoading();
-    }
-}
+                // Create a detailed map of group data (including members) for calculations
+                const groupsDataMap = {};
+                groupsListSnapshot.docs.forEach(doc => {
+                    groupsDataMap[doc.id] = { id: doc.id, ...doc.data() };
+                });
+
+                // Process credits data
+                const credits = creditsSnapshot.docs.map(doc => ({
+                    section: 'Credit',
+                    sectionType: 'credit',
+                    ...doc.data()
+                }));
+
+                // Process personal expenses data
+                const personal = personalSnapshot.docs.map(doc => ({
+                    section: 'Personal',
+                    sectionType: 'personal',
+                    ...doc.data()
+                }));
+
+                // Process group expenses to calculate the current user's share
+                const groups = groupExpenses.map(expense => {
+                    // Skip settlement entries as they are not regular expenses
+                    if (expense.category === 'Settlement' || (expense.description && expense.description.includes('Settlement')) || expense.isSettlement) {
+                        return null;
+                    }
+
+                    const groupId = expense.groupId;
+                    const groupName = groupsMap[groupId] || 'Unknown';
+
+                    // Get group data from map (faster than finding each time)
+                    const groupData = groupsDataMap[groupId];
+                    if (!groupData) return null;
+
+                    // Create a list of all members (including guests) for split calculations
+                    const allMembers = [...(groupData.members || []), ...(groupData.guestMembers || []).map(name => `guest:${name}`)];
+                    const memberMap = allMembers.reduce((acc, m) => {
+                        acc[m] = m.startsWith('guest:') ? { firstName: m.split(':')[1], isGuest: true } : { firstName: m };
+                        return acc;
+                    }, {});
+
+                    // Calculate the breakdown of the expense (assumes calculateExpenseBreakdown function exists elsewhere)
+                    const breakdowns = calculateExpenseBreakdown([expense], allMembers, memberMap);
+                    const breakdown = breakdowns[expense.id];
+                    let userShare = breakdown?.contributions?.[currentUser.uid] || 0;
+
+                    // Fallback for legacy equal splits if no specific splits are defined
+                    if (userShare === 0 && (!expense.splits || Object.keys(expense.splits).length === 0) && groupData.members.includes(currentUser.uid)) {
+                        userShare = parseFloat(expense.amount) / allMembers.length;
+                    }
+
+                    // Fallback for guest aliases if the user is matched as a guest
+                    if (userShare === 0) {
+                        const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                        userShare = breakdown?.contributions?.[guestKey] || 0;
+                    }
+
+                    // Include the expense if the user's share is positive or if the user added the expense (to ensure payers see their entries even if share is 0)
+                    // This addresses cases where payers might have userShare = 0 but still need to see the full entry
+                    // Note: Assuming 'userId' in expense is the adder/payer ID
+                    if (userShare <= 0 && expense.userId !== currentUser.uid) return null;
+
+                    // If userShare is 0 and user is the payer, use the full amount as their 'expense'
+                    const displayAmount = (userShare > 0) ? userShare : parseFloat(expense.amount);
+
+                    // Return the entry with amount as the user's share (or full if payer with 0 share)
+                    return {
+                        section: `Group: ${groupName}`,
+                        sectionType: 'group',
+                        ...expense,
+                        amount: displayAmount // Override with user's share or full amount
+                    };
+                }).filter(e => e !== null);
+
+                // Combine data based on type filter
+                let allData = [];
+                if (typeFilter === 'all' || typeFilter === 'credit') {
+                    allData = allData.concat(credits);
+                }
+                if (typeFilter === 'all' || typeFilter === 'personal') {
+                    allData = allData.concat(personal);
+                }
+                if (typeFilter === 'all' || typeFilter === 'group') {
+                    allData = allData.concat(groups);
+                }
+
+                // Apply search filter if search term is provided
+                if (searchTerm) {
+                    allData = filterBySearch(allData, searchTerm, ['description', 'mode', 'remarks', 'amount', 'section']);
+                }
+                // Apply year and month filters
+                allData = filterByYearMonth(allData, yearFilter, monthFilter);
+                // Sort data by date in descending order
+                allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+
+                // Add header to PDF with green background
+                doc.setFillColor(16, 185, 129);
+                doc.rect(0, 0, 210, 30, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(20);
+                doc.text(`SplitEra - ${t('allTransactionsReport')}`, 105, 15, { align: 'center' });
+                doc.setFontSize(12);
+                doc.text(`${t('generated')}: ${new Date().toLocaleDateString()}`, 105, 23, { align: 'center' });
+
+                // Reset text color to black
+                doc.setTextColor(0, 0, 0);
+                let yPos = 40;
+
+                // Calculate totals for summary section
+                const totalCredits = credits.reduce((sum, c) => sum + c.amount, 0);
+                const totalPersonal = personal.reduce((sum, p) => sum + p.amount, 0);
+                const totalGroup = groups.reduce((sum, g) => sum + g.amount, 0);
+
+                // Add summary to PDF
+                doc.setFontSize(12);
+                doc.text(t('summary'), 14, yPos);
+                yPos += 10;
+
+                doc.setFontSize(10);
+                doc.text(`${t('totalCredits')}: ${formatCurrency(totalCredits, true)}`, 14, yPos);
+                yPos += 7;
+                doc.text(`${t('personalExpenses')}: ${formatCurrency(totalPersonal, true)}`, 14, yPos);
+                yPos += 7;
+                doc.text(`${t('groupExpenses')}: ${formatCurrency(totalGroup, true)}`, 14, yPos);
+                yPos += 15;
+
+                // Group data by month for PDF layout
+                const grouped = groupByMonth(allData);
+
+                // Iterate over each month group in reverse chronological order
+                Object.keys(grouped).sort().reverse().forEach(monthKey => {
+                    const [year, month] = monthKey.split('-');
+                    const monthName = getMonthName(parseInt(month) - 1);
+
+                    // Add new page if nearing bottom of current page
+                    if (yPos > 250) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+
+                    // Add month header
+                    doc.setFontSize(12);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(`${monthName} ${year}`, 14, yPos);
+                    doc.setFont(undefined, 'normal');
+                    yPos += 7;
+
+                    let monthTotal = 0;
+
+                    // Prepare table data for the month
+                    const tableData = grouped[monthKey].map(item => {
+                        const amount = item.amount;
+                        // Calculate signed amount for month total (credits positive, expenses negative)
+                        const signedAmount = item.sectionType === 'credit' ? amount : -amount;
+                        monthTotal += signedAmount;
+
+                        return [
+                            safeDate(item.date).toLocaleDateString(),
+                            item.section,
+                            item.description,
+                            item.mode,
+                            `${item.sectionType === 'credit' ? '+' : '-'}${formatCurrency(amount, true)}`
+                        ];
+                    });
+
+                    // Add total row to the table
+                    tableData.push([
+                        { content: t('total'), colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } },
+                        { content: formatCurrency(monthTotal, true), styles: { fontStyle: 'bold', textColor: monthTotal >= 0 ? [22, 163, 74] : [220, 38, 38] } } // Green for positive, red for negative
+                    ]);
+
+                    // Generate autoTable for the month's data
+                    doc.autoTable({
+                        startY: yPos,
+                        head: [[t('date'), t('section'), t('description'), t('mode'), t('amount')]],
+                        body: tableData,
+                        theme: 'grid', // Borders
+                        headStyles: { fillColor: [16, 185, 129], lineWidth: 0.1, lineColor: [200, 200, 200] },
+                        styles: { lineWidth: 0.1, lineColor: [200, 200, 200] }, // Cell borders
+                        margin: { left: 14, right: 14 },
+                        didDrawPage: (data) => {
+                            // Resets yPos if page breaks
+                        }
+                    });
+
+                    // Update yPos for next section
+                    yPos = doc.lastAutoTable.finalY + 15;
+                });
+
+                // Save the PDF with a timestamped filename
+                doc.save(`all-transactions-${Date.now()}.pdf`);
+                // Show success toast
+                showToast(t('success'), t('pdfExportSuccess'));
+            } catch (error) {
+                // Show error toast
+                showToast(t('error'), `${t('failedToExportPdf')}: ${error.message}`);
+            } finally {
+                // Hide loading indicator
+                hideLoading();
+            }
+        }
 
         // Settings Page
         async function renderSettings() {
@@ -15456,8 +15455,8 @@ async function exportDetailsPDF() {
                 currentLang = language;
 
                 showToast('Success', t('settingsSaved'));
-            // Re-render settings to apply changes
-            await renderSettings();
+                // Re-render settings to apply changes
+                await renderSettings();
 
             } catch (error) {
                 console.error('Error saving settings:', error);
@@ -16010,7 +16009,7 @@ async function exportDetailsPDF() {
             }
 
             .month-header {
-                background: var(--primary);
+                background: #160901;
                 color: white;
                 padding: 0.75rem 1rem;
                 border-radius: 8px;
@@ -16940,7 +16939,7 @@ async function exportDetailsPDF() {
                             // We can try to just let the auth listener pick it up or re-trigger
                             // But since we just set the doc, we can proceed.
                             currentUser = { ...newUserData, uid: user.uid };
-                             
+
                             await renderMainLayout();
                             await navigate('dashboard');
                         } else {
