@@ -67,7 +67,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, var(--primary) 0%, #FF6B35 100%);
+            background: linear-gradient(332deg, #e2d9ad 0% 24%, #ff9d35 100%);
             padding: 1.5rem;
         }
 
@@ -5240,7 +5240,7 @@
             dataState.listeners = [];
             dataState._inviteSnapshots = {}; // Temporary storage for merging invites
 
-            console.log('📡 Initializing real-time listeners for:', email);
+            
 
             // 1. Credits Listener
             const creditsUnsub = db.collection('credits')
@@ -6179,10 +6179,7 @@
                     const emailOtp = Math.floor(100000 + Math.random() * 900000).toString();
                     const phoneOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
-                    // In a real app, these would be sent via an API
-                    console.log(`📧 Email OTP for ${email}: ${emailOtp}`);
-                    console.log(`📱 Phone OTP for ${phone}: ${phoneOtp}`);
-
+                   
                     // 3. Store signup data temporarily in sessionStorage (encrypted if possible, but for demo...)
                     const signupProcessData = {
                         firstName,
@@ -6276,7 +6273,7 @@
             if (emailInput === data.emailOtp && phoneInput === data.phoneOtp) {
                 showLoading();
                 try {
-                    console.log('✅ Both OTPs verified. Creating account...');
+                    
 
                     // 1. Create User in Firebase Auth
                     const result = await auth.createUserWithEmailAndPassword(data.email, data.password);
@@ -6379,7 +6376,6 @@
                         return;
                     }
                 } catch (popupError) {
-                    console.log('Popup failed, falling back to redirect method:', popupError.message);
 
                     // Check if it's a popup blocker or extension issue
                     const isPopupBlocked = popupError.code === 'auth/popup-blocked' ||
@@ -6456,7 +6452,6 @@
                         showToast('Error', 'Failed to start Google Sign-In. Please try again.', 'error');
                     }
                 } else {
-                    console.log('Suppressed Google auth error during sign-in initiation');
                     showToast('Auth Error', 'Please allow popups for this site or try again.', 'error');
                 }
             }
@@ -6507,7 +6502,7 @@
 
                 if (!userDoc.exists) {
                     // New Google User - Create account directly without asking for phone number
-                    console.log('📝 Creating new Google user:', user.email);
+                    
 
                     const [firstName, ...lastNameParts] = (user.displayName || 'User').split(' ');
                     const lastName = lastNameParts.join(' ');
@@ -6534,9 +6529,7 @@
                     // Save user document to Firestore
                     await db.collection('users').doc(user.uid).set(userData);
                     currentUser = userData;
-
-                    console.log('✅ Google account created successfully');
-
+                
                     // Update settings and redirect to dashboard
                     localStorage.setItem('currency', currentUser.currency);
                     localStorage.setItem('country', currentUser.country);
@@ -6548,7 +6541,6 @@
                     showToast(t('success'), 'Account created successfully with Google!');
                 } else {
                     // User already exists - proceed to log them in
-                    console.log('👋 Existing Google user found, logging in...');
                     currentUser = { uid: user.uid, ...userDoc.data() };
 
                     localStorage.setItem('currency', currentUser.currency || 'USD');
@@ -6634,8 +6626,7 @@
                         return;
                     }
                 } catch (popupError) {
-                    console.log('Popup failed, falling back to redirect method:', popupError.message);
-
+                    
                     // Check if it's a popup blocker or extension issue
                     const isPopupBlocked = popupError.code === 'auth/popup-blocked' ||
                         popupError.code === 'auth/popup-closed-by-user' ||
@@ -6715,7 +6706,6 @@
                         showToast('Error', 'Failed to start Google Sign-Up. Please try again.', 'error');
                     }
                 } else {
-                    console.log('Suppressed Google auth error during sign-up initiation');
                     showToast('Auth Error', 'Please allow popups for this site or try again.', 'error');
                 }
             }
@@ -6725,12 +6715,7 @@
         async function handleGoogleAuthRedirect() {
             // Check protocol first
             if (window.location.protocol === 'file:') {
-                console.warn('Google Auth is not supported on file:// protocol.');
-                console.log('To enable Google authentication:');
-                console.log('1. Host your app on a web server (localhost or HTTPS domain)');
-                console.log('2. Add authorized redirect URLs in Firebase Console:');
-                console.log('   - Authentication > Sign-in method > Google > Web SDK configuration');
-                console.log('   - Add your domain URLs like: https://yourdomain.com, http://localhost:3000');
+                console.warn('Google Auth is not supported on file:// protocol.');             
                 return;
             }
 
@@ -6787,7 +6772,7 @@
                 if (!shouldSuppress) {
                     console.error("Google Auth Redirect Error:", error);
                 } else {
-                    console.log("Suppressed Google Auth error (likely browser extension or network issue):", errorMessage);
+                    
                 }
 
                 sessionStorage.removeItem('googleAuthRedirectHandled');
@@ -6893,10 +6878,9 @@
             sessionStorage.setItem('contactType', input.includes('@') ? 'email' : 'phone');
 
             if (input.includes('@')) {
-                console.log(`OTP for email ${input}: ${otp}`);
+                
                 showToast('Success', `OTP sent to ${input}. DEMO OTP: ${otp}`, 'success');
             } else {
-                console.log(`OTP for phone ${input}: ${otp}`);
                 showToast('Success', `OTP sent to ${input}. DEMO OTP: ${otp}`, 'success');
             }
             return true;
@@ -6921,8 +6905,6 @@
                         // 1. Determine contact type
                         const isEmail = input.includes('@');
                         const queryValue = isEmail ? input.toLowerCase() : input;
-
-                        console.log(`🔍 Initiating password reset flow for: ${queryValue}`);
 
                         // 2. Handle based on contact type
                         if (isEmail) {
@@ -6952,7 +6934,7 @@
                                     .get();
 
                                 if (userCheck.empty) {
-                                    console.log('❌ Phone not found in database');
+                                    
                                     showToast('Error', 'The provided phone number is not registered with us. Please check and try again.', 'error');
                                     hideLoading();
                                     return;
@@ -7017,7 +6999,6 @@
                     const storedOtp = sessionStorage.getItem('tempOtp');
 
                     if (otpInput === storedOtp) {
-                        console.log('✅ OTP Verified');
                         showToast('Success', 'OTP verified successfully!', 'success');
 
                         // Transition to the final password reset form
@@ -7027,7 +7008,6 @@
                         // Stop the timer as OTP is already verified
                         if (otpTimerInterval) clearInterval(otpTimerInterval);
                     } else {
-                        console.log('❌ Invalid OTP attempt');
                         showToast('Error', 'Invalid OTP. Please try again.', 'error');
                     }
                 });
@@ -7059,8 +7039,7 @@
                         // for sensitive operations like password updates without a current session,
                         // we provide the most secure fallback: sending a reset link.
 
-                        console.log(`🔄 Initiating password reset link for: ${tempContact}`);
-
+                        
                         if (contactType === 'email' || tempContact.includes('@')) {
                             await auth.sendPasswordResetEmail(tempContact);
                         } else {
@@ -14182,9 +14161,7 @@ async function renderCalendar() {
                     groupExpenses = expenseSnapshots.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
                 }
 
-                // console.log for debugging (can remove in production)
-                console.log({ groupExpenses, groupsListSnapshot });
-
+                
                 // Create a map of group IDs to group names for quick lookup
                 const groupsMap = {};
                 groupsListSnapshot.docs.forEach(doc => {
@@ -14196,7 +14173,7 @@ async function renderCalendar() {
                 groupsListSnapshot.docs.forEach(doc => {
                     groupsDataMap[doc.id] = { id: doc.id, ...doc.data() };
                 });
-                console.log({ groupsDataMap });
+                
 
                 let allData = [];
 
@@ -14226,8 +14203,7 @@ async function renderCalendar() {
 
                 // Process group expenses if filter allows
                 if (typeFilter === 'all' || typeFilter === 'group') {
-                    console.log({ groupExpenses });
-
+                    
                     // Process each group expense to calculate the current user's share
                     const groupEntries = groupExpenses.map(expense => {
                         // Skip settlement entries as they are not regular expenses
@@ -17017,10 +16993,8 @@ async function renderCalendar() {
         // Initialize app
         let isAuthProcessing = false;
         firebase.auth().onAuthStateChanged(async (user) => {
-            console.log('🔐 Auth state:', user ? 'Logged in' : 'Logged out');
-
+            
             if (isAuthProcessing) {
-                console.log('⚠️ Auth processing in progress, skipping duplicate event');
                 return;
             }
             isAuthProcessing = true;
@@ -17028,20 +17002,18 @@ async function renderCalendar() {
             if (user) {
                 try {
                     showLoading();
-                    console.log('📥 Loading user from:', user.uid);
 
                     // Try to get user document
                     let userDoc = await db.collection('users').doc(user.uid).get();
 
                     // Retry logic with improved delay steps
                     if (!userDoc.exists) {
-                        console.log('🔄 User doc missing, retrying in 2 seconds...');
+                        
                         await new Promise(resolve => setTimeout(resolve, 2000));
                         userDoc = await db.collection('users').doc(user.uid).get();
                     }
 
                     if (!userDoc.exists) {
-                        console.log('🔄 Still missing, final retry in 4 seconds...');
                         await new Promise(resolve => setTimeout(resolve, 4000));
                         userDoc = await db.collection('users').doc(user.uid).get();
                     }
@@ -17063,8 +17035,6 @@ async function renderCalendar() {
                             language: userData.language || 'en',
                             darkMode: userData.darkMode || false
                         };
-
-                        console.log('✅ User loaded:', currentUser.firstName);
 
                         // Apply user preferences
                         localStorage.setItem('currency', currentUser.currency);
@@ -17090,11 +17060,9 @@ async function renderCalendar() {
                         checkPendingInvites(currentUser);
 
                         hideLoading();
-                        console.log('✅ Dashboard loaded');
 
                     } else {
                         // User document doesn't exist - this is a new user from signup
-                        console.log('⚠️ User document not found, might be new signup');
 
                         // Check if this is right after signup
                         const signupData = sessionStorage.getItem('newUserData');
@@ -17131,11 +17099,9 @@ async function renderCalendar() {
                             try {
                                 const redirectResult = await firebase.auth().getRedirectResult();
                                 if (redirectResult && redirectResult.user) {
-                                    console.log('⏳ Redirect result found, waiting for redirect handler processing...');
                                     return; // Allow redirect handler to proceed
                                 }
                             } catch (e) {
-                                console.log('No redirect result or error checking', e);
                             }
 
                             showToast('Error', 'User profile not found. Please sign up again.', 'error');
@@ -17157,7 +17123,6 @@ async function renderCalendar() {
                 }
             } else {
                 // User logged out
-                console.log('🔓 No user, showing login');
                 renderAuthPage();
                 isAuthProcessing = false;
             }
