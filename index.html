@@ -273,11 +273,12 @@
         }
 
         .header {
+            border-radius: 2rem;
             background: var(--bg-white);
-            border-bottom: 1px solid var(--border);
+            border-bottom: 2px solid #ff8c42;
             padding: 1rem 1.5rem;
-            position: sticky;
-            top: 0;
+            position: relative;
+            top: 3px;
             z-index: 100;
             box-shadow: var(--shadow);
         }
@@ -1337,14 +1338,15 @@
         }
 
         .mobile-top-bar {
+            top: 5px;
+            border-radius: 2rem;
             display: none;
-            position: fixed;
-            top: 0;
+            position: absolute;
             left: 0;
             right: 0;
             height: 60px;
             background: var(--bg-white);
-            border-bottom: 1px solid var(--border);
+            border-bottom: 2px solid #ff8c42;
             z-index: 1000;
             padding: 0 1.5rem;
             align-items: center;
@@ -7135,7 +7137,7 @@
                     <!-- Mobile Top Bar -->
                     <div class="mobile-top-bar">
                         <div class="logo">
-                            <img src="logo.png" alt="SplitEra Logo" style="width: 28px; height: 28px; object-fit: contain;">
+                            <img src="logo.png" alt="SplitEra Logo" style="width: 28px; border-radius: 1rem; height: 28px; object-fit: contain;">
                             <span>SplitEra</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 15px;">
@@ -7174,7 +7176,7 @@
                     <div class="mobile-menu" id="mobileMenu">
                         <div class="mobile-menu-header">
                             <div class="logo">
-                                <img src="logo.png" alt="SplitEra Logo" style="width: 28px; height: 28px; object-fit: contain;">
+                                <img src="logo.png" alt="SplitEra Logo" style="border-radius: 1rem; width: 28px; height: 28px; object-fit: contain;">
                                 <span>SplitEra</span>
                             </div>
                             <button class="hamburger" onclick="toggleMobileMenu()">
