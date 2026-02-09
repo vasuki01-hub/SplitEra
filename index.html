@@ -1705,6 +1705,9 @@
                 privacy: 'Privacy Policy',
                 contact: 'Contact Us',
                 faq: 'FAQ',
+                userGuide: 'User Guide',
+                backToLogin: 'Back to Login',
+                backToHome: 'Back to Home',
                 version: 'Version',
                 rights: 'All rights reserved',
                 selectLanguage: 'Select Language',
@@ -2212,6 +2215,9 @@
                 team: 'ટીમ',
                 blog: 'બ્લોગ',
                 support: 'સપોર્ટ',
+                userGuide: 'વપરાશકર્તા માર્ગદર્શિકા',
+                backToLogin: 'લૉગિન પર પાછા જાઓ',
+                backToHome: 'હોમ પર પાછા જાઓ',
                 getStarted: 'શરૂ કરો',
                 learnMore: 'વધુ જાણો',
                 subscribe: 'સબ્સ્ક્રાઇબ કરો',
@@ -2571,6 +2577,9 @@
                 team: 'टीम',
                 blog: 'ब्लॉग',
                 support: 'सपोर्ट',
+                userGuide: 'उपयोगकर्ता मार्गदर्शिका',
+                backToLogin: 'लॉगिन पर वापस जाएं',
+                backToHome: 'होम पर वापस जाएं',
                 getStarted: 'शुरू करें',
                 learnMore: 'और जानें',
                 subscribe: 'सदस्यता लें',
@@ -6459,6 +6468,11 @@
                             <i class="fab fa-google"></i>
                             ${t('signInWithGoogle')}
                         </button>
+                        <div style="text-align: center; margin-top: 1rem;">
+                            <a href="#" onclick="renderUserGuidePage(); return false;" style="color: var(--text-gray); text-decoration: none; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.5rem; transition: color 0.3s;">
+                                <i class="fas fa-home"></i> ${t('backToHome')}
+                            </a>
+                        </div>
                     </form>
                 `;
         }
@@ -6526,10 +6540,15 @@
                             <hr style="border: none; border-top: 1px solid var(--border); margin: 1rem 0;">
                             <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--bg-white); padding: 0 10px; color: var(--text-gray);">or</span>
                         </div>
-                        <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="signUpWithGoogle()">
+                        <button type="button" class="btn btn-secondary" style="width: 100%; margin-bottom: 1rem;" onclick="signUpWithGoogle()">
                             <i class="fab fa-google"></i>
                             ${t('signUpWithGoogle')}
                         </button>
+                        <div style="text-align: center; margin-top: 1rem;">
+                            <a href="#" onclick="renderUserGuidePage(); return false;" style="color: var(--text-gray); text-decoration: none; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.5rem; transition: color 0.3s;">
+                                <i class="fas fa-home"></i> ${t('backToHome')}
+                            </a>
+                        </div>
                     </form>
                 `;
         }
@@ -6619,6 +6638,420 @@
                         </div>
                     </div>
                 `;
+        }
+
+        function renderUserGuidePage() {
+            const app = document.getElementById('app');
+
+            app.innerHTML = `
+                <style>
+                    .guide-grid {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 4rem;
+                        align-items: center;
+                    }
+                    .guide-hero-title {
+                        font-size: 3.5rem;
+                    }
+                    .guide-section {
+                        margin-bottom: 6rem;
+                    }
+                    .guide-header-btn {
+                        border-radius: 2rem;
+                        padding: 0.5rem 1.5rem;
+                    }
+                    .step-grid {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                        gap: 2rem;
+                    }
+                    .case-study-grid {
+                        display: grid;
+                        grid-template-columns: 1fr 1.5fr;
+                        gap: 4rem;
+                        align-items: center;
+                    }
+
+                    @media (max-width: 768px) {
+                        .guide-grid, .case-study-grid {
+                            grid-template-columns: 1fr !important;
+                            gap: 2rem !important;
+                        }
+                        .guide-hero-title {
+                            font-size: 2.5rem !important;
+                        }
+                        .guide-content {
+                            padding: 2rem 1rem !important;
+                        }
+                        .guide-section {
+                            margin-bottom: 4rem !important;
+                        }
+                        .guide-grid > div:nth-child(2) {
+                            order: -1 !important;
+                        }
+                        .credits-section > div:nth-child(2) {
+                            order: -1 !important;
+                        }
+                        .step-grid {
+                            grid-template-columns: 1fr !important;
+                        }
+                        .guide-illustrations svg {
+                            max-width: 100%;
+                            height: auto;
+                        }
+                    }
+                </style>
+                <div class="user-guide-container" style="background: var(--bg-light); min-height: 100vh; font-family: 'Inter', system-ui, sans-serif;">
+                    <header class="header" style="position: sticky; top: 0; background: var(--bg-white); border-bottom: 2px solid var(--primary); z-index: 1000; box-shadow: var(--shadow);">
+                        <div class="header-content" style="max-width: 1200px; margin: 0 auto; min-height: 70px; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                            <div class="logo">
+                                <i class="fas fa-wallet"></i>
+                                <span style="font-weight: 800; font-size: 1.5rem;">SplitEra</span>
+                            </div>
+                            <button class="btn btn-primary guide-header-btn" onclick="renderAuthPage()">
+                                ${t('login')} / ${t('signup')}
+                            </button>
+                        </div>
+                    </header>
+
+                    <main class="guide-content" style="max-width: 1000px; margin: 0 auto; padding: 3rem 1.5rem;">
+                        <!-- Hero Section -->
+                        <div style="text-align: center; margin-bottom: 5rem;">
+                            <h1 class="guide-hero-title" style="font-weight: 900; background: linear-gradient(135deg, var(--primary), #FFB17A); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 1.5rem; line-height: 1.1;">
+                                Master Your Finances
+                            </h1>
+                            <p style="font-size: 1.25rem; color: var(--text-gray); max-width: 600px; margin: 0 auto; line-height: 1.6;">
+                                Learn how SplitEra helps you track personal spending and split group expenses effortlessly.
+                            </p>
+                        </div>
+
+                        <!-- Section 1: Dashboard -->
+                        <section class="guide-section guide-grid">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                                    <div style="width: 50px; height: 50px; background: rgba(255, 140, 66, 0.1); color: var(--primary); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                        <i class="fas fa-tachometer-alt"></i>
+                                    </div>
+                                    <h2 style="font-size: 2rem; font-weight: 800;">Powerful Dashboard</h2>
+                                </div>
+                                <p style="font-size: 1.1rem; color: var(--text-gray); margin-bottom: 2rem; line-height: 1.6;">
+                                    Get an instant pulse on your financial health. Our dashboard combines your personal savings, credit card balances, and group debts into one simple "Net Balance".
+                                </p>
+                                <div style="background: var(--bg-white); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border); box-shadow: var(--shadow);">
+                                    <h4 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                        <i class="fas fa-info-circle" style="color: var(--primary);"></i> Key Insight
+                                    </h4>
+                                    <p style="font-size: 0.95rem; line-height: 1.5;">"Net Balance" shows exactly how much money you <em>really</em> have after considering all your pending group debts and credit card bills.</p>
+                                </div>
+                            </div>
+                            <div class="guide-illustrations" style="position: relative;">
+                                <!-- SVG Illustration for Dashboard -->
+                                <svg viewBox="0 0 400 300" style="width: 100%; height: auto; border-radius: 1rem; box-shadow: 0 20px 40px rgba(0,0,0,0.1);">
+                                    <rect width="400" height="300" fill="#f8fafc" rx="16"/>
+                                    <rect x="20" y="20" width="360" height="260" fill="white" rx="12" stroke="#e2e8f0" stroke-width="1"/>
+                                    <!-- Doughnut Chart Mockup -->
+                                    <circle cx="120" cy="140" r="60" fill="none" stroke="#e2e8f0" stroke-width="20"/>
+                                    <circle cx="120" cy="140" r="60" fill="none" stroke="#FF8C42" stroke-width="20" stroke-dasharray="250 377" transform="rotate(-90 120 140)"/>
+                                    <circle cx="120" cy="140" r="60" fill="none" stroke="#10B981" stroke-width="20" stroke-dasharray="80 377" transform="rotate(150 120 140)"/>
+                                    <!-- Stat Cards -->
+                                    <rect x="220" y="60" width="140" height="60" fill="#fffaf0" rx="8" stroke="#FF8C42" stroke-width="1"/>
+                                    <text x="235" y="85" font-family="sans-serif" font-size="10" fill="#6B7280">Net Balance</text>
+                                    <text x="235" y="105" font-family="sans-serif" font-size="16" font-weight="bold" fill="#FF8C42">$2,450.00</text>
+                                    
+                                    <rect x="220" y="140" width="140" height="60" fill="#f0fff4" rx="8" stroke="#10B981" stroke-width="1"/>
+                                    <text x="235" y="165" font-family="sans-serif" font-size="10" fill="#6B7280">Credits</text>
+                                    <text x="235" y="185" font-family="sans-serif" font-size="16" font-weight="bold" fill="#10B981">$3,100.00</text>
+                                </svg>
+                            </div>
+                        </section>
+
+                        <!-- Section 2: Credits -->
+                        <section class="guide-section guide-grid credits-section">
+                            <div style="order: 2;">
+                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                                    <div style="width: 50px; height: 50px; background: rgba(16, 185, 129, 0.1); color: var(--success); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                        <i class="fas fa-university"></i>
+                                    </div>
+                                    <h2 style="font-size: 2rem; font-weight: 800;">Managing Income</h2>
+                                </div>
+                                <p style="font-size: 1.1rem; color: var(--text-gray); margin-bottom: 2rem; line-height: 1.6;">
+                                    Add your monthly salary, freelancing income, or cash gifts. Categorize them as 'Bank' or 'Credit Card' to keep your liquidity in check.
+                                </p>
+                                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                                    <div style="display: flex; gap: 1rem; align-items: center;">
+                                        <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--success);"></div>
+                                        <span><strong>Salary:</strong> Recurring monthly income</span>
+                                    </div>
+                                    <div style="display: flex; gap: 1rem; align-items: center;">
+                                        <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--primary);"></div>
+                                        <span><strong>CC Adjustment:</strong> Recording payments to cards</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="guide-illustrations" style="order: 1;">
+                                <svg viewBox="0 0 400 250" style="width: 100%; height: auto; border-radius: 1rem; box-shadow: 0 20px 40px rgba(0,0,0,0.05);">
+                                    <rect width="400" height="250" fill="#f8fafc" rx="16"/>
+                                    <!-- Transaction List Mockup -->
+                                    <rect x="30" y="30" width="340" height="45" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
+                                    <text x="50" y="57" font-family="sans-serif" font-size="12" font-weight="bold">Monthly Salary</text>
+                                    <text x="310" y="57" font-family="sans-serif" font-size="12" font-weight="bold" fill="#10B981">+$5,000</text>
+                                    
+                                    <rect x="30" y="90" width="340" height="45" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
+                                    <text x="50" y="117" font-family="sans-serif" font-size="12" font-weight="bold">Freelance Project</text>
+                                    <text x="310" y="117" font-family="sans-serif" font-size="12" font-weight="bold" fill="#10B981">+$800</text>
+                                    
+                                    <rect x="30" y="150" width="340" height="45" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
+                                    <text x="50" y="177" font-family="sans-serif" font-size="12" font-weight="bold">Gift from Dad</text>
+                                    <text x="310" y="177" font-family="sans-serif" font-size="12" font-weight="bold" fill="#10B981">+$100</text>
+                                </svg>
+                            </div>
+                        </section>
+
+                        <!-- Section: Tracking Expenses -->
+                        <section class="guide-section guide-grid">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                                    <div style="width: 50px; height: 50px; background: rgba(239, 68, 68, 0.1); color: var(--danger); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                        <i class="fas fa-shopping-cart"></i>
+                                    </div>
+                                    <h2 style="font-size: 2rem; font-weight: 800;">${t('personal')} / ${t('expenses')}</h2>
+                                </div>
+                                <p style="font-size: 1.1rem; color: var(--text-gray); margin-bottom: 2rem; line-height: 1.6;">
+                                    Never lose track of where your money goes. Log groceries, rent, travel, and more. Categorize them to see monthly spending patterns.
+                                </p>
+                                <div style="background: var(--bg-white); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border); box-shadow: var(--shadow);">
+                                    <h4 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                        <i class="fas fa-lightbulb" style="color: var(--primary);"></i> Pro Tip
+                                    </h4>
+                                    <p style="font-size: 0.95rem; line-height: 1.5;">Use "Keywords" in descriptions to auto-categorize repetitive expenses like "Starbucks" or "Netflix".</p>
+                                </div>
+                            </div>
+                            <div class="guide-illustrations">
+                                <svg viewBox="0 0 400 250" style="width: 100%; height: auto; border-radius: 1rem; box-shadow: 0 20px 40px rgba(0,0,0,0.05);">
+                                    <rect width="400" height="250" fill="#f8fafc" rx="16"/>
+                                    <!-- Expense List Mockup -->
+                                    <rect x="30" y="30" width="340" height="45" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
+                                    <circle cx="55" cy="52" r="12" fill="#FEE2E2"/>
+                                    <text x="50" y="56" font-family="FontAwesome" font-size="12" fill="#EF4444" text-anchor="middle"></text> <!-- burger icon -->
+                                    <text x="75" y="57" font-family="sans-serif" font-size="12" font-weight="bold">McDonald's Lunch</text>
+                                    <text x="310" y="57" font-family="sans-serif" font-size="12" font-weight="bold" fill="#EF4444">-$15.50</text>
+                                    
+                                    <rect x="30" y="90" width="340" height="45" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
+                                    <circle cx="55" cy="112" r="12" fill="#DBEAFE"/>
+                                    <text x="50" y="116" font-family="FontAwesome" font-size="12" fill="#3B82F6" text-anchor="middle"></text> <!-- shopping-bag icon -->
+                                    <text x="75" y="117" font-family="sans-serif" font-size="12" font-weight="bold">Zara Shopping</text>
+                                    <text x="310" y="117" font-family="sans-serif" font-size="12" font-weight="bold" fill="#EF4444">-$84.20</text>
+                                    
+                                    <rect x="30" y="150" width="340" height="45" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
+                                    <circle cx="55" cy="172" r="12" fill="#FEF3C7"/>
+                                    <text x="50" y="176" font-family="FontAwesome" font-size="12" fill="#F59E0B" text-anchor="middle"></text> <!-- car icon -->
+                                    <text x="75" y="177" font-family="sans-serif" font-size="12" font-weight="bold">Uber Ride</text>
+                                    <text x="310" y="177" font-family="sans-serif" font-size="12" font-weight="bold" fill="#EF4444">-$12.00</text>
+                                </svg>
+                            </div>
+                        </section>
+
+                        <!-- Section 3: Groups (Example Scenario) -->
+                        <section class="guide-section">
+                            <div style="text-align: center; margin-bottom: 4rem;">
+                                <div style="width: 60px; height: 60px; background: rgba(59, 130, 246, 0.1); color: #3B82F6; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1.5rem;">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <h2 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 1rem;">${t('groups')}</h2>
+                                <p style="color: var(--text-gray); font-size: 1.1rem;">"Let's split the dinner bill..."</p>
+                            </div>
+                            
+                            <div class="step-grid">
+                                <!-- Step 1 -->
+                                <div class="card" style="position: relative; padding: 2rem;">
+                                    <span style="position: absolute; top: -15px; left: 20px; background: var(--primary); color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800;">1</span>
+                                    <h3 style="margin-bottom: 1rem;">Add Expense</h3>
+                                    <p style="color: var(--text-gray); font-size: 0.95rem; line-height: 1.5;">You pay $120 for a group of 4 people. You enter 'Dinner' as the description and '$120' as the amount.</p>
+                                </div>
+                                <!-- Step 2 -->
+                                <div class="card" style="position: relative; padding: 2rem;">
+                                    <span style="position: absolute; top: -15px; left: 20px; background: var(--primary); color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800;">2</span>
+                                    <h3 style="margin-bottom: 1rem;">Automatic Split</h3>
+                                    <p style="color: var(--text-gray); font-size: 0.95rem; line-height: 1.5;">SplitEra automatically calculates that each person owes you $30. Your dashboard now shows $90 as 'Owed to you'.</p>
+                                </div>
+                                <!-- Step 3 -->
+                                <div class="card" style="position: relative; padding: 2rem;">
+                                    <span style="position: absolute; top: -15px; left: 20px; background: var(--primary); color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800;">3</span>
+                                    <h3 style="margin-bottom: 1rem;">Settle Up</h3>
+                                    <p style="color: var(--text-gray); font-size: 0.95rem; line-height: 1.5;">When a friend pays you back, simply click 'Settle' next to their name. Your balances update instantly in real-time.</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Case Study -->
+                        <section style="background: var(--bg-white); margin-bottom: 6rem; border-radius: 2rem; padding: 3rem; border: 1px solid var(--border); box-shadow: var(--shadow-lg);">
+                            <div class="case-study-grid">
+                                <div>
+                                    <h3 style="font-size: 1.25rem; color: var(--primary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem;">Case Study</h3>
+                                    <h2 style="font-size: 2.25rem; font-weight: 800; line-height: 1.2; margin-bottom: 1.5rem;">A Weekend Road Trip</h2>
+                                    <p style="color: var(--text-gray); font-size: 1.1rem; line-height: 1.6;">See how SplitEra manages a complex weekend with multiple expenses and different payers.</p>
+                                </div>
+                                <div style="background: var(--bg-light); padding: 2rem; border-radius: 1.5rem;">
+                                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+                                            <span><strong>Petrol:</strong> Paid by John</span>
+                                            <span style="font-weight: bold;">$80.00</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+                                            <span><strong>Airbnb:</strong> Paid by you</span>
+                                            <span style="font-weight: bold;">$450.00</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+                                            <span><strong>Snacks:</strong> Paid by Sarah</span>
+                                            <span style="font-weight: bold;">$45.00</span>
+                                        </div>
+                                        <div style="margin-top: 1rem; padding: 1rem; background: var(--bg-white); border-radius: 1rem; border: 1px dashed var(--primary); text-align: center;">
+                                            <span style="font-weight: 800; color: var(--primary);">RESULT:</span>
+                                            <p style="font-size: 0.9rem; margin-top: 0.5rem;">SplitEra finds the minimum transactions. Sarah pays you $165, and John receives $10 from Sarah. Simple!</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+
+                        <!-- Section: Calendar View -->
+                        <section class="guide-section guide-grid">
+                            <div style="order: 2;">
+                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                                    <div style="width: 50px; height: 50px; background: rgba(139, 92, 246, 0.1); color: #8B5CF6; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                        <i class="fas fa-calendar-alt"></i>
+                                    </div>
+                                    <h2 style="font-size: 2rem; font-weight: 800;">${t('calendar')}</h2>
+                                </div>
+                                <p style="font-size: 1.1rem; color: var(--text-gray); margin-bottom: 2rem; line-height: 1.6;">
+                                    Visualize your money over time. The calendar view marks every day you had an income or expense, helping you identify spending streaks and patterns at a glance.
+                                </p>
+                                <div style="background: var(--bg-white); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border); box-shadow: var(--shadow);">
+                                    <p style="font-size: 0.95rem; line-height: 1.5;"><strong>View by Date:</strong> Click any day to see the exact transactions that happened then.</p>
+                                </div>
+                            </div>
+                            <div class="guide-illustrations" style="order: 1;">
+                                <svg viewBox="0 0 400 300" style="width: 100%; height: auto; border-radius: 1rem; box-shadow: 0 20px 40px rgba(0,0,0,0.05);">
+                                    <rect width="400" height="300" fill="#f8fafc" rx="16"/>
+                                    <!-- Calendar Grid -->
+                                    <rect x="40" y="40" width="320" height="220" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
+                                    <!-- Day Headers -->
+                                    <text x="60" y="70" font-family="sans-serif" font-size="10" fill="#94A3B8">M</text>
+                                    <text x="100" y="70" font-family="sans-serif" font-size="10" fill="#94A3B8">T</text>
+                                    <text x="140" y="70" font-family="sans-serif" font-size="10" fill="#94A3B8">W</text>
+                                    <text x="180" y="70" font-family="sans-serif" font-size="10" fill="#94A3B8">T</text>
+                                    <text x="220" y="70" font-family="sans-serif" font-size="10" fill="#94A3B8">F</text>
+                                    <text x="260" y="70" font-family="sans-serif" font-size="10" fill="#94A3B8">S</text>
+                                    <text x="300" y="70" font-family="sans-serif" font-size="10" fill="#94A3B8">S</text>
+                                    <!-- Days with dots -->
+                                    <circle cx="102" cy="110" r="14" fill="#F1F5F9"/>
+                                    <circle cx="102" cy="118" r="3" fill="#EF4444"/> <!-- Expense dot -->
+                                    
+                                    <circle cx="182" cy="110" r="14" fill="#F1F5F9"/>
+                                    <circle cx="182" cy="118" r="3" fill="#10B981"/> <!-- Income dot -->
+                                    
+                                    <circle cx="262" cy="110" r="14" fill="#8B5CF6" opacity="0.2"/> <!-- Today -->
+                                    <circle cx="262" cy="118" r="3" fill="#EF4444"/>
+                                    
+                                    <circle cx="62" cy="150" r="14" fill="#F1F5F9"/>
+                                    <circle cx="142" cy="150" r="14" fill="#F1F5F9"/>
+                                    <circle cx="142" cy="158" r="3" fill="#10B981"/>
+                                </svg>
+                            </div>
+                        </section>
+
+                        <!-- Section: Data Export -->
+                        <section class="guide-section guide-grid">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                                    <div style="width: 50px; height: 50px; background: rgba(16, 185, 129, 0.1); color: #10B981; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                        <i class="fas fa-file-export"></i>
+                                    </div>
+                                    <h2 style="font-size: 2rem; font-weight: 800;">Export Reports</h2>
+                                </div>
+                                <p style="font-size: 1.1rem; color: var(--text-gray); margin-bottom: 2rem; line-height: 1.6;">
+                                    Need your data for taxes or accounting? Export all your transactions to PDF for a clean readable report, or to Excel for hardware-based analysis.
+                                </p>
+                                <div style="display: flex; gap: 1rem;">
+                                    <div style="background: #FEE2E2; color: #DC2626; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.8rem;">PDF</div>
+                                    <div style="background: #DCFCE7; color: #16A34A; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.8rem;">EXCEL</div>
+                                </div>
+                            </div>
+                            <div class="guide-illustrations">
+                                <svg viewBox="0 0 400 250" style="width: 100%; height: auto; border-radius: 1rem; box-shadow: 0 20px 40px rgba(0,0,0,0.05);">
+                                    <rect width="400" height="250" fill="#f8fafc" rx="16"/>
+                                    <!-- Export Illustration -->
+                                    <path d="M150 50 L250 50 L270 70 L270 200 L150 200 Z" fill="white" stroke="#e2e8f0" stroke-width="2"/>
+                                    <path d="M250 50 L250 70 L270 70" fill="none" stroke="#e2e8f0" stroke-width="2"/>
+                                    <rect x="170" y="100" width="60" height="4" fill="#e2e8f0" rx="2"/>
+                                    <rect x="170" y="120" width="60" height="4" fill="#e2e8f0" rx="2"/>
+                                    <rect x="170" y="140" width="40" height="4" fill="#e2e8f0" rx="2"/>
+                                    <!-- Export Arrow -->
+                                    <path d="M290 125 L340 125 M330 115 L340 125 L330 135" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round"/>
+                                    <circle cx="350" cy="125" r="20" fill="#10B981"/>
+                                    <text x="350" y="130" font-family="FontAwesome" font-size="16" fill="white" text-anchor="middle"></text> <!-- file-download -->
+                                </svg>
+                            </div>
+                        </section>
+
+                        <!-- Section: Transaction Details -->
+                        <section class="guide-section guide-grid">
+                            <div style="order: 2;">
+                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                                    <div style="width: 50px; height: 50px; background: rgba(59, 130, 246, 0.1); color: #3B82F6; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                        <i class="fas fa-list-ul"></i>
+                                    </div>
+                                    <h2 style="font-size: 2rem; font-weight: 800;">${t('details')}</h2>
+                                </div>
+                                <p style="font-size: 1.1rem; color: var(--text-gray); margin-bottom: 2rem; line-height: 1.6;">
+                                    Dive deep into your records in the Details section. Search for specific transactions, filter by type (Income/Expense), or view by category.
+                                </p>
+                                <div style="background: var(--bg-white); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border); box-shadow: var(--shadow);">
+                                    <p style="font-size: 0.95rem; line-height: 1.5;"><strong>Smart Search:</strong> Just start typing. Our filters work instantly to find what you're looking for.</p>
+                                </div>
+                            </div>
+                            <div class="guide-illustrations" style="order: 1;">
+                                <svg viewBox="0 0 400 250" style="width: 100%; height: auto; border-radius: 1rem; box-shadow: 0 20px 40px rgba(0,0,0,0.05);">
+                                    <rect width="400" height="250" fill="#f8fafc" rx="16"/>
+                                    <!-- Search & Table Mockup -->
+                                    <rect x="30" y="30" width="200" height="30" fill="white" rx="15" stroke="#e2e8f0" stroke-width="1"/>
+                                    <text x="45" y="50" font-family="FontAwesome" font-size="10" fill="#94A3B8"></text>
+                                    <text x="60" y="50" font-family="sans-serif" font-size="10" fill="#94A3B8">Search transactions...</text>
+                                    
+                                    <rect x="250" y="30" width="120" height="30" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
+                                    <text x="265" y="49" font-family="sans-serif" font-size="10" fill="#1F2937">All Types </text>
+                                    
+                                    <rect x="30" y="80" width="340" height="140" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
+                                    <!-- Rows -->
+                                    <line x1="30" y1="110" x2="370" y2="110" stroke="#f1f5f9" stroke-width="1"/>
+                                    <line x1="30" y1="140" x2="370" y2="140" stroke="#f1f5f9" stroke-width="1"/>
+                                    <line x1="30" y1="170" x2="370" y2="170" stroke="#f1f5f9" stroke-width="1"/>
+                                </svg>
+                            </div>
+                        </section>
+
+                        
+
+                        <!-- CTA Section -->
+                        <div style="margin-top: 8rem; text-align: center;">
+                            <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 2rem;">Ready to start splitting?</h2>
+                            <button class="btn btn-primary" onclick="renderAuthPage()" style="padding: 1.25rem 3.5rem; font-size: 1.25rem; border-radius: 3rem; box-shadow: 0 10px 20px rgba(255, 140, 66, 0.3);">
+                                ${t('getStarted')}
+                            </button>
+                        </div>
+                    </main>
+
+                    <footer style="background: var(--bg-white); border-top: 1px solid var(--border); padding: 4rem 1.5rem; text-align: center;">
+                        <div style="margin-bottom: 2rem;">
+                            <i class="fas fa-wallet" style="color: var(--primary); font-size: 2rem;"></i>
+                        </div>
+                        <p style="color: var(--text-gray);">&copy; 2024 SplitEra. Build with transparency.</p>
+                    </footer>
+                </div>
+            `;
+            window.scrollTo(0, 0);
         }
 
         // Auth Page Component
@@ -18697,6 +19130,7 @@
                     case 'calendar': await renderCalendar(); break;
                     case 'details': await renderDetails(); break;
                     case 'settings': await renderSettings(); break;
+                    case 'user-guide': renderUserGuidePage(); break;
                     default: await renderDashboard();
                 }
                 translateApp();
@@ -18858,7 +19292,7 @@
                             console.error('User document not found and no signup data');
                             showToast('Error', 'User profile not found. Please sign up again.', 'error');
                             await firebase.auth().signOut();
-                            renderAuthPage();
+                            renderUserGuidePage();
                         }
 
                         hideLoading();
@@ -18868,14 +19302,14 @@
                     console.error('❌ Error loading user:', error);
                     showToast('Error', 'Failed to load user: ' + error.message, 'error');
                     await firebase.auth().signOut();
-                    renderAuthPage();
+                    renderUserGuidePage();
                     hideLoading();
                 } finally {
                     isAuthProcessing = false;
                 }
             } else {
                 // User logged out
-                renderAuthPage();
+                renderUserGuidePage();
                 isAuthProcessing = false;
             }
         });
