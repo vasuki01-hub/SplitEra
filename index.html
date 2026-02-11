@@ -7152,21 +7152,11 @@
                     }
                 </style>
                 <div class="user-guide-container" style="background: var(--bg-light); padding: 2rem; min-height: 100vh; font-family: 'Inter', system-ui, sans-serif;">
-                    <header class="header" style="position: sticky; top: 0; background: var(--bg-white); border-bottom: 2px solid var(--primary); z-index: 1000; box-shadow: var(--shadow);">
-                        <div class="header-content" style="max-width: 1200px; margin: 0 auto; min-height: 70px; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 1.5rem; flex-wrap: wrap; gap: 1rem;">
-                            <div class="logo">
-                                <img src="logo.png" alt="SplitEra Logo" style="width: 110px; height: 40px; object-fit: contain; border-radius: 1rem;">
-                            </div>
-                            <button class="btn btn-primary guide-header-btn" onclick="renderAuthPage()" style="width: 151px;">
-                                ${t('login')} / ${t('signup')}
-                            </button>
-                        </div>
-                    </header>
-
                     <main class="guide-content" style="max-width: 1000px; margin: 0 auto; padding: 3rem 1.5rem;">
                         <!-- Hero Section -->
                         <div style="text-align: center; margin-bottom: 5rem;">
-                            <img src="logo.png" alt="SplitEra Logo" style="width: 200px; height: auto; margin: 0 auto 1.5rem; display: block;">
+                            <img src="favicon.png" alt="SplitEra Logo" style="margin: auto;width: 100px;h;height: auto;t-fit: contain;border-radius: 1rem;">
+                            <img src="logo.png" alt="SplitEra Logo" style="width: 150px; height: auto; margin: 0 auto 1.5rem; display: block;">
                             <h1 class="guide-hero-title" style="font-weight: 900; background: linear-gradient(135deg, var(--primary), #FFB17A); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 1.5rem; line-height: 1.1;">
                                 ${t('guideHeroTitle')}
                             </h1>
@@ -8796,7 +8786,7 @@
                     <header class="header">
                         <div class="header-content">
                             <div class="logo">
-                                <img src="logo.png" alt="SplitEra Logo" style="width: 140px; height: auto; object-fit: contain; border-radius: 1rem;">
+                                <img src="favicon.png" alt="SplitEra Logo" style="width: 45px;height: auto;t-fit: contain;border-radius: 1rem;">
                             </div>
                             <nav class="nav">
                                 <div class="nav-links">
@@ -8826,8 +8816,8 @@
                     <!-- Mobile Top Bar -->
                     <div class="mobile-top-bar">
                         <div class="logo">
-                            <img src="logo.png" alt="SplitEra Logo" style="width: 120px; height: auto; border-radius: 1rem; object-fit: contain;">
-                        </div>
+                                <img src="favicon.png" alt="SplitEra Logo" style="width: 45px;h;height: auto;t-fit: contain;border-radius: 1rem;">
+                            </div>
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <button class="theme-toggle" onclick="toggleTheme()" style="background: none; border: none; color: var(--text-primary); font-size: 1.2rem;">
                                 <i class="fas ${currentTheme === 'dark' ? 'fa-sun' : 'fa-moon'}"></i>
@@ -19864,4 +19854,3 @@
     </body>
 
 </html>
-
