@@ -13210,10 +13210,22 @@
                 const groupData = groupDoc.data();
                 const currentMembers = groupData.members || [];
 
-                for (const member of members) {
+                for (let member of members) {
                     let existingUser = null;
                     let userDisplayName = '';
                     let inviteType = 'guest';
+
+                    // Parse contact picker format "Name|Phone"
+                    let contactName = '';
+                    let contactPhone = '';
+
+                    if (member.includes('|')) {
+                        const parts = member.split('|');
+                        contactName = parts[0].trim();
+                        contactPhone = parts[1].trim();
+                        // Use the phone part for lookup
+                        member = contactPhone;
+                    }
 
                     // Check if email
                     if (member.includes('@')) {
@@ -13225,11 +13237,12 @@
                             inviteType = 'existing_user';
                         }
                     }
-                    // Check if phone
+                    // Check if phone (or extracted phone from "Name|Phone")
                     else if (/^[\d+\-\s()]{7,}$/.test(member)) {
                         inviteType = 'phone';
                         const cleanPhone = member.replace(/[^\d+]/g, '');
                         const phoneSnap = await db.collection('users').where('phone', '==', cleanPhone).get();
+
                         if (!phoneSnap.empty) {
                             existingUser = { id: phoneSnap.docs[0].id, ...phoneSnap.docs[0].data() };
                             userDisplayName = `${existingUser.firstName} ${existingUser.lastName || ''}`.trim();
@@ -13237,33 +13250,46 @@
                         } else {
                             inviteType = 'guest_phone';
                         }
+                    } else {
+                        // Plain name
+                        inviteType = 'guest';
                     }
 
                     if (existingUser) {
                         const isAlreadyMember = currentMembers.includes(existingUser.id);
-                        const status = isAlreadyMember ? 'Already a member' : 'Will receive invitation';
+                        const status = isAlreadyMember ? 'Already a member' : 'App User';
                         const bgColor = isAlreadyMember ? 'var(--info-light)' : 'var(--success-light)';
                         const borderColor = isAlreadyMember ? 'var(--info)' : 'var(--success)';
                         const iconColor = isAlreadyMember ? 'var(--info)' : 'var(--success)';
-                        const icon = isAlreadyMember ? 'fa-user' : 'fa-user-check';
+                        const icon = isAlreadyMember ? 'fa-user' : 'fa-check-circle';
 
                         previews.push(`
                             <div style="padding: 6px; background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 4px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                                 <i class="fas ${icon}" style="color: ${iconColor}; font-size: 0.8rem;"></i>
                                 <div style="flex: 1;">
-                                    <strong style="color: ${borderColor}; font-size: 0.85rem;">${userDisplayName}</strong>
-                                    <small style="color: var(--text-gray); font-size: 0.75rem;">${member} - ${status}</small>
+                                    <strong style="color: ${borderColor}; font-size: 0.85rem;">${userDisplayName}</strong> <span style="font-size: 0.75rem; color: var(--text-gray);">(${existingUser.phone || existingUser.email})</span>
+                                    <small style="color: var(--text-gray); font-size: 0.75rem; display: block;">${status}</small>
                                 </div>
                             </div>
                         `);
                     } else {
-                        const guestType = inviteType === 'guest_phone' ? 'guest (phone)' : inviteType === 'email' ? 'email invite' : 'guest';
+                        // Guest handling
+                        let displayStr = member;
+                        if (contactName && contactPhone) {
+                            displayStr = `${contactName} • ${contactPhone}`;
+                            inviteType = 'guest_phone_contact';
+                        }
+
+                        const guestType = inviteType === 'guest_phone' ? 'guest (phone)' :
+                            inviteType === 'email' ? 'email invite' :
+                                inviteType === 'guest_phone_contact' ? 'guest contact' : 'guest';
+
                         previews.push(`
                             <div style="padding: 6px; background: var(--warning-light); border: 1px solid var(--warning); border-radius: 4px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                                 <i class="fas fa-user-plus" style="color: var(--warning); font-size: 0.8rem;"></i>
                                 <div style="flex: 1;">
-                                    <strong style="color: var(--warning); font-size: 0.85rem;">"${member}"</strong>
-                                    <small style="color: var(--text-gray); font-size: 0.75rem;">Will be added as ${guestType}</small>
+                                    <strong style="color: var(--warning); font-size: 0.85rem;">${displayStr}</strong>
+                                    <small style="color: var(--text-gray); font-size: 0.75rem; display: block;">Will be added as ${guestType}</small>
                                 </div>
                             </div>
                         `);
@@ -13296,24 +13322,36 @@
                 let existingUser = null;
                 let userDisplayName = '';
 
+                // Parse contact picker format "Name|Phone"
+                let contactName = '';
+                let contactPhone = '';
+                let searchVal = inputVal;
+
+                if (inputVal.includes('|')) {
+                    const parts = inputVal.split('|');
+                    contactName = parts[0].trim();
+                    contactPhone = parts[1].trim();
+                    searchVal = contactPhone;
+                }
+
                 // Check if input is an email
-                if (inputVal.includes('@')) {
+                if (searchVal.includes('@')) {
                     inviteType = 'email';
 
                     // Check if email belongs to an existing user
-                    const emailSnap = await db.collection('users').where('email', '==', inputVal.toLowerCase()).get();
+                    const emailSnap = await db.collection('users').where('email', '==', searchVal.toLowerCase()).get();
                     if (!emailSnap.empty) {
                         existingUser = { id: emailSnap.docs[0].id, ...emailSnap.docs[0].data() };
                         userDisplayName = `${existingUser.firstName} ${existingUser.lastName || ''}`.trim();
                         inviteType = 'existing_user';
                     }
                 }
-                // Check if input is a phone number
-                else if (/^[\d+\-\s()]{7,}$/.test(inputVal)) {
+                // Check if input is a phone number (or extracted phone)
+                else if (/^[\d+\-\s()]{7,}$/.test(searchVal)) {
                     inviteType = 'phone';
 
                     // Clean the phone number for database lookup
-                    const cleanPhone = inputVal.replace(/[^\d+]/g, '');
+                    const cleanPhone = searchVal.replace(/[^\d+]/g, '');
 
                     // Check if phone belongs to an existing user
                     const phoneSnap = await db.collection('users').where('phone', '==', cleanPhone).get();
@@ -13351,7 +13389,20 @@
                     };
 
                     await db.collection('group_invites').add(inviteData);
-                    showToast('Success', `Invitation sent to ${userDisplayName}!`, 'success');
+
+                    // Allow immediate addition if it is a public group or config allows
+                    // For now, let's just add them directly if found (mimicking "Add" behavior)
+                    // Or keep as invite? The requirement says "Add the user as a proper app member".
+                    // If we want to force add them:
+                    await db.collection('groups').doc(groupId).update({
+                        members: firebase.firestore.FieldValue.arrayUnion(existingUser.id)
+                    });
+
+                    showToast('Success', `Added ${userDisplayName} to group!`, 'success');
+
+                    // Refresh view
+                    document.querySelector('.modal-overlay').remove();
+                    await viewGroupDetails(groupId);
 
                 } else if (inviteType === 'email') {
                     // Send email invitation
@@ -13359,20 +13410,27 @@
                     await db.collection('group_invites').add({
                         groupId,
                         groupName: groupDoc.data().name,
-                        toEmail: inputVal,
+                        toEmail: searchVal,
                         invitedBy: currentUser.uid,
                         invitedByName: `${currentUser.firstName} ${currentUser.lastName || ''}`.trim(),
                         status: 'pending',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
-                    showToast('Success', `Email invitation sent to ${inputVal}!`, 'success');
+                    showToast('Success', `Email invitation sent to ${searchVal}!`, 'success');
 
                 } else if (inviteType === 'phone' || inviteType === 'guest_phone') {
                     // For phone numbers without existing accounts, add as guest
+                    // Prefer the original "Name|Phone" format if available, otherwise just phone
+                    const guestValue = inputVal.includes('|') ? inputVal : searchVal;
+
                     await db.collection('groups').doc(groupId).update({
-                        guestMembers: firebase.firestore.FieldValue.arrayUnion(inputVal)
+                        guestMembers: firebase.firestore.FieldValue.arrayUnion(guestValue)
                     });
-                    showToast('Success', `Added ${inputVal} as guest member!`, 'success');
+
+                    // If it was just a raw phone number, might want to display it nicer?
+                    // But "Name|Phone" is already handled by viewGroupDetails for display.
+
+                    showToast('Success', `Added guest member!`, 'success');
 
                     // Refresh view
                     document.querySelector('.modal-overlay').remove();
@@ -13394,13 +13452,15 @@
 
                 // Clear input and close modal for successful invitations
                 document.getElementById('newMemberInput').value = '';
-                document.querySelector('.modal-overlay').remove();
+                if (document.querySelector('.modal-overlay')) {
+                    document.querySelector('.modal-overlay').remove();
+                }
 
             } catch (error) {
                 console.error('Add member error:', error);
                 showToast('Error', error.message, 'error');
             } finally {
-                if (document.querySelector('.modal-overlay')) {
+                if (document.querySelector('.modal-overlay') && document.getElementById('addMemberForm')) {
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fas fa-plus"></i> Add';
                 }
