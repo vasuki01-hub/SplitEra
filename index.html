@@ -36,8 +36,8 @@
             --bg-light: #F9FAFB;
             --bg-white: #FFFFFF;
             --text-dark: #1F2937;
-            --text-gray: #6B7280;
-            --border: #E5E7EB;
+            --text-gray: #34373c;
+            --border: #c7c7c780;
             --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
@@ -395,132 +395,272 @@
             margin: 0.5rem 0;
         }
 
+        /* Animated Hamburger */
         .hamburger {
             display: none;
             background: none;
             border: none;
-            font-size: 1.5rem;
-            color: var(--text-dark);
             cursor: pointer;
+            width: 40px;
+            height: 40px;
+            position: relative;
+            z-index: 1100;
+            padding: 0;
+            align-items: center;
+            justify-content: center;
         }
+
+        .hamburger-box {
+            width: 24px;
+            height: 24px;
+            display: inline-block;
+            position: relative;
+        }
+
+        .hamburger-inner {
+            display: block;
+            top: 50%;
+            margin-top: -2px;
+        }
+
+        .hamburger-inner,
+        .hamburger-inner::before,
+        .hamburger-inner::after {
+            width: 24px;
+            height: 2px;
+            background-color: var(--text-dark);
+            border-radius: 4px;
+            position: absolute;
+            transition-property: transform;
+            transition-duration: 0.15s;
+            transition-timing-function: ease;
+        }
+
+        .hamburger-inner::before,
+        .hamburger-inner::after {
+            content: "";
+            display: block;
+        }
+
+        .hamburger-inner::before {
+            top: -8px;
+        }
+
+        .hamburger-inner::after {
+            bottom: -8px;
+        }
+
+        .hamburger.active .hamburger-inner {
+            transform: translate3d(0, -10px, 0) rotate(-45deg);
+        }
+
+        .hamburger.active .hamburger-inner::before {
+            transform: rotate(-45deg) translate3d(-5.71429px, -6px, 0);
+            opacity: 0;
+        }
+
+        .hamburger.active .hamburger-inner::after {
+            transform: translate3d(0, 10px, 0) rotate(-90deg);
+            bottom: 0;
+        }
+
+        /* Fix for the specific animation style requested - Morphing X */
+        .hamburger.active .hamburger-inner {
+            background-color: transparent !important;
+        }
+
+        .hamburger.active .hamburger-inner::before {
+            transform: translateY(8px) rotate(45deg);
+            opacity: 1;
+        }
+
+        .hamburger.active .hamburger-inner::after {
+            transform: translateY(-8px) rotate(-45deg);
+            bottom: -2px;
+            /* Adjustment */
+        }
+
 
         /* Mobile Bottom Navigation */
         .mobile-bottom-nav {
-            border-radius: 1.6rem;
             display: none;
             position: fixed;
-            bottom: 10px;
-            left: 20px;
-            right: 20px;
-            background: #000000c7;
-            border-top: 0px solid #374151;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 400px;
+            background: rgba(255, 255, 255, 0.85);
+            /* Light mode default */
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 0.75rem 0.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             z-index: 1000;
-            padding: 0.5rem 0;
-            box-shadow: 0 10px 6px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .mobile-bottom-nav {
+                background: rgb(30 30 30 / 19%);
+                border: 1px solid rgba(255, 255, 255, 0.05);
+            }
+        }
+
+        body.dark-mode .mobile-bottom-nav {
+            background: rgba(30, 30, 30, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .mobile-bottom-nav-content {
             display: flex;
-            justify-content: space-around;
+            justify-content: space-between;
             align-items: center;
-            max-width: 100%;
-            padding: 0 0.25rem;
+            position: relative;
         }
 
         .mobile-nav-item {
-            margin: -3px 0.2rem -8px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             flex: 1;
-            padding: 0.4rem 0.25rem;
-            color: #9CA3AF;
+            color: var(--text-gray);
             text-decoration: none;
-            transition: all 0.3s;
+            padding: 0.25rem;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
-            min-width: 0;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .mobile-nav-item i {
-            font-size: 1.8rem;
-            margin-bottom: 0.2rem;
+            font-size: 1.7rem;
+            margin-bottom: 0.25rem;
+            transition: transform 0.25s;
         }
 
         .mobile-nav-item span {
-            font-size: 0.56rem;
+            font-size: 0.65rem;
             font-weight: 500;
-            white-space: wrap;
-            overflow: visible;
-            text-overflow: ellipsis;
-            max-width: 100%;
+            opacity: 0.8;
         }
 
 
 
+        .mobile-nav-item.active span {
+            font-weight: 600;
+            opacity: 1;
+        }
+
+        /* Center ADD Button */
         .mobile-nav-item.center-button {
-            flex: 0 0 auto;
-            width: 52px;
-            height: 52px;
-            border-radius: 14px;
-            margin: -5px 0.2rem -8px;
+            position: relative;
+            top: -25px;
+            background: var(--primary);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(255, 140, 66, 0.4);
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            position: relative;
-            z-index: 10;
+            color: white !important;
+            flex: 0 0 50px;
+            margin: 0 0.5rem;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 4px solid var(--bg-white);
+            /* Creates the "cutout" effect */
         }
 
-
-        .mobile-nav-item.center-button span {
-            display: block;
-            font-size: 0.55rem;
-            font-weight: 600;
-        }
-
-        .mobile-nav-item.center-button::before {
-            content: '';
-            position: absolute;
-            top: -3px;
-            left: -3px;
-            right: -3px;
-            bottom: -3px;
-            border-radius: 18px;
-            z-index: -1;
-            filter: blur(10px);
-            opacity: 0.6;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 0.6;
-                transform: scale(1);
-            }
-
-            50% {
-                opacity: 0.8;
-                transform: scale(1.05);
+        /* Handle border color in dark mode for cutout effect */
+        @media (prefers-color-scheme: dark) {
+            .mobile-nav-item.center-button {
+                border-color: #1a1a1a;
             }
         }
 
-        .mobile-nav-item:hover,
-        .mobile-nav-item:focus,
-        .mobile-nav-item:active {
-            color: #FF8C42;
-            transform: translateY(-1px);
+        body.dark-mode .mobile-nav-item.center-button {
+            border-color: var(--bg-body);
         }
 
-        .mobile-nav-item.active {
+        .mobile-nav-item.center-button:active {
+            transform: scale(0.9);
+        }
+
+        .mobile-nav-item.center-button i {
+            font-size: 1.5rem;
+            margin: 0;
+            transform: none !important;
+        }
+
+        /* Quick Add Modal/Sheet */
+        .quick-add-modal {
+            position: fixed;
+            bottom: 90px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            width: 200px;
+            background: var(--bg-white);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            padding: 0.5rem;
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid var(--border);
+        }
+
+        .quick-add-modal.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .quick-add-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            width: 100%;
+            border: none;
+            background: none;
+            color: var(--text-dark);
+            font-weight: 500;
+            cursor: pointer;
             border-radius: 8px;
+            transition: background 0.2s;
+            text-align: left;
         }
 
-        .mobile-nav-item.center-button.active {
-            color: white;
-            background: rgba(255, 140, 66, 0.8);
-            box-shadow: 0 0 20px rgba(255, 140, 66, 0.4);
+        .quick-add-option:hover {
+            background: var(--bg-light);
+            color: var(--primary);
+        }
+
+        .quick-add-option i {
+            width: 24px;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        /* Responsive */
+        @media (min-width: 769px) {
+
+            .mobile-bottom-nav,
+            .quick-add-modal {
+                display: none !important;
+            }
+        }
+
+        /* Adjusted padding for main content to prevent overlap */
+        @media (max-width: 768px) {
+            .main-content {
+                padding-bottom: 100px;
+                /* Space for floating nav */
+            }
         }
 
         /* Mobile navigation links (hamburger menu) */
@@ -7504,7 +7644,7 @@
                         <!-- CTA Section -->
                         <div style="margin-top: 8rem; text-align: center;">
                             <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 2rem;">${t('readyToStartSplitting')}</h2>
-                            <button class="btn btn-primary" onclick="renderAuthPage()" style="padding: 1.25rem 3.5rem; font-size: 1.25rem; width: 50%; border-radius: 2rem; box-shadow: 0 10px 20px rgba(255, 140, 66, 0.3);">
+                            <button class="btn btn-primary" onclick="renderAuthPage()" style="padding: 1.25rem 3.5rem; font-size: 1.25rem; width: 50%; border-radius: 2rem; box-shadow: 0 10px 20px rgb(0 0 0 / 49%);">
                                 ${t('getStarted')}
                             </button>
                         </div>
@@ -8816,7 +8956,7 @@
                     <!-- Mobile Top Bar -->
                     <div class="mobile-top-bar">
                         <div class="logo">
-                                <img src="favicon.png" alt="SplitEra Logo" style="width: 45px;h;height: auto;t-fit: contain;border-radius: 1rem;">
+                                <img src="favicon.png" alt="SplitEra Logo" style="width: 45px;height: auto;t-fit: contain;border-radius: 1rem;">
                             </div>
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <button class="theme-toggle" onclick="toggleTheme()" style="background: none; border: none; color: var(--text-primary); font-size: 1.2rem;">
@@ -8826,6 +8966,7 @@
                                 <img src="${currentUser.photoUrl || 'https://ui-avatars.com/api/?name=' + currentUser.firstName + '+' + currentUser.lastName}" 
                                      alt="User" class="user-avatar" style="width: 32px; height: 32px;" onclick="toggleUserDropdown(event, 'mobile')">
                             </div>
+                            
                         </div>
                     </div>
 
@@ -8856,8 +8997,12 @@
                             <div class="logo">
                                 <img src="logo.png" alt="SplitEra Logo" style="border-radius: 1rem; width: 120px; height: auto; object-fit: contain;">
                             </div>
-                            <button class="hamburger" onclick="toggleMobileMenu()">
-                                <i class="fas fa-times"></i>
+                            <!-- Close button inside menu is handled by the toggle function logic usually, 
+                                 but here we can just have a simple close icon or reuse hamburger logic -->
+                            <button class="hamburger active" onclick="toggleMobileMenu()" style="display: flex;">
+                                <span class="hamburger-box">
+                                    <span class="hamburger-inner"></span>
+                                </span>
                             </button>
                         </div>
                         <div class="mobile-nav-links">
@@ -8869,17 +9014,18 @@
                             <a href="#" class="mobile-nav-link" data-page="details" onclick="mobileNavigate('details')">${t('details')}</a>
                             <a href="#" class="mobile-nav-link" data-page="settings" onclick="mobileNavigate('settings')">${t('settings')}</a>
                         </div>
-                        <div class="dropdown-item" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i>Logout</div>
+                        <div class="dropdown-item" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> ${t('logout')}</div>
 
                                         <div class="dropdown-divider"></div>
 
-                        <div class="dropdown-item" onclick="handleDeleteAccount()" style="color: var(--danger);"><i class="fas fa-trash"></i>Delete Account</div>
+                        <div class="dropdown-item" onclick="handleDeleteAccount()" style="color: var(--danger);"><i class="fas fa-trash"></i> ${t('deleteAccount')}</div>
                     </div>
                     <main class="main-content" id="mainContent">
                         <!-- Page content will be rendered here -->
                     </main>
-                    <!-- Mobile Bottom Navigation -->
-                    <div class="mobile-bottom-nav" id="mobileBottomNav">
+
+                    <!-- Mobile Bottom Navigation (New 7-item layout) -->
+                    <div class="mobile-bottom-nav" id="mobileBottomNav" style="border-radius: 2.4rem; box-shadow: 0 0px 5px;">
                         <div class="mobile-bottom-nav-content">
                             <a href="#" class="mobile-nav-item active" data-page="dashboard" onclick="mobileNavigate('dashboard'); return false;">
                                 <i class="fas fa-home"></i>
@@ -8889,7 +9035,7 @@
                                 <i class="fas fa-wallet"></i>
                                 <span>${t('creditBalance')}</span>
                             </a>
-                            <a href="#" class="mobile-nav-item center-button" data-page="personal" onclick="mobileNavigate('personal'); return false;">
+                            <a href="#" class="mobile-nav-item" data-page="personal" onclick="mobileNavigate('personal'); return false;">
                                 <i class="fas fa-receipt"></i>
                                 <span>${t('personal')}</span>
                             </a>
@@ -8964,6 +9110,15 @@
 
         function mobileNavigate(page) {
             navigateTo(page);
+            // Close menu if open
+            const menu = document.getElementById('mobileMenu');
+            const hamburger = document.querySelectorAll('.hamburger');
+            if (menu && menu.classList.contains('active')) {
+                menu.classList.remove('active');
+                hamburger.forEach(h => h.classList.remove('active'));
+                document.body.style.overflow = '';
+            }
+
             // Update active state in bottom nav
             document.querySelectorAll('.mobile-nav-item').forEach(item => {
                 item.classList.remove('active');
@@ -8978,6 +9133,45 @@
                     link.classList.add('active');
                 }
             });
+        }
+
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobileMenu');
+            const hamburger = document.querySelectorAll('.hamburger');
+
+            if (menu) {
+                menu.classList.toggle('active');
+                hamburger.forEach(h => h.classList.toggle('active'));
+
+                if (menu.classList.contains('active')) {
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    document.body.style.overflow = '';
+                }
+            }
+        }
+
+        function toggleQuickAdd() {
+            const modal = document.getElementById('quickAddModal');
+            const btn = document.querySelector('.mobile-nav-item.center-button');
+
+            if (modal) {
+                modal.classList.toggle('show');
+                if (btn) btn.classList.toggle('active');
+
+                // Close when clicking outside
+                if (modal.classList.contains('show')) {
+                    const closeHandler = (e) => {
+                        if (!modal.contains(e.target) && !e.target.closest('.center-button')) {
+                            modal.classList.remove('show');
+                            if (btn) btn.classList.remove('active');
+                            document.removeEventListener('click', closeHandler);
+                        }
+                    };
+                    // Delay adding listener to avoid immediate trigger
+                    setTimeout(() => document.addEventListener('click', closeHandler), 0);
+                }
+            }
         }
 
         function toggleUserDropdown(event, mode = 'desktop') {
@@ -10519,10 +10713,14 @@
                     Object.keys(grouped).sort().reverse().forEach(month => {
                         const [year, monthNum] = month.split('-');
                         const monthName = getMonthName(parseInt(monthNum) - 1);
+                        const monthTotal = grouped[month].reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
 
                         html += `
                             <div class="month-group">
-                                <div class="month-header">${monthName} ${year}</div>
+                                <div class="month-header">
+                                    <span>${monthName} ${year}</span>
+                                    <span style="font-size: 0.9em; font-weight: 600; color: var(--success);">${formatCurrency(monthTotal)}</span>
+                                </div>
                                 <div class="table-wrapper">
                                     <table class="table">
                                         <thead>
@@ -11302,10 +11500,14 @@
                     Object.keys(grouped).sort().reverse().forEach(month => {
                         const [year, monthNum] = month.split('-');
                         const monthName = getMonthName(parseInt(monthNum) - 1);
+                        const monthTotal = grouped[month].reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
 
                         html += `
                             <div class="month-group">
-                                <div class="month-header">${monthName} ${year}</div>
+                                <div class="month-header">
+                                    <span>${monthName} ${year}</span>
+                                    <span style="font-size: 0.9em; font-weight: 600; color: var(--danger);">${formatCurrency(monthTotal)}</span>
+                                </div>
                                 <div class="table-wrapper">
                                     <table class="table">
                                         <thead>
@@ -11353,8 +11555,8 @@
                                         </tbody>
                                     </table>
                                 </div>
-                            </div>
-                        `;
+                            </div >
+                            `;
                     });
 
                     container.innerHTML = html;
@@ -11367,7 +11569,7 @@
                         const loadMoreBtn = document.createElement('button');
                         loadMoreBtn.className = 'btn btn-secondary';
                         loadMoreBtn.onclick = () => loadMorePersonalExpenses();
-                        loadMoreBtn.innerHTML = `<i class="fas fa-plus"></i> ${escapeHTML(t('loadMore'))}`;
+                        loadMoreBtn.innerHTML = `< i class="fas fa-plus" ></i > ${escapeHTML(t('loadMore'))} `;
 
                         loadMoreDiv.appendChild(loadMoreBtn);
                         container.appendChild(loadMoreDiv);
@@ -11384,7 +11586,7 @@
             const modal = document.createElement('div');
             modal.className = 'modal-overlay show';
             modal.innerHTML = `
-                <div class="modal">
+                            < div class="modal" >
                     <div class="modal-header">
                         <h3 class="modal-title">${t('addExpense')}</h3>
                         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
@@ -11449,8 +11651,8 @@
                             ${t('save')}
                         </button>
                     </div>
-                </div>
-            `;
+                </div >
+                            `;
             document.body.appendChild(modal);
 
             // Preview attachments
@@ -11486,11 +11688,11 @@
                     const div = document.createElement('div');
                     div.className = 'attachment';
                     div.innerHTML = `
-                        <img src="${e.target.result}" alt="Preview ${idx + 1}">
-                        <button class="attachment-remove" onclick="removePersonalNewAttachment(${idx})">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    `;
+                            < img src = "${e.target.result}" alt = "Preview ${idx + 1}" >
+                                <button class="attachment-remove" onclick="removePersonalNewAttachment(${idx})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                        `;
                     preview.appendChild(div);
                 };
                 reader.readAsDataURL(file);
@@ -11523,7 +11725,7 @@
                 const attachments = [];
 
                 for (let file of files) {
-                    const ref = storage.ref(`personal/${currentUser.uid}/${Date.now()}_${file.name}`);
+                    const ref = storage.ref(`personal / ${currentUser.uid}/${Date.now()}_${file.name}`);
                     await ref.put(file);
                     const url = await ref.getDownloadURL();
                     attachments.push(url);
@@ -18874,6 +19076,9 @@
             }
 
             .month-header {
+                    display: flex;
+    justify-content: space-between;
+    align-items: center;
                 background: #160901;
                 color: white;
                 padding: 0.75rem 1rem;
