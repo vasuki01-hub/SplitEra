@@ -1769,34 +1769,28 @@ let storage;
 async function initFirebase() {
     try {
         const response = await fetch("/api/firebaseConfig");
-
-        if (!response.ok) {
-            throw new Error("Failed to load Firebase config");
-        }
-
         const firebaseConfig = await response.json();
 
-        // Prevent duplicate initialization
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
 
-        // Initialize services
         auth = firebase.auth();
         db = firebase.firestore();
         storage = firebase.storage();
 
-        // Set persistence
         await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
-        console.log("Firebase initialized successfully");
+        console.log("Firebase initialized");
+
+        // 🔥 IMPORTANT: Run Google redirect AFTER init
+        await handleGoogleAuthRedirect();
 
     } catch (error) {
-        console.error("Firebase initialization error:", error);
+        console.error("Firebase init error:", error);
     }
 }
 
-// Initialize after page loads
 window.addEventListener("load", initFirebase);
 
         
@@ -19915,7 +19909,7 @@ window.addEventListener("load", initFirebase);
             }
 
             // Handle Google auth redirect
-            await handleGoogleAuthRedirect();
+           
 
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.addEventListener('click', (e) => {
