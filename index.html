@@ -1799,9 +1799,7 @@ async function initFirebase() {
 // Initialize after page loads
 window.addEventListener("load", initFirebase);
 
-        // Ensure persistence is set to LOCAL
-        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-            .catch(err => console.error('Auth persistence error:', err));
+        
 
         // Translations
         const translations = {
