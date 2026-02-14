@@ -19921,221 +19921,120 @@ window.addEventListener("load", initFirebase);
         });
 
 
-        // Initialize app
-        let isAuthProcessing = false;
-        firebase.auth().onAuthStateChanged(async (user) => {
+       function initializeApp() {
 
-            if (isAuthProcessing) {
-                return;
-            }
-            isAuthProcessing = true;
+    auth.onAuthStateChanged(async (user) => {
 
-            if (user) {
-                try {
-                    showLoading();
+        if (isAuthProcessing) return;
+        isAuthProcessing = true;
 
-                    // Try to get user document
-                    let userDoc = await db.collection('users').doc(user.uid).get();
+        if (user) {
+            try {
+                showLoading();
 
-                    // Retry logic with improved delay steps
-                    if (!userDoc.exists) {
+                let userDoc = await db.collection('users').doc(user.uid).get();
 
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        userDoc = await db.collection('users').doc(user.uid).get();
-                    }
+                if (!userDoc.exists) {
+                    await new Promise(r => setTimeout(r, 2000));
+                    userDoc = await db.collection('users').doc(user.uid).get();
+                }
 
-                    if (!userDoc.exists) {
-                        await new Promise(resolve => setTimeout(resolve, 4000));
-                        userDoc = await db.collection('users').doc(user.uid).get();
-                    }
+                if (!userDoc.exists) {
+                    await new Promise(r => setTimeout(r, 4000));
+                    userDoc = await db.collection('users').doc(user.uid).get();
+                }
 
-                    if (userDoc.exists) {
-                        const userData = userDoc.data();
+                if (userDoc.exists) {
 
-                        // Build complete user object
-                        currentUser = {
-                            uid: user.uid,
+                    const userData = userDoc.data();
+
+                    currentUser = {
+                        uid: user.uid,
+                        email: user.email,
+                        userId: userData.userId || user.uid.substring(0, 8),
+                        firstName: userData.firstName || 'User',
+                        lastName: userData.lastName || '',
+                        phone: userData.phone || '',
+                        photoUrl: userData.photoUrl || '',
+                        currency: userData.currency || 'USD',
+                        country: userData.country || 'US',
+                        language: userData.language || 'en',
+                        darkMode: userData.darkMode || false
+                    };
+
+                    document.documentElement.setAttribute(
+                        'data-theme',
+                        currentUser.darkMode ? 'dark' : 'light'
+                    );
+
+                    setupDataListeners(user.uid, user.email, currentUser.phone);
+
+                    renderMainLayout();
+                    currentPage = 'dashboard';
+                    await navigate('dashboard');
+
+                    await checkPendingInvites(currentUser);
+
+                    hideLoading();
+
+                } else {
+
+                    const signupData = sessionStorage.getItem('newUserData');
+
+                    if (signupData) {
+                        const newUserData = JSON.parse(signupData);
+
+                        await db.collection('users').doc(user.uid).set({
+                            userId: user.uid.substring(0, 8),
                             email: user.email,
-                            userId: userData.userId || user.uid.substring(0, 8),
-                            firstName: userData.firstName || 'User',
-                            lastName: userData.lastName || '',
-                            phone: userData.phone || '',
-                            photoUrl: userData.photoUrl || '',
-                            currency: userData.currency || 'USD',
-                            country: userData.country || 'US',
-                            language: userData.language || 'en',
-                            darkMode: userData.darkMode || false
-                        };
+                            firstName: newUserData.firstName || 'User',
+                            lastName: newUserData.lastName || '',
+                            phone: newUserData.phone || '',
+                            currency: 'USD',
+                            country: 'US',
+                            language: 'en',
+                            darkMode: false,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
 
-                        // Apply user preferences
-                        localStorage.setItem('currency', currentUser.currency);
-                        localStorage.setItem('country', currentUser.country);
-                        localStorage.setItem('language', currentUser.language);
-                        localStorage.setItem('lang', currentUser.language);
-                        localStorage.setItem('theme', currentUser.darkMode ? 'dark' : 'light');
-                        currentLanguage = currentUser.language;
-                        currentLang = currentUser.language;
-                        currentTheme = currentUser.darkMode ? 'dark' : 'light';
+                        sessionStorage.removeItem('newUserData');
 
-                        // Apply theme using data-theme attribute (matches CSS selector)
-                        document.documentElement.setAttribute('data-theme', currentUser.darkMode ? 'dark' : 'light');
+                        showToast('Success', 'Account created! Welcome ' + newUserData.firstName);
 
-                        // Initialize real-time data listeners
-                        setupDataListeners(user.uid, user.email, currentUser.phone);
-
-                        // Show dashboard
                         renderMainLayout();
-                        currentPage = 'dashboard';
                         await navigate('dashboard');
 
-                        // Check for any pending invites/guest links
-                        checkPendingInvites(currentUser);
-
-                        hideLoading();
-
                     } else {
-                        // User document doesn't exist - this is a new user from signup
-
-                        // Check if this is right after signup
-                        const signupData = sessionStorage.getItem('newUserData');
-                        if (signupData) {
-                            // Create user document from signup data
-                            const newUserData = JSON.parse(signupData);
-                            await db.collection('users').doc(user.uid).set({
-                                userId: user.uid.substring(0, 8),
-                                email: user.email,
-                                firstName: newUserData.firstName || 'User',
-                                lastName: newUserData.lastName || '',
-                                phone: newUserData.phone || '',
-                                currency: 'USD',
-                                country: 'US',
-                                language: 'en',
-                                darkMode: false,
-                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                            });
-
-                            sessionStorage.removeItem('newUserData');
-
-                            // Build current user object
-                            currentUser = {
-                                uid: user.uid,
-                                email: user.email,
-                                userId: user.uid.substring(0, 8),
-                                firstName: newUserData.firstName || 'User',
-                                lastName: newUserData.lastName || '',
-                                phone: newUserData.phone || '',
-                                photoUrl: '',
-                                currency: 'USD',
-                                country: 'US',
-                                language: 'en',
-                                darkMode: false
-                            };
-
-                            // Initialize data listeners
-                            setupDataListeners(user.uid, user.email, currentUser.phone);
-
-                            showToast('Success', 'Account created! Welcome ' + newUserData.firstName);
-                            await renderMainLayout();
-                            await navigate('dashboard');
-                        } else {
-                            // No signup data and no user doc - sign out to prevent loop
-                            console.error('User document not found and no signup data');
-                            showToast('Error', 'User profile not found. Please sign up again.', 'error');
-                            await firebase.auth().signOut();
-                            renderUserGuidePage();
-                        }
-
-                        hideLoading();
+                        await auth.signOut();
+                        renderUserGuidePage();
                     }
 
-                } catch (error) {
-                    console.error('❌ Error loading user:', error);
-                    showToast('Error', 'Failed to load user: ' + error.message, 'error');
-                    await firebase.auth().signOut();
-                    renderUserGuidePage();
                     hideLoading();
-                } finally {
-                    isAuthProcessing = false;
                 }
-            } else {
-                // User logged out
+
+            } catch (error) {
+                console.error('Error loading user:', error);
+                await auth.signOut();
                 renderUserGuidePage();
+                hideLoading();
+            } finally {
                 isAuthProcessing = false;
             }
-        });
 
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.user-menu')) {
-                document.getElementById('userDropdown')?.classList.remove('show');
-            }
-        });
-        async function checkPendingInvites(user) {
-            if (!user) return;
-
-            try {
-                const batch = db.batch();
-                let hasUpdates = false;
-
-                // 1. Check Guest Memberships (Phone match)
-                if (user.phone) {
-                    const cleanPhone = user.phone.replace(/[^\d+]/g, '');
-
-                    const guestGroupsSnap = await db.collection('groups')
-                        .where('guestMembers', 'array-contains', cleanPhone)
-                        .get();
-
-                    guestGroupsSnap.forEach(doc => {
-                        const groupRef = db.collection('groups').doc(doc.id);
-                        const data = doc.data();
-
-                        if (!data.members.includes(user.uid)) {
-                            batch.update(groupRef, {
-                                members: firebase.firestore.FieldValue.arrayUnion(user.uid),
-                                guestMembers: firebase.firestore.FieldValue.arrayRemove(cleanPhone)
-                            });
-                            // Also try removing the raw user.phone just in case
-                            if (cleanPhone !== user.phone) {
-                                batch.update(groupRef, {
-                                    guestMembers: firebase.firestore.FieldValue.arrayRemove(user.phone)
-                                });
-                            }
-
-                            showToast('Info', `You have been automatically added to group: ${data.name}`);
-                            hasUpdates = true;
-                        }
-                    });
-                }
-
-                // 2. Check Guest Memberships (Email match)
-                if (user.email) {
-                    const guestGroupsSnapEmail = await db.collection('groups')
-                        .where('guestMembers', 'array-contains', user.email)
-                        .get();
-
-                    guestGroupsSnapEmail.forEach(doc => {
-                        const groupRef = db.collection('groups').doc(doc.id);
-                        const data = doc.data();
-                        if (!data.members.includes(user.uid)) {
-                            batch.update(groupRef, {
-                                members: firebase.firestore.FieldValue.arrayUnion(user.uid),
-                                guestMembers: firebase.firestore.FieldValue.arrayRemove(user.email)
-                            });
-                            showToast('Info', `You have been automatically added to group: ${data.name}`);
-                            hasUpdates = true;
-                        }
-                    });
-                }
-
-                if (hasUpdates) {
-                    await batch.commit();
-                    if (currentPage === 'groups') loadGroups();
-                }
-
-            } catch (e) {
-                console.error('Error checking invites:', e);
-            }
+        } else {
+            renderUserGuidePage();
+            isAuthProcessing = false;
         }
+    });
+
+    // Outside click handler
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.user-menu')) {
+            document.getElementById('userDropdown')?.classList.remove('show');
+        }
+    });
+}
+
     </script>
 </body>
 
