@@ -281,12 +281,12 @@
         .header {
             border-radius: 2rem;
             background: var(--bg-white);
-            border-bottom: 2px solid #ff8c42;
+            border-bottom: 0px solid #ff8c42;
             padding: 1rem 1.5rem;
             position: relative;
             top: 3px;
             z-index: 100;
-            box-shadow: var(--shadow);
+                box-shadow: 0 0px 3px;
         }
 
         .header-content {
@@ -499,8 +499,14 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
             z-index: 1000;
-            transition: all 0.3s ease;
+            transition: color 0.3s ;
         }
+
+.mobile-nav-item:hover, 
+.mobile-nav-item.active {
+    color: var(--primary);
+    }
+
 
         @media (prefers-color-scheme: dark) {
             .mobile-bottom-nav {
@@ -554,26 +560,7 @@
             opacity: 1;
         }
 
-        /* Center ADD Button */
-        .mobile-nav-item.center-button {
-            position: relative;
-            top: -25px;
-            background: var(--primary);
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            box-shadow: 0 4px 15px rgba(255, 140, 66, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white !important;
-            flex: 0 0 50px;
-            margin: 0 0.5rem;
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            border: 4px solid var(--bg-white);
-            /* Creates the "cutout" effect */
-        }
-
+        
         /* Handle border color in dark mode for cutout effect */
         @media (prefers-color-scheme: dark) {
             .mobile-nav-item.center-button {
@@ -686,6 +673,8 @@
                 transition: transform 0.1s ease;
             }
         }
+
+        
 
         /* Expense expansion styling */
         .expense-details-row {
@@ -1496,15 +1485,16 @@
             border-radius: 2rem;
             display: none;
             position: absolute;
-            left: 0;
-            right: 0;
+            left: 5px;
+            right: 5px;
             height: 60px;
             background: var(--bg-white);
-            border-bottom: 2px solid #ff8c42;
+            border-bottom: 0px solid #ff8c42;
             z-index: 1000;
             padding: 0 1.5rem;
             align-items: center;
             justify-content: space-between;
+                box-shadow: 0 0px 3px
         }
 
         .mobile-top-bar .logo {
@@ -1745,6 +1735,13 @@
     <div class="loading" id="loading">
         <div class="spinner"></div>
     </div>
+
+<script>
+    fetch('/api/api_secrets')
+    .then(res => res.json())
+    .then(data => console.log("secrits variables ->", data))
+    </script>
+
     <script>
         // Application Configuration
         // CAUTION: In a production environment, sensitive keys like brevoApiKey should be 
@@ -1759,9 +1756,14 @@
                 messagingSenderId: "808906988475",
                 appId: "1:808906988475:web:26768298ec96ac0200429e"
             },
+
             supportEmail: 'splitera0@gmail.com'
 
         };
+
+
+
+console.log(process.env);
 
         // Initialize Firebase
         firebase.initializeApp(APP_CONFIG.firebase);
@@ -9005,15 +9007,7 @@
                                 </span>
                             </button>
                         </div>
-                        <div class="mobile-nav-links">
-                            <a href="#" class="mobile-nav-link active" data-page="dashboard" onclick="mobileNavigate('dashboard')">${t('dashboard')}</a>
-                            <a href="#" class="mobile-nav-link" data-page="credits" onclick="mobileNavigate('credits')">${t('creditBalance')}</a>
-                            <a href="#" class="mobile-nav-link" data-page="personal" onclick="mobileNavigate('personal')">${t('personal')}</a>
-                            <a href="#" class="mobile-nav-link" data-page="groups" onclick="mobileNavigate('groups')">${t('groups')}</a>
-                            <a href="#" class="mobile-nav-link" data-page="calendar" onclick="mobileNavigate('calendar')">${t('calendar')}</a>
-                            <a href="#" class="mobile-nav-link" data-page="details" onclick="mobileNavigate('details')">${t('details')}</a>
-                            <a href="#" class="mobile-nav-link" data-page="settings" onclick="mobileNavigate('settings')">${t('settings')}</a>
-                        </div>
+                       
                         <div class="dropdown-item" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> ${t('logout')}</div>
 
                                         <div class="dropdown-divider"></div>
