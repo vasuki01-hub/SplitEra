@@ -1762,7 +1762,14 @@
 initFirebase();
 
         // Initialize Firebase
-        
+        firebase.initializeApp(APP_CONFIG.firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        // Ensure persistence is set to LOCAL
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+            .catch(err => console.error('Auth persistence error:', err));
 
         // Translations
         const translations = {
