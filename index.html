@@ -1762,14 +1762,35 @@
 initFirebase();
 
         // Initialize Firebase
-        firebase.initializeApp(api/firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        const storage = firebase.storage();
+        let auth;
+let db;
+let storage;
 
-        // Ensure persistence is set to LOCAL
-        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-            .catch(err => console.error('Auth persistence error:', err));
+async function initFirebase() {
+    try {
+        const response = await fetch("/api/firebaseConfig");
+        const firebaseConfig = await response.json();
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+
+        auth = firebase.auth();
+        db = firebase.firestore();
+        storage = firebase.storage();
+
+        await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+        console.log("Firebase initialized successfully");
+
+    } catch (error) {
+        console.error("Firebase initialization error:", error);
+    }
+}
+
+// Wait until Firebase SDK is loaded
+window.addEventListener("load", initFirebase);
+
 
         // Translations
         const translations = {
