@@ -9881,8 +9881,8 @@
                     worksheetData.push(headers);
 
                     // Add data rows with formatted currency
-                    let monthTotal = 0;
                     const amountCols = options.amountColumns || [];
+                    const columnTotals = {}; // Track totals for each amount column
 
                     monthData.forEach(row => {
                         const rowData = headers.map(header => {
@@ -9894,10 +9894,7 @@
 
                             if (isAmountCol) {
                                 const numValue = parseFloat(value) || 0;
-                                // Deduct from total if it's an expense (amount is user share which is usually negative in balance context? 
-                                // Actually, typical exports show positive amounts. I need to be careful with signage.
-                                // In the `exportDashboardExcel` logic, expenses are negative.
-                                monthTotal += numValue;
+                                columnTotals[header] = (columnTotals[header] || 0) + numValue;
                                 return formatCurrency(numValue);
                             }
                             return value;
@@ -9913,9 +9910,9 @@
                                 header.toLowerCase().includes('balance');
 
                             if (isAmountCol) {
-                                return `Total: ${formatCurrency(monthTotal)}`;
+                                return `Total: ${formatCurrency(columnTotals[header] || 0)}`;
                             }
-                            return idx === 0 ? 'Month Total' : '';
+                            return idx === 0 ? t('monthTotal') || 'Month Total' : '';
                         });
                         worksheetData.push(totalRow);
                     }
@@ -15939,10 +15936,12 @@
                     doc.text(monthYear, 14, finalY);
                     finalY += 7; // Increased spacing
                     let monthTotal = 0;
+                    let monthYourShareTotal = 0;
                     const rows = monthExpenses.map(ex => {
                         const amt = parseFloat(ex.amount) || 0;
                         monthTotal += amt;
                         const myShare = breakdowns[ex.id]?.contributions?.[currentUser.uid] || 0;
+                        monthYourShareTotal += myShare;
                         return [
                             safeDate(ex.date).toLocaleDateString(),
                             ex.description,
@@ -15956,7 +15955,7 @@
                     rows.push([
                         { content: t('monthTotal'), colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } },
                         { content: formatCurrency(monthTotal, true), styles: { fontStyle: 'bold', textColor: [41, 128, 185] } },
-                        { content: '', styles: {} }
+                        { content: formatCurrency(monthYourShareTotal, true), styles: { fontStyle: 'bold', textColor: [41, 128, 185] } }
                     ]);
                     doc.autoTable({
                         startY: finalY,
