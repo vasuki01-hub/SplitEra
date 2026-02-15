@@ -7860,11 +7860,7 @@
                         return;
                     }
 
-                    // 3. Send real SMS OTP
-                    const confirmationResult = await auth.signInWithPhoneNumber(phone, window.recaptchaVerifier);
-                    window.signupConfirmationResult = confirmationResult;
-
-                    // 4. Store signup data temporarily
+                    // 3. Store signup data temporarily (No SMS OTP needed for registration)
                     const signupProcessData = {
                         firstName,
                         lastName,
@@ -7873,7 +7869,7 @@
                         phone,
                         emailOtp,
                         emailVerified: false,
-                        phoneVerified: false,
+                        phoneVerified: true, // We still collect it, but skip verification during signup per request
                         timestamp: Date.now()
                     };
                     sessionStorage.setItem('signupProcessData', JSON.stringify(signupProcessData));
@@ -7886,13 +7882,13 @@
                         reader.readAsDataURL(photoFile);
                     }
 
-                    // 5. Transition to Verification UI
+                    // 4. Transition to Verification UI
                     document.getElementById('signupForm').style.display = 'none';
                     const verificationSection = document.getElementById('signupVerificationSection');
                     verificationSection.style.display = 'block';
-                    verificationSection.innerHTML = getSignupVerificationHtml(email, phone, emailOtp);
+                    verificationSection.innerHTML = getSignupVerificationHtml(email, emailOtp);
 
-                    showToast('Success', 'Verification codes sent to your email and phone!', 'success');
+                    showToast('Success', 'Verification code sent to your email!', 'success');
 
                 } catch (error) {
                     console.error('❌ Signup Initiation Error:', error);
@@ -7906,11 +7902,11 @@
         }
 
         // Generate HTML for the Signup Verification section
-        function getSignupVerificationHtml(email, phone, emailOtp) {
+        function getSignupVerificationHtml(email, emailOtp) {
             return `
                 <div class="signup-verification">
                     <p style="margin-bottom: 1.5rem; color: var(--text-gray); font-size: 0.875rem;">
-                        To complete your registration, please verify your email and phone number.
+                        To complete your registration, please verify your email address.
                     </p>
                     
                     <div class="form-group">
@@ -7918,13 +7914,8 @@
                         <input type="text" class="form-input" id="signupEmailOtp" placeholder="Enter Email OTP" required>
                     </div>
 
-                    <div class="form-group" style="margin-top: 1.5rem;">
-                        <label class="form-label">${t('phone')} OTP (Sent to ${phone})</label>
-                        <input type="text" class="form-input" id="signupPhoneOtp" placeholder="Enter Phone OTP" required>
-                    </div>
-
                     <button type="button" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem;" onclick="handleSignupVerification()">
-                        <i class="fas fa-check-double"></i>
+                        <i class="fas fa-check"></i>
                         Verify and Create Account
                     </button>
                     
@@ -7940,7 +7931,6 @@
         // Handle the verification of signup OTPs and final account creation
         async function handleSignupVerification() {
             const emailInput = document.getElementById('signupEmailOtp').value.trim();
-            const phoneInput = document.getElementById('signupPhoneOtp').value.trim();
 
             const rawData = sessionStorage.getItem('signupProcessData');
             if (!rawData) {
@@ -7957,22 +7947,6 @@
                 const isEmailValid = await verifyOTP(data.email, emailInput);
                 if (!isEmailValid) {
                     showToast('Error', 'Email verification failed.', 'error');
-                    hideLoading();
-                    return;
-                }
-
-                // 2. Verify Phone SMS OTP
-                if (!window.signupConfirmationResult) {
-                    showToast('Error', 'Phone verification session missing. Please restart signup.', 'error');
-                    hideLoading();
-                    return;
-                }
-
-                try {
-                    await window.signupConfirmationResult.confirm(phoneInput);
-                } catch (phoneError) {
-                    console.error('❌ Phone Verification Error:', phoneError);
-                    showToast('Error', 'Invalid phone verification code.', 'error');
                     hideLoading();
                     return;
                 }
