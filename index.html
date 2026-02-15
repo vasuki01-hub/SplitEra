@@ -1753,8 +1753,6 @@
             return Math.floor(100000 + Math.random() * 900000).toString();
         }
 
-        // Duplicate initFirebase removed
-
 
         // Initialize Firebase
 
@@ -19859,7 +19857,7 @@
             currentPage = pageId;
 
             // Update nav links
-            document.querySelectorAll('.nav-link, .mobile-nav-link').forEach(link => {
+            document.querySelectorAll('.nav-link, .mobile-nav-link, .mobile-nav-item').forEach(link => {
                 link.classList.toggle('active', link.dataset.page === pageId);
             });
 
