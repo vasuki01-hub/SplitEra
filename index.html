@@ -286,7 +286,7 @@
             position: relative;
             top: 3px;
             z-index: 100;
-                box-shadow: 0 0px 3px;
+            box-shadow: 0 0px 3px;
         }
 
         .header-content {
@@ -499,13 +499,13 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
             z-index: 1000;
-            transition: color 0.3s ;
+            transition: color 0.3s;
         }
 
-.mobile-nav-item:hover, 
-.mobile-nav-item.active {
-    color: var(--primary);
-    }
+        .mobile-nav-item:hover,
+        .mobile-nav-item.active {
+            color: var(--primary);
+        }
 
 
         @media (prefers-color-scheme: dark) {
@@ -560,7 +560,7 @@
             opacity: 1;
         }
 
-        
+
         /* Handle border color in dark mode for cutout effect */
         @media (prefers-color-scheme: dark) {
             .mobile-nav-item.center-button {
@@ -674,7 +674,7 @@
             }
         }
 
-        
+
 
         /* Expense expansion styling */
         .expense-details-row {
@@ -1494,7 +1494,7 @@
             padding: 0 1.5rem;
             align-items: center;
             justify-content: space-between;
-                box-shadow: 0 0px 3px
+            box-shadow: 0 0px 3px
         }
 
         .mobile-top-bar .logo {
@@ -1739,61 +1739,49 @@
         // Application Configuration
         // CAUTION: In a production environment, sensitive keys like brevoApiKey should be 
         // handled via backend services (e.g., Firebase Cloud Functions) to avoid client-side exposure.
-        
-async function initFirebase() {
-  const response = await fetch("/api/firebaseConfig");
-  const firebaseConfig = await response.json();
 
-  firebase.initializeApp(firebaseConfig);
-
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-  const storage = firebase.storage();
-
-  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-      .catch(err => console.error(err));
-
-  console.log("Firebase initialized from API config");
-}
-
-initFirebase()
+        // Duplicate initFirebase removed
 
 
         // Initialize Firebase
-        
-       // Global references
-let auth;
-let db;
-let storage;
 
-async function initFirebase() {
-    try {
-        const response = await fetch("/api/firebaseConfig");
-        const firebaseConfig = await response.json();
+        // Global references
+        let auth;
+        let db;
+        let storage;
 
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
+        async function initFirebase() {
+            try {
+                const response = await fetch("/api/firebaseConfig");
+                const firebaseConfig = await response.json();
+
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+
+                auth = firebase.auth();
+                db = firebase.firestore();
+                storage = firebase.storage();
+
+                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+                console.log("Firebase initialized");
+
+                // Set up the listener ONLY after initialization
+                setupAuthListener();
+
+                // 🔥 IMPORTANT: Run Google redirect AFTER init
+                await handleGoogleAuthRedirect();
+
+            } catch (error) {
+                console.error("Firebase init error:", error);
+                showToast('Error', 'Failed to initialize app', 'error');
+            }
         }
 
-        auth = firebase.auth();
-        db = firebase.firestore();
-        storage = firebase.storage();
+        window.addEventListener("load", initFirebase);
 
-        await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
-        console.log("Firebase initialized");
-
-        // 🔥 IMPORTANT: Run Google redirect AFTER init
-        await handleGoogleAuthRedirect();
-
-    } catch (error) {
-        console.error("Firebase init error:", error);
-    }
-}
-
-window.addEventListener("load", initFirebase);
-
-        
 
         // Translations
         const translations = {
@@ -6872,54 +6860,54 @@ window.addEventListener("load", initFirebase);
             return Array.from(years).sort((a, b) => b - a);
         }
 
-        
+
 
         async function sendOTPEmail(email, otp) {
-    try {
-        // Call your secure backend API instead of Brevo directly
-        const response = await fetch('/api/sendOTP', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                email: email,
-                otp: otp,
-                senderEmail: APP_CONFIG.supportEmail
-            })
-        });
+            try {
+                // Call your secure backend API instead of Brevo directly
+                const response = await fetch('/api/sendOTP', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        otp: otp,
+                        senderEmail: APP_CONFIG.supportEmail
+                    })
+                });
 
-        const result = await response.json();
+                const result = await response.json();
 
-        if (!response.ok || !result.success) {
-            throw new Error(result.error?.message || 'Failed to send OTP');
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error?.message || 'Failed to send OTP');
+                }
+
+                // Store OTP in Firestore (same as before)
+                await db.collection('otps').doc(email).set({
+                    otp: otp,
+                    expiry: firebase.firestore.Timestamp.fromDate(
+                        new Date(Date.now() + 5 * 60 * 1000)
+                    )
+                });
+
+                showToast('Success', 'OTP sent to your email!');
+                return true;
+
+            } catch (error) {
+                console.error('Send OTP Error:', error);
+
+                if (error.code === 'permission-denied') {
+                    showToast('Firebase Error', 'Permission denied. Check Firestore rules.', 'error');
+                } else if (error.message.includes('Failed to fetch')) {
+                    showToast('Connection Error', 'Unable to reach server.', 'error');
+                } else {
+                    showToast('Error', 'Failed to send OTP: ' + error.message, 'error');
+                }
+
+                return false;
+            }
         }
-
-        // Store OTP in Firestore (same as before)
-        await db.collection('otps').doc(email).set({
-            otp: otp,
-            expiry: firebase.firestore.Timestamp.fromDate(
-                new Date(Date.now() + 5 * 60 * 1000)
-            )
-        });
-
-        showToast('Success', 'OTP sent to your email!');
-        return true;
-
-    } catch (error) {
-        console.error('Send OTP Error:', error);
-
-        if (error.code === 'permission-denied') {
-            showToast('Firebase Error', 'Permission denied. Check Firestore rules.', 'error');
-        } else if (error.message.includes('Failed to fetch')) {
-            showToast('Connection Error', 'Unable to reach server.', 'error');
-        } else {
-            showToast('Error', 'Failed to send OTP: ' + error.message, 'error');
-        }
-
-        return false;
-    }
-}
 
 
         async function verifyOTP(email, userEnteredOTP) {
@@ -11561,7 +11549,7 @@ window.addEventListener("load", initFirebase);
                         const loadMoreBtn = document.createElement('button');
                         loadMoreBtn.className = 'btn btn-secondary';
                         loadMoreBtn.onclick = () => loadMorePersonalExpenses();
-                        loadMoreBtn.innerHTML = `< i class="fas fa-plus" ></i > ${escapeHTML(t('loadMore'))} `;
+                        loadMoreBtn.innerHTML = `<i class="fas fa-plus"></i> ${escapeHTML(t('loadMore'))}`;
 
                         loadMoreDiv.appendChild(loadMoreBtn);
                         container.appendChild(loadMoreDiv);
@@ -11577,8 +11565,9 @@ window.addEventListener("load", initFirebase);
         function openAddPersonalModal() {
             const modal = document.createElement('div');
             modal.className = 'modal-overlay show';
+
             modal.innerHTML = `
-                            < div class="modal" >
+                <div class="modal">
                     <div class="modal-header">
                         <h3 class="modal-title">${t('addExpense')}</h3>
                         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
@@ -11643,7 +11632,7 @@ window.addEventListener("load", initFirebase);
                             ${t('save')}
                         </button>
                     </div>
-                </div >
+                </div>
                             `;
             document.body.appendChild(modal);
 
@@ -11680,11 +11669,11 @@ window.addEventListener("load", initFirebase);
                     const div = document.createElement('div');
                     div.className = 'attachment';
                     div.innerHTML = `
-                            < img src = "${e.target.result}" alt = "Preview ${idx + 1}" >
-                                <button class="attachment-remove" onclick="removePersonalNewAttachment(${idx})">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                        `;
+                        <img src="${e.target.result}" alt="Preview ${idx + 1}">
+                        <button class="attachment-remove" onclick="removePersonalNewAttachment(${idx})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
                     preview.appendChild(div);
                 };
                 reader.readAsDataURL(file);
@@ -19909,7 +19898,7 @@ window.addEventListener("load", initFirebase);
             }
 
             // Handle Google auth redirect
-           
+
 
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.addEventListener('click', (e) => {
@@ -19921,148 +19910,152 @@ window.addEventListener("load", initFirebase);
         });
 
 
+
         // Initialize app
         let isAuthProcessing = false;
-        firebase.auth().onAuthStateChanged(async (user) => {
 
-            if (isAuthProcessing) {
-                return;
-            }
-            isAuthProcessing = true;
+        function setupAuthListener() {
+            firebase.auth().onAuthStateChanged(async (user) => {
 
-            if (user) {
-                try {
-                    showLoading();
+                if (isAuthProcessing) {
+                    return;
+                }
+                isAuthProcessing = true;
 
-                    // Try to get user document
-                    let userDoc = await db.collection('users').doc(user.uid).get();
+                if (user) {
+                    try {
+                        showLoading();
 
-                    // Retry logic with improved delay steps
-                    if (!userDoc.exists) {
+                        // Try to get user document
+                        let userDoc = await db.collection('users').doc(user.uid).get();
 
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        userDoc = await db.collection('users').doc(user.uid).get();
-                    }
+                        // Retry logic with improved delay steps
+                        if (!userDoc.exists) {
 
-                    if (!userDoc.exists) {
-                        await new Promise(resolve => setTimeout(resolve, 4000));
-                        userDoc = await db.collection('users').doc(user.uid).get();
-                    }
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                            userDoc = await db.collection('users').doc(user.uid).get();
+                        }
 
-                    if (userDoc.exists) {
-                        const userData = userDoc.data();
+                        if (!userDoc.exists) {
+                            await new Promise(resolve => setTimeout(resolve, 4000));
+                            userDoc = await db.collection('users').doc(user.uid).get();
+                        }
 
-                        // Build complete user object
-                        currentUser = {
-                            uid: user.uid,
-                            email: user.email,
-                            userId: userData.userId || user.uid.substring(0, 8),
-                            firstName: userData.firstName || 'User',
-                            lastName: userData.lastName || '',
-                            phone: userData.phone || '',
-                            photoUrl: userData.photoUrl || '',
-                            currency: userData.currency || 'USD',
-                            country: userData.country || 'US',
-                            language: userData.language || 'en',
-                            darkMode: userData.darkMode || false
-                        };
+                        if (userDoc.exists) {
+                            const userData = userDoc.data();
 
-                        // Apply user preferences
-                        localStorage.setItem('currency', currentUser.currency);
-                        localStorage.setItem('country', currentUser.country);
-                        localStorage.setItem('language', currentUser.language);
-                        localStorage.setItem('lang', currentUser.language);
-                        localStorage.setItem('theme', currentUser.darkMode ? 'dark' : 'light');
-                        currentLanguage = currentUser.language;
-                        currentLang = currentUser.language;
-                        currentTheme = currentUser.darkMode ? 'dark' : 'light';
-
-                        // Apply theme using data-theme attribute (matches CSS selector)
-                        document.documentElement.setAttribute('data-theme', currentUser.darkMode ? 'dark' : 'light');
-
-                        // Initialize real-time data listeners
-                        setupDataListeners(user.uid, user.email, currentUser.phone);
-
-                        // Show dashboard
-                        renderMainLayout();
-                        currentPage = 'dashboard';
-                        await navigate('dashboard');
-
-                        // Check for any pending invites/guest links
-                        checkPendingInvites(currentUser);
-
-                        hideLoading();
-
-                    } else {
-                        // User document doesn't exist - this is a new user from signup
-
-                        // Check if this is right after signup
-                        const signupData = sessionStorage.getItem('newUserData');
-                        if (signupData) {
-                            // Create user document from signup data
-                            const newUserData = JSON.parse(signupData);
-                            await db.collection('users').doc(user.uid).set({
-                                userId: user.uid.substring(0, 8),
-                                email: user.email,
-                                firstName: newUserData.firstName || 'User',
-                                lastName: newUserData.lastName || '',
-                                phone: newUserData.phone || '',
-                                currency: 'USD',
-                                country: 'US',
-                                language: 'en',
-                                darkMode: false,
-                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                            });
-
-                            sessionStorage.removeItem('newUserData');
-
-                            // Build current user object
+                            // Build complete user object
                             currentUser = {
                                 uid: user.uid,
                                 email: user.email,
-                                userId: user.uid.substring(0, 8),
-                                firstName: newUserData.firstName || 'User',
-                                lastName: newUserData.lastName || '',
-                                phone: newUserData.phone || '',
-                                photoUrl: '',
-                                currency: 'USD',
-                                country: 'US',
-                                language: 'en',
-                                darkMode: false
+                                userId: userData.userId || user.uid.substring(0, 8),
+                                firstName: userData.firstName || 'User',
+                                lastName: userData.lastName || '',
+                                phone: userData.phone || '',
+                                photoUrl: userData.photoUrl || '',
+                                currency: userData.currency || 'USD',
+                                country: userData.country || 'US',
+                                language: userData.language || 'en',
+                                darkMode: userData.darkMode || false
                             };
 
-                            // Initialize data listeners
+                            // Apply user preferences
+                            localStorage.setItem('currency', currentUser.currency);
+                            localStorage.setItem('country', currentUser.country);
+                            localStorage.setItem('language', currentUser.language);
+                            localStorage.setItem('lang', currentUser.language);
+                            localStorage.setItem('theme', currentUser.darkMode ? 'dark' : 'light');
+                            currentLanguage = currentUser.language;
+                            currentLang = currentUser.language;
+                            currentTheme = currentUser.darkMode ? 'dark' : 'light';
+
+                            // Apply theme using data-theme attribute (matches CSS selector)
+                            document.documentElement.setAttribute('data-theme', currentUser.darkMode ? 'dark' : 'light');
+
+                            // Initialize real-time data listeners
                             setupDataListeners(user.uid, user.email, currentUser.phone);
 
-                            showToast('Success', 'Account created! Welcome ' + newUserData.firstName);
-                            await renderMainLayout();
+                            // Show dashboard
+                            renderMainLayout();
+                            currentPage = 'dashboard';
                             await navigate('dashboard');
+
+                            // Check for any pending invites/guest links
+                            checkPendingInvites(currentUser);
+
+                            hideLoading();
+
                         } else {
-                            // No signup data and no user doc - sign out to prevent loop
-                            console.error('User document not found and no signup data');
-                            showToast('Error', 'User profile not found. Please sign up again.', 'error');
-                            await firebase.auth().signOut();
-                            renderUserGuidePage();
+                            // User document doesn't exist - this is a new user from signup
+
+                            // Check if this is right after signup
+                            const signupData = sessionStorage.getItem('newUserData');
+                            if (signupData) {
+                                // Create user document from signup data
+                                const newUserData = JSON.parse(signupData);
+                                await db.collection('users').doc(user.uid).set({
+                                    userId: user.uid.substring(0, 8),
+                                    email: user.email,
+                                    firstName: newUserData.firstName || 'User',
+                                    lastName: newUserData.lastName || '',
+                                    phone: newUserData.phone || '',
+                                    currency: 'USD',
+                                    country: 'US',
+                                    language: 'en',
+                                    darkMode: false,
+                                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+
+                                sessionStorage.removeItem('newUserData');
+
+                                // Build current user object
+                                currentUser = {
+                                    uid: user.uid,
+                                    email: user.email,
+                                    userId: user.uid.substring(0, 8),
+                                    firstName: newUserData.firstName || 'User',
+                                    lastName: newUserData.lastName || '',
+                                    phone: newUserData.phone || '',
+                                    photoUrl: '',
+                                    currency: 'USD',
+                                    country: 'US',
+                                    language: 'en',
+                                    darkMode: false
+                                };
+
+                                // Initialize data listeners
+                                setupDataListeners(user.uid, user.email, currentUser.phone);
+
+                                showToast('Success', 'Account created! Welcome ' + newUserData.firstName);
+                                await renderMainLayout();
+                                await navigate('dashboard');
+                            } else {
+                                // No signup data and no user doc - sign out to prevent loop
+                                console.error('User document not found and no signup data');
+                                showToast('Error', 'User profile not found. Please sign up again.', 'error');
+                                await firebase.auth().signOut();
+                                renderUserGuidePage();
+                            }
+
+                            hideLoading();
                         }
 
+                    } catch (error) {
+                        console.error('❌ Error loading user:', error);
+                        showToast('Error', 'Failed to load user: ' + error.message, 'error');
+                        await firebase.auth().signOut();
+                        renderUserGuidePage();
                         hideLoading();
+                    } finally {
+                        isAuthProcessing = false;
                     }
-
-                } catch (error) {
-                    console.error('❌ Error loading user:', error);
-                    showToast('Error', 'Failed to load user: ' + error.message, 'error');
-                    await firebase.auth().signOut();
+                } else {
+                    // User logged out
                     renderUserGuidePage();
-                    hideLoading();
-                } finally {
                     isAuthProcessing = false;
                 }
-            } else {
-                // User logged out
-                renderUserGuidePage();
-                isAuthProcessing = false;
-            }
-        });
+            });
+        }
 
         // Close dropdowns when clicking outside
         document.addEventListener('click', (e) => {
