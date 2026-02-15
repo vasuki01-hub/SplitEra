@@ -7861,18 +7861,20 @@
                     }
 
                     // 3. Store signup data temporarily (No SMS OTP needed for registration)
+                    const countryData = window.signupPhoneIti.getSelectedCountryData();
                     const signupProcessData = {
                         firstName,
                         lastName,
                         email: email.toLowerCase(),
                         password,
                         phone,
+                        countryCode: `+${countryData.dialCode}`,
                         emailOtp,
                         emailVerified: false,
                         phoneVerified: true, // We still collect it, but skip verification during signup per request
                         timestamp: Date.now()
                     };
-                    sessionStorage.setItem('signupProcessData', JSON.stringify(signupProcessData));
+                    sessionStorage.setItem('newUserData', JSON.stringify(signupProcessData));
 
                     if (photoFile) {
                         const reader = new FileReader();
@@ -7932,7 +7934,7 @@
         async function handleSignupVerification() {
             const emailInput = document.getElementById('signupEmailOtp').value.trim();
 
-            const rawData = sessionStorage.getItem('signupProcessData');
+            const rawData = sessionStorage.getItem('newUserData');
             if (!rawData) {
                 showToast('Error', 'Signup session expired. Please try again.', 'error');
                 renderAuthPage();
@@ -7979,7 +7981,7 @@
                     firstName: data.firstName,
                     lastName: data.lastName,
                     email: data.email,
-                    countryCode: data.countryCode,
+                    countryCode: data.countryCode || '+1', // Fallback to avoid Firestore crash
                     phone: data.phone,
                     photoUrl: photoUrl,
                     currency: 'USD',
@@ -7995,7 +7997,7 @@
                 currentUser = userData;
 
                 // 4. Cleanup and Finish
-                sessionStorage.removeItem('signupProcessData');
+                sessionStorage.removeItem('newUserData');
                 sessionStorage.removeItem('signupPhotoData');
 
                 showToast('Success', 'Account created and verified successfully!', 'success');
@@ -19979,16 +19981,22 @@
                             if (signupData) {
                                 // Create user document from signup data
                                 const newUserData = JSON.parse(signupData);
+                                const userId = generateUserId(newUserData.firstName || 'User', newUserData.lastName || '', user.email);
                                 await db.collection('users').doc(user.uid).set({
-                                    userId: user.uid.substring(0, 8),
+                                    uid: user.uid,
+                                    userId: userId,
                                     email: user.email,
                                     firstName: newUserData.firstName || 'User',
                                     lastName: newUserData.lastName || '',
                                     phone: newUserData.phone || '',
+                                    countryCode: newUserData.countryCode || '+1',
+                                    photoUrl: '',
                                     currency: 'USD',
                                     country: 'US',
                                     language: 'en',
                                     darkMode: false,
+                                    emailVerified: true,
+                                    phoneVerified: true,
                                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                                 });
 
@@ -19998,10 +20006,11 @@
                                 currentUser = {
                                     uid: user.uid,
                                     email: user.email,
-                                    userId: user.uid.substring(0, 8),
+                                    userId: userId,
                                     firstName: newUserData.firstName || 'User',
                                     lastName: newUserData.lastName || '',
                                     phone: newUserData.phone || '',
+                                    countryCode: newUserData.countryCode || '+1',
                                     photoUrl: '',
                                     currency: 'USD',
                                     country: 'US',
