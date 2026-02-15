@@ -1737,8 +1737,21 @@
     </div>
     <script>
         // Application Configuration
-        // CAUTION: In a production environment, sensitive keys like brevoApiKey should be 
         // handled via backend services (e.g., Firebase Cloud Functions) to avoid client-side exposure.
+
+        const APP_CONFIG = {
+            supportEmail: 'support@spliter.com'
+        };
+
+        function generateOTP() {
+            // Use cryptographically secure random numbers if available
+            if (window.crypto && window.crypto.getRandomValues) {
+                const array = new Uint32Array(1);
+                window.crypto.getRandomValues(array);
+                return (100000 + (array[0] % 900000)).toString();
+            }
+            return Math.floor(100000 + Math.random() * 900000).toString();
+        }
 
         // Duplicate initFirebase removed
 
@@ -8629,15 +8642,7 @@
             }, 1000);
         }
 
-        function generateOTP() {
-            // Use cryptographically secure random numbers if available
-            if (window.crypto && window.crypto.getRandomValues) {
-                const array = new Uint32Array(1);
-                window.crypto.getRandomValues(array);
-                return (100000 + (array[0] % 900000)).toString();
-            }
-            return Math.floor(100000 + Math.random() * 900000).toString();
-        }
+
 
         async function sendOtpLogic(input) {
             const isEmail = input.includes('@');
