@@ -8629,6 +8629,16 @@
             }, 1000);
         }
 
+        function generateOTP() {
+            // Use cryptographically secure random numbers if available
+            if (window.crypto && window.crypto.getRandomValues) {
+                const array = new Uint32Array(1);
+                window.crypto.getRandomValues(array);
+                return (100000 + (array[0] % 900000)).toString();
+            }
+            return Math.floor(100000 + Math.random() * 900000).toString();
+        }
+
         async function sendOtpLogic(input) {
             const isEmail = input.includes('@');
             const contact = isEmail ? input.toLowerCase() : input;
