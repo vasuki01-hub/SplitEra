@@ -1719,6 +1719,13 @@
         }
     </style>
     <script src="https://cdn.tailwindcss.com" type="text/javascript"></script>
+    <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js');
+    });
+  }
+</script>
 </head>
 
 <body>
@@ -1736,13 +1743,7 @@
     <div class="loading" id="loading">
         <div class="spinner"></div>
     </div>
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js');
-    });
-  }
-</script>
+
 
     <script>
         // Application Configuration
