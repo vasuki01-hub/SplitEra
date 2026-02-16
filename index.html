@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SplitEra - Smart Expense Manager</title>
+    <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -1735,6 +1736,14 @@
     <div class="loading" id="loading">
         <div class="spinner"></div>
     </div>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js');
+    });
+  }
+</script>
+
     <script>
         // Application Configuration
         // handled via backend services (e.g., Firebase Cloud Functions) to avoid client-side exposure.
@@ -1775,8 +1784,6 @@
                 storage = firebase.storage();
 
                 await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-
-                console.log("Firebase initialized");
 
                 // Set up the listener ONLY after initialization
                 setupAuthListener();

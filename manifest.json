@@ -1,0 +1,21 @@
+{
+  "name": "SplitEra",
+  "short_name": "SplitEra",
+  "description": "Smart Personal and Group Expense Manager",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FF8C42",
+  "theme_color": "#FF8C42",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/color/144/null/wallet.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "https://img.icons8.com/color/512/null/wallet.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
