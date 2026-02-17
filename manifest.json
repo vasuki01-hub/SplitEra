@@ -4,8 +4,8 @@
   "description": "Track expenses, split bills, and manage group finances",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F9FAFB",
-  "theme_color": "#FF8C42",
+  "background_color": "#ffffffff",
+  "theme_color": "#ffffffff",
   "icons": [
     {
       "src": "favicon.png",
