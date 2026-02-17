@@ -7,6 +7,11 @@
     <title>SplitEra - Smart Expense Manager</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="SplitEra">
+    <meta name="theme-color" content="#FF8C42">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -18683,12 +18688,19 @@
                 const doc = new jsPDF();
 
                 // Load all data
-                const [creditsSnapshot, personalSnapshot, groupsSnapshot, groupsListSnapshot] = await Promise.all([
+                const [creditsSnapshot, personalSnapshot, groupsListSnapshot] = await Promise.all([
                     db.collection('credits').where('userId', '==', currentUser.uid).get(),
                     db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('group_expenses').where('userId', '==', currentUser.uid).get(),
                     db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
                 ]);
+
+                // Fetch all group expenses for groups where user is a member
+                const groupIds = groupsListSnapshot.docs.map(doc => doc.id);
+                const groupExpensesPromises = groupIds.map(groupId =>
+                    db.collection('group_expenses').where('groupId', '==', groupId).get()
+                );
+                const groupExpensesSnapshots = await Promise.all(groupExpensesPromises);
+                const groupsSnapshot = { docs: groupExpensesSnapshots.flatMap(snap => snap.docs) };
 
                 // Header
                 doc.setFillColor(255, 153, 51);
@@ -18901,12 +18913,19 @@
         async function exportAllDataJSON() {
             showLoading();
             try {
-                const [creditsSnapshot, personalSnapshot, groupsSnapshot, groupsListSnapshot] = await Promise.all([
+                const [creditsSnapshot, personalSnapshot, groupsListSnapshot] = await Promise.all([
                     db.collection('credits').where('userId', '==', currentUser.uid).get(),
                     db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('group_expenses').where('userId', '==', currentUser.uid).get(),
                     db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
                 ]);
+
+                // Fetch all group expenses for groups where user is a member
+                const groupIds = groupsListSnapshot.docs.map(doc => doc.id);
+                const groupExpensesPromises = groupIds.map(groupId =>
+                    db.collection('group_expenses').where('groupId', '==', groupId).get()
+                );
+                const groupExpensesSnapshots = await Promise.all(groupExpensesPromises);
+                const groupsSnapshot = { docs: groupExpensesSnapshots.flatMap(snap => snap.docs) };
 
                 const groupsDataMap = {};
                 groupsListSnapshot.docs.forEach(doc => { groupsDataMap[doc.id] = doc.data(); });
@@ -18985,12 +19004,19 @@
                 const currentLang = localStorage.getItem('language') || currentLanguage || 'en';
                 const t = (key) => translations[currentLang]?.[key] || translations['en'][key] || key;
 
-                const [creditsSnapshot, personalSnapshot, groupsSnapshot, groupsListSnapshot] = await Promise.all([
+                const [creditsSnapshot, personalSnapshot, groupsListSnapshot] = await Promise.all([
                     db.collection('credits').where('userId', '==', currentUser.uid).get(),
                     db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('group_expenses').where('userId', '==', currentUser.uid).get(),
                     db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
                 ]);
+
+                // Fetch all group expenses for groups where user is a member
+                const groupIds = groupsListSnapshot.docs.map(doc => doc.id);
+                const groupExpensesPromises = groupIds.map(groupId =>
+                    db.collection('group_expenses').where('groupId', '==', groupId).get()
+                );
+                const groupExpensesSnapshots = await Promise.all(groupExpensesPromises);
+                const groupsSnapshot = { docs: groupExpensesSnapshots.flatMap(snap => snap.docs) };
 
                 const credits = creditsSnapshot.docs.map(doc => doc.data());
                 const personal = personalSnapshot.docs.map(doc => doc.data());
