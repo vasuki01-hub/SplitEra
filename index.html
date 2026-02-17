@@ -17529,7 +17529,7 @@
                     // Include the expense if the user's share is positive or if the user added the expense (to ensure payers see their entries even if share is 0)
                     // This addresses cases where payers might have userShare = 0 but still need to see the full entry
                     // Note: Assuming 'userId' in expense is the adder/payer ID
-                    if (userShare <= 0 && expense.userId !== currentUser.uid) return null;
+                    // if (userShare <= 0 && expense.userId !== currentUser.uid) return null;
 
                     // If userShare is 0 and user is the payer, use the full amount as their 'expense'
                     const displayAmount = (userShare > 0) ? userShare : parseFloat(expense.amount);
@@ -17578,9 +17578,23 @@
                 let yPos = 40;
 
                 // Calculate totals for summary section
-                const totalCredits = credits.reduce((sum, c) => sum + c.amount, 0);
-                const totalPersonal = personal.reduce((sum, p) => sum + p.amount, 0);
-                const totalGroup = groups.reduce((sum, g) => sum + g.amount, 0);
+                const filteredCredits = filterByYearMonth(credits, yearFilter, monthFilter);
+                const filteredPersonal = filterByYearMonth(personal, yearFilter, monthFilter);
+                // Note: 'groups' variable already contains processed group expenses for the current user
+                const filteredGroups = filterByYearMonth(groups, yearFilter, monthFilter);
+
+                const totalCredits = filteredCredits.reduce((sum, c) => sum + c.amount, 0);
+                const totalPersonal = filteredPersonal.reduce((sum, p) => sum + p.amount, 0);
+                const totalGroup = filteredGroups.reduce((sum, g) => sum + g.amount, 0);
+                const netBalance = totalCredits - totalPersonal - totalGroup;
+
+                // Extra dashboard-like metrics for summary
+                const ccCredits = filteredCredits.filter(c => c.mode === 'Credit Card').reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+                const ccExpenses = filteredPersonal.filter(e => e.mode === 'Credit Card').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+                const netCCBalance = ccCredits - ccExpenses;
+                const nonCCCredits = totalCredits - ccCredits;
+                const nonCCExpenses = totalPersonal - ccExpenses;
+                const netBankBalance = nonCCCredits - nonCCExpenses - totalGroup;
 
                 // Add summary to PDF
                 doc.setFontSize(12);
@@ -17588,11 +17602,27 @@
                 yPos += 10;
 
                 doc.setFontSize(10);
+                doc.text(`${t('netBalance')}: ${formatCurrency(netBalance, true)}`, 14, yPos);
+                yPos += 7;
                 doc.text(`${t('totalCredits')}: ${formatCurrency(totalCredits, true)}`, 14, yPos);
                 yPos += 7;
-                doc.text(`${t('personalExpenses')}: ${formatCurrency(totalPersonal, true)}`, 14, yPos);
+                doc.text(`${t('totalExpenses')}: ${formatCurrency(totalPersonal + totalGroup, true)}`, 14, yPos);
                 yPos += 7;
                 doc.text(`${t('groupExpenses')}: ${formatCurrency(totalGroup, true)}`, 14, yPos);
+                yPos += 10;
+
+                doc.text(`${t('netBankAccountBalance')}: ${formatCurrency(netBankBalance, true)}`, 14, yPos);
+                yPos += 7;
+                doc.text(`${t('totalBankBalance')}: ${formatCurrency(nonCCCredits, true)}`, 14, yPos);
+                yPos += 7;
+                doc.text(`${t('totalBankBalanceExpenses')}: ${formatCurrency(nonCCExpenses, true)}`, 14, yPos);
+                yPos += 10;
+
+                doc.text(`${t('netCreditCardBalance')}: ${formatCurrency(netCCBalance, true)}`, 14, yPos);
+                yPos += 7;
+                doc.text(`${t('totalCreditCardCredits')}: ${formatCurrency(ccCredits, true)}`, 14, yPos);
+                yPos += 7;
+                doc.text(`${t('totalCreditCardExpenses')}: ${formatCurrency(ccExpenses, true)}`, 14, yPos);
                 yPos += 15;
 
                 // Group data by month for PDF layout
@@ -17717,7 +17747,7 @@
                     if (userShare === 0 && (!expense.splits || Object.keys(expense.splits).length === 0) && groupData.members.includes(currentUser.uid)) {
                         userShare = parseFloat(expense.amount) / allMembers.length;
                     }
-                    if (userShare <= 0 && expense.userId !== currentUser.uid) return null;
+                    // if (userShare <= 0 && expense.userId !== currentUser.uid) return null;
                     const displayAmount = (userShare > 0) ? userShare : parseFloat(expense.amount);
                     return {
                         section: `Group: ${groupsMap[expense.groupId]}`,
@@ -18785,7 +18815,8 @@
                         userShare = parseFloat(expense.amount) / allMembers.length;
                     }
 
-                    if (userShare <= 0 && expense.userId !== currentUser.uid) return null;
+                    // Removed restrictive filtering to include all group entries
+                    // if (userShare <= 0 && expense.userId !== currentUser.uid) return null;
 
                     totalUserGroupShare += userShare;
 
@@ -18825,18 +18856,38 @@
                 doc.setFontSize(14);
                 doc.text(t('summary'), 14, yPos);
                 yPos += 10;
+
+                // Credit Card specific calculations
+                const totalCreditCardCredits = credits.filter(c => c.mode === 'Credit Card').reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+                const totalCreditCardExpenses = personal.filter(e => e.mode === 'Credit Card').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+                const netCreditCardBalance = totalCreditCardCredits - totalCreditCardExpenses;
+                const nonCreditCardCredits = totalCredits - totalCreditCardCredits;
+                const nonCreditCardExpenses = totalPersonal - totalCreditCardExpenses;
+                const netBankAccountBalance = nonCreditCardCredits - nonCreditCardExpenses - totalUserGroupShare;
+                const netBalance = totalCredits - totalPersonal - totalUserGroupShare;
+
                 doc.setFontSize(10);
+                doc.text(`${t('netBalance')}: ${formatCurrency(netBalance, true)}`, 14, yPos);
+                yPos += 7;
                 doc.text(`${t('totalCreditsLabel')}: ${formatCurrency(totalCredits, true)}`, 14, yPos);
                 yPos += 7;
-                doc.text(`${t('totalPersonalExpenses')}: ${formatCurrency(totalPersonal, true)}`, 14, yPos);
+                doc.text(`${t('totalExpenses')}: ${formatCurrency(totalPersonal + totalUserGroupShare, true)}`, 14, yPos);
                 yPos += 7;
-                doc.text(`${t('totalGroupExpenses')} (${t('yourShare')}): ${formatCurrency(totalUserGroupShare, true)}`, 14, yPos);
+                doc.text(`${t('groupExpenses')}: ${formatCurrency(totalUserGroupShare, true)}`, 14, yPos);
                 yPos += 10;
 
-                const netBalance = totalCredits - totalPersonal - totalUserGroupShare;
-                doc.setFontSize(12);
-                doc.setTextColor(netBalance >= 0 ? 16 : 239, netBalance >= 0 ? 185 : 68, netBalance >= 0 ? 129 : 68);
-                doc.text(`${t('netBalance')}: ${formatCurrency(netBalance, true)}`, 14, yPos);
+                doc.text(`${t('netBankAccountBalance')}: ${formatCurrency(netBankAccountBalance, true)}`, 14, yPos);
+                yPos += 7;
+                doc.text(`${t('totalBankBalance')}: ${formatCurrency(nonCreditCardCredits, true)}`, 14, yPos);
+                yPos += 7;
+                doc.text(`${t('totalBankBalanceExpenses')}: ${formatCurrency(nonCreditCardExpenses, true)}`, 14, yPos);
+                yPos += 10;
+
+                doc.text(`${t('netCreditCardBalance')}: ${formatCurrency(netCreditCardBalance, true)}`, 14, yPos);
+                yPos += 7;
+                doc.text(`${t('totalCreditCardCredits')}: ${formatCurrency(totalCreditCardCredits, true)}`, 14, yPos);
+                yPos += 7;
+                doc.text(`${t('totalCreditCardExpenses')}: ${formatCurrency(totalCreditCardExpenses, true)}`, 14, yPos);
 
                 doc.save(`splitera-complete-data-${Date.now()}.pdf`);
                 showToast(t('success'), t('pdfExportSuccess'));
@@ -18969,7 +19020,8 @@
                         userShare = parseFloat(expense.amount) / allMembers.length;
                     }
 
-                    if (userShare <= 0 && expense.userId !== currentUser.uid) return null;
+                    // Removed restrictive filtering
+                    // if (userShare <= 0 && expense.userId !== currentUser.uid) return null;
                     totalUserGroupShare += userShare;
 
                     return {
@@ -18984,19 +19036,30 @@
 
                 const totalCredits = credits.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
                 const totalPersonal = personal.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
-                const creditCardCredits = credits.filter(c => c.mode === 'Credit Card').reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
-                const bankBalance = totalCredits - creditCardCredits;
+                const totalCreditCardCredits = credits.filter(c => c.mode === 'Credit Card').reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+                const totalCreditCardExpenses = personal.filter(e => e.mode === 'Credit Card').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+                const netCreditCardBalance = totalCreditCardCredits - totalCreditCardExpenses;
+                const nonCreditCardCredits = totalCredits - totalCreditCardCredits;
+                const nonCreditCardExpenses = totalPersonal - totalCreditCardExpenses;
+                const netBankAccountBalance = nonCreditCardCredits - nonCreditCardExpenses - totalUserGroupShare;
                 const netBalance = totalCredits - totalPersonal - totalUserGroupShare;
 
                 const workbook = XLSX.utils.book_new();
 
                 const summaryData = [
-                    ['Metric', 'Amount'],
+                    [t('summary'), t('amount')],
+                    [t('netBalance'), formatCurrency(netBalance)],
                     [t('totalCreditsLabel'), formatCurrency(totalCredits)],
-                    [t('totalBankBalance'), formatCurrency(bankBalance)],
-                    [t('totalPersonalExpenses'), formatCurrency(totalPersonal)],
-                    [t('totalGroupExpenses') + ` (${t('yourShare')})`, formatCurrency(totalUserGroupShare)],
-                    [t('netBalance'), formatCurrency(netBalance)]
+                    [t('totalExpenses'), formatCurrency(totalPersonal + totalUserGroupShare)],
+                    [t('groupExpenses'), formatCurrency(totalUserGroupShare)],
+                    [''],
+                    [t('netBankAccountBalance'), formatCurrency(netBankAccountBalance)],
+                    [t('totalBankBalance'), formatCurrency(nonCreditCardCredits)],
+                    [t('totalBankBalanceExpenses'), formatCurrency(nonCreditCardExpenses)],
+                    [''],
+                    [t('netCreditCardBalance'), formatCurrency(netCreditCardBalance)],
+                    [t('totalCreditCardCredits'), formatCurrency(totalCreditCardCredits)],
+                    [t('totalCreditCardExpenses'), formatCurrency(totalCreditCardExpenses)]
                 ];
                 const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
                 XLSX.utils.book_append_sheet(workbook, summarySheet, t('summary'));
