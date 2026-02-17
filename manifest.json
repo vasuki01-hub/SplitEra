@@ -1,21 +1,17 @@
 {
-  "name": "SplitEra",
+  "name": "SplitEra - Smart Expense Manager",
   "short_name": "SplitEra",
-  "description": "Smart Personal and Group Expense Manager",
-  "start_url": "./index.html",
+  "description": "Track expenses, split bills, and manage group finances",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#FF8C42",
+  "background_color": "#F9FAFB",
   "theme_color": "#FF8C42",
   "icons": [
     {
-      "src": "https://img.icons8.com/color/144/null/wallet.png",
-      "sizes": "144x144",
-      "type": "image/png"
-    },
-    {
-      "src": "https://img.icons8.com/color/512/null/wallet.png",
+      "src": "favicon.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
