@@ -18,8 +18,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"
-        defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"defer></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
     <!-- Phone Authentication Dependencies -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.2.1/build/css/intlTelInput.css">
@@ -1103,29 +1102,20 @@
             gap: 1rem;
         }
 
-        /* Toast Container */
-        #toast-container {
+        /* Toast */
+        .toast {
             position: fixed;
             top: 5rem;
             right: 1.5rem;
-            z-index: 2000;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        /* Toast */
-        .toast {
             background: var(--bg-white);
             border-radius: 0.5rem;
             box-shadow: var(--shadow-lg);
             padding: 1rem 1.5rem;
-            display: flex;
+            display: none;
             align-items: center;
             gap: 1rem;
+            z-index: 2000;
             min-width: 300px;
-            animation: slideIn 0.3s ease;
-            transition: opacity 0.3s ease;
         }
 
         .toast.show {
@@ -1818,18 +1808,6 @@
         // Translations
         const translations = {
             en: {
-                noExpenses: 'No expenses found',
-                noExpensesMessage: 'Add an expense to get started',
-                noPersonalFound: 'No personal expenses found',
-                addPersonalPrompt: 'Add your first personal expense',
-                noCreditsFound: 'No credits found',
-                addCreditPrompt: 'Add a credit to track your income',
-                noGroupsFound: 'No groups found',
-                groupsMessage: 'Create a group to split expenses with friends',
-                noTransactions: 'No transactions found',
-                noTransactionsMessage: 'Try adjusting your filters',
-                pendingRequestsLabel: 'Pending Requests',
-                pendingRequest: 'Pending Request',
                 login: 'Login',
                 signup: 'Sign Up',
                 email: 'Email',
@@ -6784,34 +6762,17 @@
         }
 
         // Show toast
-        // Show toast
         function showToast(title, message, type = 'success') {
-            let container = document.getElementById('toast-container');
-            if (!container) {
-                container = document.createElement('div');
-                container.id = 'toast-container';
-                document.body.appendChild(container);
-            }
+            const toast = document.getElementById('toast');
+            const toastTitle = document.getElementById('toastTitle');
+            const toastMessage = document.getElementById('toastMessage');
 
-            const toast = document.createElement('div');
             toast.className = `toast show ${type}`;
-            toast.style.marginBottom = '10px';
-            toast.innerHTML = `
-                <div class="toast-header">
-                    <strong class="me-auto">${escapeHTML(title)}</strong>
-                    <button type="button" class="btn-close" onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: inherit; opacity: 0.7;">&times;</button>
-                </div>
-                <div class="toast-body">
-                    ${escapeHTML(message)}
-                </div>
-            `;
+            toastTitle.textContent = title;
+            toastMessage.textContent = message;
 
-            container.appendChild(toast);
-
-            // Auto-dismiss
             setTimeout(() => {
                 toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 300); // Wait for transition
             }, 3000);
         }
 
@@ -9112,19 +9073,29 @@
 
         // Navigation functions
         function navigateTo(page) {
-            navigate(page);
-        }
+            currentPage = page;
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            document.querySelector(`.nav-link[data-page="${page}"]`)?.classList.add('active');
+            document.querySelectorAll('.mobile-nav-link').forEach(l => l.classList.remove('active'));
+            document.querySelector(`.mobile-nav-link[data-page="${page}"]`)?.classList.add('active');
+            // Also update mobile bottom navigation items
+            document.querySelectorAll('.mobile-nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('data-page') === page) {
+                    item.classList.add('active');
+                }
+            });
 
-        switch (page) {
-            case 'dashboard': renderDashboard(); break;
-            case 'credits': renderCredits(); break;
-            case 'personal': renderPersonal(); break;
-            case 'groups': renderGroups(); break;
-            case 'calendar': renderCalendar(); break;
-            case 'details': renderDetails(); break;
-            case 'settings': renderSettings(); break;
+            switch (page) {
+                case 'dashboard': renderDashboard(); break;
+                case 'credits': renderCredits(); break;
+                case 'personal': renderPersonal(); break;
+                case 'groups': renderGroups(); break;
+                case 'calendar': renderCalendar(); break;
+                case 'details': renderDetails(); break;
+                case 'settings': renderSettings(); break;
+            }
         }
-
 
         function mobileNavigate(page) {
             navigateTo(page);
@@ -9158,13 +9129,10 @@
             const hamburger = document.querySelectorAll('.hamburger');
 
             if (menu) {
-                // Toggle both classes to ensure compatibility with CSS
                 menu.classList.toggle('active');
-                menu.classList.toggle('show');
-
                 hamburger.forEach(h => h.classList.toggle('active'));
 
-                if (menu.classList.contains('active') || menu.classList.contains('show')) {
+                if (menu.classList.contains('active')) {
                     document.body.style.overflow = 'hidden';
                 } else {
                     document.body.style.overflow = '';
@@ -9218,17 +9186,18 @@
         }
 
         // Close dropdown when clicking outside
-        // Close dropdown when clicking outside
-        window.addEventListener('click', function (event) {
-            if (!event.target.closest('.user-menu')) {
+        window.onclick = function (event) {
+            if (!event.target.matches('.user-avatar')) {
                 const dropdown = document.getElementById('userDropdown');
                 if (dropdown && dropdown.classList.contains('show')) {
                     dropdown.classList.remove('show');
                 }
             }
-        });
+        }
 
-
+        function toggleMobileMenu() {
+            document.getElementById('mobileMenu').classList.toggle('show');
+        }
 
         function toggleTheme() {
             currentTheme = currentTheme === 'light' ? 'dark' : 'light';
@@ -10466,23 +10435,7 @@
         }
 
         async function loadDetailsData() {
-            const container = document.getElementById('detailsTableContainer');
             if (!dataState.isLoaded.credits || !dataState.isLoaded.personalExpenses || !dataState.isLoaded.groups) {
-                if (!container.innerHTML.trim()) {
-                    container.innerHTML = `<table class="table">
-                        <thead>
-                            <tr>
-                                <th>${t('date')}</th>
-                                <th>${t('description')}</th>
-                                <th>${t('section')}</th>
-                                <th style="text-align: right">${t('amount')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${renderSkeleton('table-row', 5)}
-                        </tbody>
-                     </table>`;
-                }
                 showLoading();
                 return;
             }
@@ -10592,7 +10545,7 @@
                 // Render table
                 const container = document.getElementById('detailsTableContainer');
                 if (filtered.length === 0) {
-                    container.innerHTML = renderEmptyState(t('noTransactions'), t('noTransactionsMessage'), 'fa-search');
+                    container.innerHTML = '<p style="text-align: center; padding: 2rem;">No transactions found</p>';
                 } else {
                     container.innerHTML = `
                         <table class="table">
@@ -10704,11 +10657,7 @@
         }
 
         async function loadCredits() {
-            const container = document.getElementById('creditsTableContainer');
             if (!dataState.isLoaded.credits) {
-                if (!container.innerHTML.trim()) {
-                    container.innerHTML = renderSkeleton('table-row', 3);
-                }
                 showLoading();
                 return;
             }
@@ -10736,7 +10685,13 @@
                 const container = document.getElementById('creditsTableContainer');
 
                 if (credits.length === 0) {
-                    container.innerHTML = renderEmptyState(t('noCreditsFound'), t('addCreditPrompt'), 'fa-coins');
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class="fas fa-coins"></i></div>
+                            <div class="empty-title">${t('noCreditsFound')}</div>
+                            <div class="empty-message">${t('addCreditPrompt')}</div>
+                        </div>
+                    `;
                 } else {
                     const grouped = groupByMonth(credits);
                     let html = '';
@@ -10918,7 +10873,7 @@
                             </div>
                             <div class="form-group">
                                  <label class="form-label">${t('attachments')} (Optional)</label>
-                                 <input type="file" class="form-input" id="creditAttachments" multiple accept="image/*">
+                                 <input type="file" class="form-input" id="creditAttachments" multiple accept="image">
                                  <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 files, 9MB each</small>
                                 <div id="creditAttachmentPreview" class="attachment-grid" style="margin-top: 0.5rem;"></div>
                             </div>
@@ -10928,7 +10883,7 @@
                         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
                             ${t('cancel')}
                         </button>
-                        <button class="btn btn-primary" onclick="saveCredit(event)">
+                        <button class="btn btn-primary" onclick="saveCredit()">
                             ${t('save')}
                         </button>
                     </div>
@@ -10988,8 +10943,8 @@
             renderCreditNewAttachments();
         }
 
-        async function saveCredit(event) {
-            const btn = event.target.closest('button');
+        async function saveCredit() {
+            const btn = event.target;
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
@@ -11061,7 +11016,7 @@
                         </select>
                     </td>
                     <td><input type="text" class="form-input" value="${escapeHTML(credit.remarks || '')}" id="edit-remarks-${id}"></td>
-                    <td><input type="number" step="0.01" class="form-input" value="${escapeHTML(credit.amount)}" id="edit-amount-${id}" min="0"></td>
+                    <td><input type="number" step="0.01" class="form-input" value="${escapeHTML(credit.amount)}" id="edit-amount-${id}"></td>
                     <td>
                         <div class="attachments" id="edit-attachments-${id}">
                             ${credit.attachments && credit.attachments.length > 0 ? credit.attachments.map((url, idx) => `
@@ -11079,10 +11034,10 @@
                     </td>
                     <td>
                         <div class="actions">
-                            <button class="action-btn success" onclick="saveEditCredit('${id}')" aria-label="${t('save')}">
+                            <button class="action-btn success" onclick="saveEditCredit('${id}')">
                                 <i class="fas fa-check"></i>
                             </button>
-                            <button class="action-btn danger" onclick="cancelEdit('${id}')" aria-label="${t('cancel')}">
+                            <button class="action-btn danger" onclick="cancelEdit('${id}')">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -11216,18 +11171,44 @@
         }
 
         async function deleteCredit(id) {
-            showConfirmation(t('deleteCredit'), t('confirmDeleteCreditMessage') || 'Are you sure you want to delete this credit?', async () => {
-                showLoading();
-                try {
-                    await db.collection('credits').doc(id).delete();
-                    await loadCredits();
-                    showToast('Success', 'Credit deleted successfully!');
-                } catch (error) {
-                    showToast('Error', error.message, 'error');
-                } finally {
-                    hideLoading();
-                }
-            });
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay show';
+            modal.innerHTML = `
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Delete Credit</h3>
+                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete this credit?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
+                            ${t('cancel')}
+                        </button>
+                        <button class="btn btn-danger" onclick="confirmDeleteCredit('${id}')">
+                            ${t('delete')}
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        async function confirmDeleteCredit(id) {
+            showLoading();
+            try {
+                await db.collection('credits').doc(id).delete();
+                document.querySelector('.modal-overlay')?.remove();
+                await loadCredits();
+                showToast('Success', 'Credit deleted successfully!');
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            } finally {
+                hideLoading();
+            }
         }
 
         // Export Credits PDF
@@ -11469,36 +11450,27 @@
         }
 
         async function loadPersonal() {
-            const container = document.getElementById('personalTableContainer');
-            if (!dataState.isLoaded.personalExpenses || dataState.personalExpenses.length === 0) {
-                container.innerHTML = renderSkeleton('list-item', 3);
-            }
             if (!dataState.isLoaded.personalExpenses) {
                 showLoading();
-                return; // Wait for listener
-            }
-            hideLoading();
-
-            let expenses = dataState.personalExpenses;
-
-            if (expenses.length === 0) {
-                container.innerHTML = renderEmptyState(t('noExpenses'), t('noExpensesMessage'), 'fa-receipt');
-                document.getElementById('totalPersonalAmount').textContent = formatCurrency(0);
                 return;
             }
+            hideLoading();
 
             try {
                 const searchTerm = document.getElementById('personalSearch')?.value || '';
                 const yearFilter = document.getElementById('personalYear')?.value || 'all';
                 const monthFilter = document.getElementById('personalMonth')?.value || 'all';
 
+                let expenses = [...dataState.personalExpenses];
+
+                expenses = filterBySearch(expenses, searchTerm, ['description', 'category', 'mode', 'remarks', 'amount']);
                 expenses = filterByYearMonth(expenses, yearFilter, monthFilter);
                 expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 const total = expenses.reduce((sum, e) => sum + e.amount, 0);
                 document.getElementById('totalPersonalAmount').textContent = formatCurrency(total);
 
-                // Use existing variable
+                const container = document.getElementById('personalTableContainer');
                 if (expenses.length === 0) {
                     container.innerHTML = `
                         <div class="empty-state">
@@ -11652,7 +11624,7 @@
                             </div>
                             <div class="form-group">
                                 <label class="form-label">${t('attachments')} (Optional)</label>
-                                <input type="file" class="form-input" id="personalAttachments" multiple accept="image/*">
+                                <input type="file" class="form-input" id="personalAttachments" multiple accept="image">
                                 <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 files, 9MB each</small>
                                 <div id="personalAttachmentPreview" class="attachment-grid" style="margin-top: 0.5rem;"></div>
                             </div>
@@ -11662,7 +11634,7 @@
                         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
                             ${t('cancel')}
                         </button>
-                        <button class="btn btn-primary" onclick="savePersonal(event)">
+                        <button class="btn btn-primary" onclick="savePersonal()">
                             ${t('save')}
                         </button>
                     </div>
@@ -11719,8 +11691,8 @@
             renderPersonalNewAttachments();
         }
 
-        async function savePersonal(event) {
-            const btn = event.target.closest('button');
+        async function savePersonal() {
+            const btn = event.target;
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
@@ -11740,7 +11712,7 @@
                 const attachments = [];
 
                 for (let file of files) {
-                    const ref = storage.ref(`personal/${currentUser.uid}/${Date.now()}_${file.name}`);
+                    const ref = storage.ref(`personal / ${currentUser.uid}/${Date.now()}_${file.name}`);
                     await ref.put(file);
                     const url = await ref.getDownloadURL();
                     attachments.push(url);
@@ -11792,7 +11764,7 @@
                         </select>
                     </td>
                     <td><input type="text" class="form-input" value="${escapeHTML(expense.remarks || '')}" id="edit-remarks-${id}"></td>
-                    <td><input type="number" step="0.01" class="form-input" value="${escapeHTML(expense.amount)}" id="edit-amount-${id}" min="0"></td>
+                    <td><input type="number" step="0.01" class="form-input" value="${escapeHTML(expense.amount)}" id="edit-amount-${id}"></td>
                     <td>
                         <div class="attachments" id="edit-attachments-personal-${id}">
                             ${expense.attachments && expense.attachments.length > 0 ? expense.attachments.map((url, idx) => `
@@ -11810,10 +11782,10 @@
                     </td>
                     <td>
                         <div class="actions">
-                            <button class="action-btn success" onclick="saveEditPersonal('${id}')" aria-label="${t('save')}">
+                            <button class="action-btn success" onclick="saveEditPersonal('${id}')">
                                 <i class="fas fa-check"></i>
                             </button>
-                            <button class="action-btn danger" onclick="cancelEditPersonal()" aria-label="${t('cancel')}">
+                            <button class="action-btn danger" onclick="cancelEditPersonal()">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -11938,18 +11910,44 @@
         }
 
         async function deletePersonal(id) {
-            showConfirmation(t('deleteExpense'), t('confirmDeleteExpenseMessage') || 'Are you sure you want to delete this expense?', async () => {
-                showLoading();
-                try {
-                    await db.collection('personal_expenses').doc(id).delete();
-                    await loadPersonal();
-                    showToast('Success', 'Expense deleted successfully!');
-                } catch (error) {
-                    showToast('Error', error.message, 'error');
-                } finally {
-                    hideLoading();
-                }
-            });
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay show';
+            modal.innerHTML = `
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Delete Expense</h3>
+                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete this expense?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
+                            ${t('cancel')}
+                        </button>
+                        <button class="btn btn-danger" onclick="confirmDeletePersonal('${id}')">
+                            ${t('delete')}
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        async function confirmDeletePersonal(id) {
+            showLoading();
+            try {
+                await db.collection('personal_expenses').doc(id).delete();
+                document.querySelector('.modal-overlay')?.remove();
+                await loadPersonal();
+                showToast('Success', 'Expense deleted successfully!');
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            } finally {
+                hideLoading();
+            }
         }
 
         // Export Personal PDF
@@ -12239,13 +12237,6 @@
         }
 
         async function editGroup(groupId) {
-            // Look for existing group details modal and close it to prevent overlap
-            document.querySelectorAll('.modal-overlay').forEach(overlay => {
-                if (overlay.querySelector('.modal-large')) {
-                    overlay.remove();
-                }
-            });
-
             showLoading();
             try {
                 const groupDoc = await db.collection('groups').doc(groupId).get();
@@ -12335,7 +12326,7 @@
                             <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
                                 ${t('cancel')}
                             </button>
-                            <button type="submit" form="editGroupForm" class="btn btn-primary">
+                            <button class="btn btn-primary" onclick="updateGroup('${groupId}')">
                                 <i class="fas fa-save"></i>
                                 ${t('save')}
                             </button>
@@ -12463,11 +12454,7 @@
         }
 
         async function loadGroups() {
-            const container = document.getElementById('groupsContainer');
             if (!dataState.isLoaded.groups) {
-                if (!container.innerHTML.trim()) {
-                    container.innerHTML = `<div class="groups-grid">${renderSkeleton('card', 3)}</div>`;
-                }
                 showLoading();
                 return;
             }
@@ -12507,7 +12494,13 @@
 
                 const container = document.getElementById('groupsContainer');
                 if (groups.length === 0) {
-                    container.innerHTML = renderEmptyState(t('noGroupsFound'), t('groupsMessage'), 'fa-users');
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class="fas fa-users"></i></div>
+                            <div class="empty-title">${t('noGroupsFound')}</div>
+                            <div class="empty-message">${t('groupsMessage')}</div>
+                        </div>
+                    `;
                 } else {
                     let html = '<div class="groups-grid">';
                     for (let group of groups) {
@@ -12739,7 +12732,7 @@
                         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
                             ${t('cancel')}
                         </button>
-                        <button class="btn btn-primary" onclick="createGroup(event)">
+                        <button class="btn btn-primary" onclick="createGroup()">
                             <i class="fas fa-plus"></i>
                             ${t('createGroup')}
                         </button>
@@ -12749,8 +12742,8 @@
             document.body.appendChild(modal);
         }
 
-        async function createGroup(event) {
-            const btn = event.target.closest('button');
+        async function createGroup() {
+            const btn = event.target;
             btn.disabled = true;
             btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${t('creating')}`;
 
@@ -12939,7 +12932,7 @@
                     </div>
                     <div class="modal-footer">
                         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-                        <button class="btn btn-primary" onclick="addMember('${groupId}', event)">
+                        <button class="btn btn-primary" onclick="addMember('${groupId}')">
                             <i class="fas fa-plus"></i> Add
                         </button>
                     </div>
@@ -13219,10 +13212,7 @@
         }
 
         // Check group invites availability for create group
-        // Check group invites availability for create group
-        const checkGroupInvitesAvailability = debounce(_checkGroupInvitesAvailability, 500);
-
-        async function _checkGroupInvitesAvailability() {
+        async function checkGroupInvitesAvailability() {
             const input = document.getElementById('groupInvites');
             const preview = document.getElementById('groupInvitesPreview');
             const value = input.value.trim();
@@ -13299,10 +13289,7 @@
         }
 
         // Check edit group invites availability
-        // Check for edit group
-        const checkEditGroupInvitesAvailability = debounce(_checkEditGroupInvitesAvailability, 500);
-
-        async function _checkEditGroupInvitesAvailability(groupId) {
+        async function checkEditGroupInvitesAvailability(groupId) {
             const input = document.getElementById('editGroupInvites');
             const preview = document.getElementById('editGroupInvitesPreview');
             const value = input.value.trim();
@@ -13510,8 +13497,8 @@
             }
         }
 
-        async function addMember(groupId, event) {
-            const btn = event.target.closest('button');
+        async function addMember(groupId) {
+            const btn = event.target;
             const inputVal = document.getElementById('newMemberInput').value.trim();
             if (!inputVal) return;
 
@@ -15180,7 +15167,7 @@
                         </div>
                         <div class="col-md-6 form-group">
                             <label class="form-label">${t('amount')}</label>
-                            <input type="number" step="0.01" class="form-input" id="groupExpenseAmount" required min="0" oninput="updateSplitInputs()">
+                            <input type="number" step="0.01" class="form-input" id="groupExpenseAmount" required oninput="updateSplitInputs()">
                         </div>
                     </div>
                     <div class="form-group">
@@ -15240,7 +15227,7 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">${t('attachments')} (Optional)</label>
-                        <input type="file" class="form-input" id="groupExpenseAttachments" multiple accept="image/*">
+                        <input type="file" class="form-input" id="groupExpenseAttachments" multiple accept="image">
                         <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 files, 9MB each</small>
                         <div id="groupExpenseExistingAttachments" class="attachment-grid" style="margin-top:0.5rem"></div>
                         <div id="groupExpenseAttachmentPreview" class="attachment-grid" style="margin-top:0.5rem"></div>
@@ -15249,7 +15236,7 @@
                 <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
                     ${t('cancel')}
                 </button>
-                <button class="btn btn-primary" onclick="saveGroupExpense(event)">
+                <button class="btn btn-primary" onclick="saveGroupExpense()">
                     ${t('save')}
                 </button>
             </div>
@@ -15292,8 +15279,8 @@
         /**
          * Saves a new or edited group expense to Firestore.
          */
-        async function saveGroupExpense(event) {
-            const btn = event.target.closest('button');
+        async function saveGroupExpense() {
+            const btn = event.target;
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
             try {
@@ -16177,39 +16164,115 @@
             }
         }
 
+        /**
+         * Opens a confirmation modal for deleting a group expense.
+         * @param {string} expenseId - The ID of the expense.
+         * @param {string} groupId - The ID of the group.
+         */
+        async function deleteGroupExpense(expenseId, groupId) {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay show';
+            modal.innerHTML = `
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Delete Group Expense</h3>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this group expense?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
+                    ${t('cancel')}
+                </button>
+                <button class="btn btn-danger" onclick="confirmDeleteGroupExpense('${expenseId}', '${groupId}')">
+                    ${t('delete')}
+                </button>
+            </div>
+        </div>
+    `;
+            document.body.appendChild(modal);
+        }
 
+        /**
+         * Confirms and performs the deletion of a group expense.
+         * @param {string} expenseId - The ID of the expense.
+         * @param {string} groupId - The ID of the group.
+         */
+        async function confirmDeleteGroupExpense(expenseId, groupId) {
+            showLoading();
+            try {
+                await db.collection('group_expenses').doc(expenseId).delete();
+                document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+                await viewGroupDetails(groupId);
+                showToast('Success', 'Group expense deleted successfully!');
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
 
         /**
          * Opens a confirmation modal for deleting a group.
          * @param {string} groupId - The ID of the group.
          */
         async function deleteGroup(groupId) {
-            showConfirmation(t('deleteGroup'), t('confirmDeleteGroupMessage') || 'Are you sure you want to delete this group? All expenses will be deleted.', async () => {
-                showLoading();
-                try {
-                    // Delete all group expenses
-                    const expensesSnapshot = await db.collection('group_expenses')
-                        .where('groupId', '==', groupId)
-                        .get();
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay show';
+            modal.innerHTML = `
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Delete Group</h3>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this group?</p>
+                <p style="color: var(--danger); font-weight: 600;">All group expenses will also be deleted.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
+                    ${t('cancel')}
+                </button>
+                <button class="btn btn-danger" onclick="confirmDeleteGroup('${groupId}')">
+                    ${t('delete')}
+                </button>
+            </div>
+        </div>
+    `;
+            document.body.appendChild(modal);
+        }
 
-                    const batch = db.batch();
-                    expensesSnapshot.docs.forEach(doc => {
-                        batch.delete(doc.ref);
-                    });
-
-                    // Delete group
-                    batch.delete(db.collection('groups').doc(groupId));
-
-                    await batch.commit();
-
-                    showToast('Success', 'Group deleted successfully!');
-                    await renderGroups();
-                } catch (error) {
-                    showToast('Error', error.message, 'error');
-                } finally {
-                    hideLoading();
-                }
-            });
+        /**
+         * Confirms and performs the deletion of a group and its expenses.
+         * @param {string} groupId - The ID of the group.
+         */
+        async function confirmDeleteGroup(groupId) {
+            showLoading();
+            try {
+                // Delete all group expenses
+                const expensesSnapshot = await db.collection('group_expenses')
+                    .where('groupId', '==', groupId)
+                    .get();
+                const batch = db.batch();
+                expensesSnapshot.docs.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+                // Delete group
+                await db.collection('groups').doc(groupId).delete();
+                document.querySelector('.modal-overlay')?.remove();
+                await loadGroups();
+                showToast('Success', 'Group deleted successfully!');
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            } finally {
+                hideLoading();
+            }
         }
 
 
@@ -17142,11 +17205,6 @@
                 return;
             }
 
-            if (sectionType === 'group') {
-                showToast('Info', 'Please go to the Group page to edit group expenses.', 'info');
-                return;
-            }
-
             showLoading();
             try {
                 const collection = sectionType === 'credit' ? 'credits' : 'personal_expenses';
@@ -17190,16 +17248,16 @@
                             `).join('') : ''}
                         </div>
                         <div id="edit-details-new-attachments-preview-${id}" class="attachments" style="margin-top: 0.5rem;"></div>
-                        <input type="file" class="form-input" id="edit-details-new-attachments-${id}" multiple accept="image/*" style="margin-top: 0.5rem;">
+                        <input type="file" class="form-input" id="edit-details-new-attachments-${id}" multiple accept="image" style="margin-top: 0.5rem;">
                         <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 total files, 9MB each</small>
                     </td>
-                    <td><input type="number" step="0.01" class="form-input" value="${item.amount}" id="edit-details-amount-${id}" min="0"></td>
+                    <td><input type="number" step="0.01" class="form-input" value="${item.amount}" id="edit-details-amount-${id}"></td>
                     <td>
                         <div class="actions">
-                            <button class="action-btn success" onclick="saveEditDetailsRow('${sectionType}', '${id}')" aria-label="${t('save')}">
+                            <button class="action-btn success" onclick="saveEditDetailsRow('${sectionType}', '${id}')">
                                 <i class="fas fa-check"></i>
                             </button>
-                            <button class="action-btn danger" onclick="cancelEditDetailsRow()" aria-label="${t('cancel')}">
+                            <button class="action-btn danger" onclick="cancelEditDetailsRow()">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -17301,7 +17359,6 @@
         async function cancelEditDetailsRow() {
             editingRowId = null;
             await loadDetails();
-            // Re-render to remove editing class (loadDetails does this, but being explicit doesn't hurt)
         }
 
         async function removeDetailsAttachment(sectionType, id, urlToRemove) {
@@ -17327,27 +17384,48 @@
         }
 
         async function deleteDetailsRow(sectionType, id) {
-            if (sectionType === 'group') {
-                showToast('Info', 'Please go to the Group page to delete group expenses.', 'info');
-                return;
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay show';
+            modal.innerHTML = `
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Delete Transaction</h3>
+                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete this transaction?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
+                            ${t('cancel')}
+                        </button>
+                        <button class="btn btn-danger" onclick="confirmDeleteDetailsRow('${sectionType}', '${id}')">
+                            ${t('delete')}
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        async function confirmDeleteDetailsRow(sectionType, id) {
+            showLoading();
+            try {
+                const collection = sectionType === 'credit' ? 'credits' :
+                    sectionType === 'personal' ? 'personal_expenses' :
+                        'group_expenses';
+
+                await db.collection(collection).doc(id).delete();
+                document.querySelector('.modal-overlay')?.remove();
+                await loadDetails();
+                showToast('Success', 'Transaction deleted successfully!');
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            } finally {
+                hideLoading();
             }
-
-            showConfirmation(t('deleteTransaction'), t('confirmDeleteTransactionMessage') || 'Are you sure you want to delete this transaction?', async () => {
-                showLoading();
-                try {
-                    const collection = sectionType === 'credit' ? 'credits' :
-                        sectionType === 'personal' ? 'personal_expenses' :
-                            'group_expenses';
-
-                    await db.collection(collection).doc(id).delete();
-                    await loadDetails();
-                    showToast('Success', 'Transaction deleted successfully!');
-                } catch (error) {
-                    showToast('Error', error.message, 'error');
-                } finally {
-                    hideLoading();
-                }
-            });
         }
 
         // Export Details PDF
@@ -19050,24 +19128,6 @@
         // Additional CSS for new components
         const additionalStyles = `
             /* Calendar Styles */
-            /* Grid System */
-            .row {
-                display: flex;
-                flex-wrap: wrap;
-                margin: -0.75rem;
-            }
-            .col-sm-6, .col-md-4 {
-                padding: 0.75rem;
-                width: 100%;
-                box-sizing: border-box;
-            }
-            @media (min-width: 576px) {
-                .col-sm-6 { width: 50%; }
-            }
-            @media (min-width: 768px) {
-                .col-md-4 { width: 33.333%; }
-            }
-
             .calendar-all-time {
                 display: flex;
                 flex-direction: column;
@@ -19515,58 +19575,6 @@
                 opacity: 1;
             }
 
-            /* Skeletons */
-            .skeleton {
-                background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
-                background-size: 200% 100%;
-                animation: skeleton-loading 1.5s infinite;
-                border-radius: 4px;
-                opacity: 0.7;
-            }
-
-            @keyframes skeleton-loading {
-                0% { background-position: 200% 0; }
-                100% { background-position: -200% 0; }
-            }
-
-            .skeleton-text { height: 1em; margin-bottom: 0.5rem; }
-            .skeleton-rect { height: 100px; width: 100%; }
-            .skeleton-circle { width: 40px; height: 40px; border-radius: 50%; }
-
-            /* Empty States */
-            .empty-state {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                padding: 3rem 1rem;
-                text-align: center;
-                color: var(--text-gray);
-            }
-
-            .empty-state-icon {
-                font-size: 3rem;
-                margin-bottom: 1rem;
-                opacity: 0.5;
-            }
-
-            .empty-state-title {
-                font-size: 1.25rem;
-                font-weight: 600;
-                margin-bottom: 0.5rem;
-                color: var(--text-primary);
-            }
-
-            .empty-state-message {
-                max-width: 400px;
-                margin-bottom: 1.5rem;
-            }
-
-            /* Validation */
-            .input-error {
-                border-color: var(--danger) !important;
-            }
-
             /* Responsive Adjustments */
             @media (max-width: 768px) {
                 
@@ -20000,60 +20008,6 @@
             subtree: true
         });
 
-        // Helper to render skeletons
-        function renderSkeleton(type, count = 3) {
-            let html = '';
-            for (let i = 0; i < count; i++) {
-                if (type === 'list-item') {
-                    html += `
-                        <div class="card" style="padding: 1rem; margin-bottom: 1rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="display: flex; gap: 1rem; align-items: center; width: 60%;">
-                                    <div class="skeleton skeleton-circle"></div>
-                                    <div style="flex: 1;">
-                                        <div class="skeleton skeleton-text" style="width: 50%;"></div>
-                                        <div class="skeleton skeleton-text" style="width: 30%;"></div>
-                                    </div>
-                                </div>
-                                <div class="skeleton skeleton-text" style="width: 20%;"></div>
-                            </div>
-                        </div>
-                    `;
-                } else if (type === 'card') {
-                    html += `
-                        <div class="col-md-4 col-sm-6">
-                            <div class="card" style="height: 200px;">
-                                <div class="skeleton skeleton-text" style="width: 70%; height: 1.5rem; margin-bottom: 1rem;"></div>
-                                <div class="skeleton skeleton-text" style="width: 40%;"></div>
-                                <div class="skeleton skeleton-rect" style="margin-top: auto; height: 60px;"></div>
-                            </div>
-                        </div>
-                    `;
-                } else if (type === 'table-row') {
-                    html += `
-                        <tr>
-                            <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 150px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 100px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
-                        </tr>
-                    `;
-                }
-            }
-            return html;
-        }
-
-        // Helper to render empty states
-        function renderEmptyState(title, message, icon = 'fa-ghost') {
-            return `
-                <div class="empty-state">
-                    <div class="empty-state-icon"><i class="fas ${icon}"></i></div>
-                    <div class="empty-state-title">${escapeHTML(title)}</div>
-                    <div class="empty-state-message">${escapeHTML(message)}</div>
-                </div>
-            `;
-        }
-
         // Export functions for global use
         window.splitera = {
             formatCurrency,
@@ -20113,14 +20067,6 @@
 
         // Initialize app
         document.addEventListener('DOMContentLoaded', async () => {
-            // Global validation for number inputs
-            document.body.addEventListener('input', (e) => {
-                if (e.target.type === 'number' && e.target.min === '0') {
-                    if (e.target.value < 0) {
-                        e.target.value = Math.abs(e.target.value);
-                    }
-                }
-            });
             // Check for file:// protocol
             if (window.location.protocol === 'file:') {
                 const warningDiv = document.createElement('div');
