@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.splitera.app",                 
+    "sha256_cert_fingerprints": [
+      "a3:4a:01:2e:70:0f:f6:a7:81:a0:e0:9c:08:85:7b:ed:18:99:7a:2b:7f:95:06:db:6a:50:cf:1d:12:2c:0f:e8" 
+    ]
+  }
+}]
