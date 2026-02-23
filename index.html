@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 
 <head>
@@ -9804,7 +9804,9 @@
                     yPos = doc.lastAutoTable.finalY + 15;
                 });
 
-                doc.save(`dashboard-report-${Date.now()}.pdf`);
+                const pdfBlob = doc.output('blob');
+                await saveFileSafely(pdfBlob, `dashboard-report-${Date.now()}.pdf`, 'application/pdf');
+
                 showToast(t('success'), t('pdfExportSuccess'));
             } catch (error) {
                 showToast(t('error'), t('failedToExportPdf') + ': ' + error.message, 'error');
@@ -9948,8 +9950,59 @@
             return worksheet;
         }
 
+        // NEW: Save file safely using File System Access API or Web Share API
+        async function saveFileSafely(blob, fileName, mimeType) {
+            // 1. Try File System Access API (Modern Desktop Browsers)
+            if ('showSaveFilePicker' in window) {
+                try {
+                    const extension = mimeType === 'application/pdf' ? '.pdf' : '.xlsx';
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: fileName.endsWith(extension) ? fileName : `${fileName}${extension}`,
+                        types: [{
+                            description: mimeType === 'application/pdf' ? 'PDF Document' : 'Excel Workbook',
+                            accept: { [mimeType]: [extension] },
+                        }],
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(blob);
+                    await writable.close();
+                    return true;
+                } catch (err) {
+                    if (err.name === 'AbortError') return false; // User cancelled
+                    console.error('File System Access API failed:', err);
+                }
+            }
+
+            // 2. Try Web Share API (Mobile Browsers)
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], fileName, { type: mimeType })] })) {
+                try {
+                    await navigator.share({
+                        files: [new File([blob], fileName, { type: mimeType })],
+                        title: fileName,
+                        text: `Exported ${fileName}`
+                    });
+                    return true;
+                } catch (err) {
+                    if (err.name === 'AbortError') return false; // User cancelled
+                    console.error('Web Share API failed:', err);
+                }
+            }
+
+            // 3. Fallback: Standard Download
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+            return true;
+        }
+
         // Enhanced Excel export helper with month grouping, colored headers, and monthly totals
-        function exportToExcelEnhanced(data, fileName, sheetName = 'Sheet1', options = {}) {
+
+        async function exportToExcelEnhanced(data, fileName, sheetName = 'Sheet1', options = {}) {
             const { workbook: existingWorkbook, skipWrite = false, ...sheetOptions } = options;
 
             const worksheet = createEnhancedWorksheet(data, sheetOptions);
@@ -9958,10 +10011,14 @@
             XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
             if (!skipWrite) {
-                XLSX.writeFile(workbook, `${fileName}.xlsx`);
+                // XLSX.writeFile(workbook, `${fileName}.xlsx`);
+                const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                await saveFileSafely(blob, `${fileName}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             }
             return workbook;
         }
+
 
         // Helper function to get currency symbol
         function getCurrencySymbol() {
@@ -11311,7 +11368,9 @@
                     yPos = doc.lastAutoTable.finalY + 15;
                 });
 
-                doc.save(`credits-report-${Date.now()}.pdf`);
+                const pdfBlob = doc.output('blob');
+                await saveFileSafely(pdfBlob, `credits-report-${Date.now()}.pdf`, 'application/pdf');
+
                 showToast('Success', 'PDF exported successfully!');
             } catch (error) {
                 showToast('Error', 'Failed to export PDF: ' + error.message, 'error');
@@ -12043,7 +12102,9 @@
                     yPos = doc.lastAutoTable.finalY + 15;
                 });
 
-                doc.save(`personal-expenses-${Date.now()}.pdf`);
+                const pdfBlob = doc.output('blob');
+                await saveFileSafely(pdfBlob, `personal-expenses-${Date.now()}.pdf`, 'application/pdf');
+
                 showToast('Success', 'PDF exported successfully!');
             } catch (error) {
                 showToast('Error', 'Failed to export PDF: ' + error.message, 'error');
@@ -15968,7 +16029,9 @@
                     });
                     finalY = doc.lastAutoTable.finalY + 15;
                 }
-                doc.save(`${group.name.replace(/[^a-z0-9]/gi, '_')}_Report.pdf`);
+                const pdfBlob = doc.output('blob');
+                await saveFileSafely(pdfBlob, `${group.name.replace(/[^a-z0-9]/gi, '_')}_Report.pdf`, 'application/pdf');
+
                 showToast(t('success'), t('pdfExportSuccess'));
             } catch (error) {
                 console.error(error);
@@ -17693,7 +17756,9 @@
                 });
 
                 // Save the PDF with a timestamped filename
-                doc.save(`all-transactions-${Date.now()}.pdf`);
+                const pdfBlob = doc.output('blob');
+                await saveFileSafely(pdfBlob, `all-transactions-${Date.now()}.pdf`, 'application/pdf');
+
                 showToast(t('success'), t('pdfExportSuccess'));
             } catch (error) {
                 showToast(t('error'), `${t('failedToExportPdf')}: ${error.message}`);
@@ -18900,7 +18965,9 @@
                 yPos += 7;
                 doc.text(`${t('totalCreditCardExpenses')}: ${formatCurrency(totalCreditCardExpenses, true)}`, 14, yPos);
 
-                doc.save(`splitera-complete-data-${Date.now()}.pdf`);
+                const pdfBlob = doc.output('blob');
+                await saveFileSafely(pdfBlob, `splitera-complete-data-${Date.now()}.pdf`, 'application/pdf');
+
                 showToast(t('success'), t('pdfExportSuccess'));
             } catch (error) {
                 showToast(t('error'), `${t('failedToExportPdf')}: ${error.message}`, 'error');
@@ -18980,14 +19047,8 @@
 
                 const dataStr = JSON.stringify(exportData, null, 2);
                 const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                const url = URL.createObjectURL(dataBlob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `splitera-complete-data-${Date.now()}.json`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
+                await saveFileSafely(dataBlob, `splitera-complete-data-${Date.now()}.json`, 'application/json');
+
 
                 showToast(t('success'), t('jsonExportSuccess'));
             } catch (error) {
