@@ -497,7 +497,7 @@
                 max-width: 400px;
                 background: rgba(255, 255, 255, 0.85);
                 /* Light mode default */
-                backdrop-filter: blur(12px);
+                backdrop-filter: blur(2px);
                 -webkit-backdrop-filter: blur(12px);
                 border-radius: 20px;
                 padding: 0.75rem 0.5rem;
@@ -515,7 +515,7 @@
 
             @media (prefers-color-scheme: dark) {
                 .mobile-bottom-nav {
-                    background: rgb(30 30 30 / 19%);
+                    background: rgb(255 255 255 / 3%);
                     border: 1px solid rgba(255, 255, 255, 0.05);
                 }
             }
@@ -1062,8 +1062,8 @@
 
             .modal {
                 background: var(--bg-white);
-                border-radius: 0.75rem;
-                box-shadow: var(--shadow-lg);
+                border-radius: 2rem;
+                box-shadow: inset 0px 0px 20px 0px rgb(0 0 0 / 62%);
                 max-width: 600px;
                 width: 100%;
                 max-height: 90vh;
