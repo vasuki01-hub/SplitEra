@@ -365,21 +365,24 @@
             }
 
             .user-dropdown {
-                background: var(--bg-white);
-                border: 2px solid var(--border);
+                backdrop-filter: blur(2px);
+                background: #ffffff3d;
                 border-radius: 1.5rem;
-                box-shadow: var(--shadow-lg);
+                box-shadow: inset 0px 0px 20px 0px rgb(0 0 0 / 43%);
                 min-width: 12rem;
                 display: none;
             }
 
             .user-dropdown.show {
-                height: 17rem;
+                height: 19rem;
                 display: block;
             }
 
             .dropdown-item {
-                padding: 0.75rem 1rem;
+                margin: 7px;
+                background: #ffd5a99c;
+                border-radius: 2rem;
+                padding: 0.85rem 1rem;
                 color: var(--text-dark);
                 text-decoration: none;
                 display: flex;
@@ -907,6 +910,9 @@
 
             /* Table */
             .table-wrapper {
+                box-shadow: inset 0px 0px 3px black;
+                border-radius: 2rem;
+                border: 3rem;
                 overflow-x: auto;
             }
 
@@ -921,7 +927,7 @@
                 background: var(--bg-light);
                 font-weight: 600;
                 font-size: 0.875rem;
-                border-bottom: 1px solid var(--border);
+                border-bottom: 2px solid var(--border);
             }
 
             .table td {
@@ -1545,6 +1551,7 @@
             }
 
             .month-header {
+                border-radius: 2rem;
                 font-size: 1.125rem;
                 font-weight: 600;
                 margin-bottom: 1rem;
