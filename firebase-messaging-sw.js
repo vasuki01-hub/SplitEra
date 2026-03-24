@@ -1,8 +1,9 @@
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
+// public/firebase-messaging-sw.js
 
-// 🔥 IMPORTANT: You must put your Firebase Config here statically.
-// Service workers cannot reliably fetch config at runtime for FCM initialization.
+importScripts('https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.14.0/firebase-messaging-compat.js');
+
+// 🔥 Your Firebase Config (already correct)
 const firebaseConfig = {
     apiKey: "AIzaSyCu3sYRO65Qq0J0hkbfYfXZKre-_89VuQE",
     authDomain: "animai-studio-jtpei.firebaseapp.com",
@@ -13,21 +14,19 @@ const firebaseConfig = {
     appId: "1:808906988475:web:26768298ec96ac0200429e"
 };
 
-if (firebaseConfig.apiKey !== "AIzaSyCu3sYRO65Qq0J0hkbfYfXZKre-_89VuQE") {
-    firebase.initializeApp(firebaseConfig);
-    const messaging = firebase.messaging();
+firebase.initializeApp(firebaseConfig);
 
-    messaging.onBackgroundMessage((payload) => {
-        console.log('[firebase-messaging-sw.js] Received background message ', payload);
-        const notificationTitle = payload.notification.title;
-        const notificationOptions = {
-            body: payload.notification.body,
-            icon: '/favicon.png',
-            data: payload.data
-        };
+const messaging = firebase.messaging();
 
-        self.registration.showNotification(notificationTitle, notificationOptions);
-    });
-} else {
-    console.warn("[firebase-messaging-sw.js] Firebase config not provided. Background notifications will not work until you fill firebaseConfig in this file.");
-}
+messaging.onBackgroundMessage((payload) => {
+    console.log('[firebase-messaging-sw.js] Received background message ', payload);
+
+    const notificationTitle = payload.notification?.title || "New Notification";
+    const notificationOptions = {
+        body: payload.notification?.body || "You have a new message",
+        icon: '/favicon.png',
+        data: payload.data || {}
+    };
+
+    self.registration.showNotification(notificationTitle, notificationOptions);
+});
