@@ -13,7 +13,7 @@ const firebaseConfig = {
     appId: process.env.FIREBASE_APP_ID
 };
 
-if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+if (firebaseConfig.apiKey !== "process.env.FIREBASE_API_KEY") {
     firebase.initializeApp(firebaseConfig);
     const messaging = firebase.messaging();
 
