@@ -1800,10 +1800,7 @@
                     messaging = firebase.messaging();
                     // Register the service worker
                     if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.register('/firebase-messaging-sw.js')
-                            .then((registration) => {
-                                messaging.useServiceWorker(registration);
-                            });
+                        navigator.serviceWorker.register('/firebase-messaging-sw.js');
                     }
                 } catch (e) {
                     console.warn("Messaging not supported or blocked:", e);
@@ -19852,7 +19849,7 @@
                 const permission = await Notification.requestPermission();
                 if (permission === 'granted') {
                     const token = await messaging.getToken({
-                        vapidKey: 'BGW7KJbdoLvAtxwta72x2y9kc3xRnU7O5B7kyyglJTvLMirOviallJEOV1FW-Nc5wRaA9a6In7D83LakWbTwgOA'
+                        vapidKey: "BFMjoKWVgmuJbdEPjQjtkJd_Fn3C45WMrK9nvQu9dB7jCXYWrb5MkcRb97vOG-EhDzX4f-gzesVnjER3hDsP1aE"
                     });
                     if (token) {
                         await db.collection('users').doc(uid).update({
