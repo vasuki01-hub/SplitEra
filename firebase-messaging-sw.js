@@ -3,30 +3,33 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
-// 🔥 Your Firebase Config (already correct)
-const firebaseConfig = {
-    apiKey: "AIzaSyCu3sYRO65Qq0J0hkbfYfXZKre-_89VuQE",
-    authDomain: "animai-studio-jtpei.firebaseapp.com",
-    databaseURL: "https://animai-studio-jtpei-default-rtdb.firebaseio.com",
-    projectId: "animai-studio-jtpei",
-    storageBucket: "animai-studio-jtpei.firebasestorage.app",
-    messagingSenderId: "808906988475",
-    appId: "1:808906988475:web:26768298ec96ac0200429e"
-};
+// Parse config from query string (passed during registration)
+const urlParams = new URLSearchParams(self.location.search);
+const configParam = urlParams.get('config');
+let firebaseConfig = null;
 
-firebase.initializeApp(firebaseConfig);
+if (configParam) {
+    try {
+        firebaseConfig = JSON.parse(decodeURIComponent(configParam));
+    } catch (err) {
+        console.error('[firebase-messaging-sw.js] Failed to parse config from URL', err);
+    }
+}
 
-const messaging = firebase.messaging();
+if (firebaseConfig) {
+    firebase.initializeApp(firebaseConfig);
+    const messaging = firebase.messaging();
 
-messaging.onBackgroundMessage((payload) => {
-    console.log('[firebase-messaging-sw.js] Received background message ', payload);
-
-    const notificationTitle = payload.notification?.title || "New Notification";
-    const notificationOptions = {
-        body: payload.notification?.body || "You have a new message",
-        icon: '/favicon.png',
-        data: payload.data || {}
-    };
-
-    self.registration.showNotification(notificationTitle, notificationOptions);
-});
+    messaging.onBackgroundMessage((payload) => {
+        console.log('[firebase-messaging-sw.js] Received background message ', payload);
+        const notificationTitle = payload.notification?.title || "SplitEra Notification";
+        const notificationOptions = {
+            body: payload.notification?.body || "You have a new update",
+            icon: '/favicon.png',
+            data: payload.data || {}
+        };
+        self.registration.showNotification(notificationTitle, notificationOptions);
+    });
+} else {
+    console.warn('[firebase-messaging-sw.js] No config found in URL. Background notifications may not work.');
+}

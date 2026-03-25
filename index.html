@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 
 <head>
@@ -1796,14 +1796,16 @@
                 auth = firebase.auth();
                 db = firebase.firestore();
                 storage = firebase.storage();
-                try {
-                    messaging = firebase.messaging();
-                    // Register the service worker
-                    if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.register('/firebase-messaging-sw.js');
-                    }
-                } catch (e) {
-                    console.warn("Messaging not supported or blocked:", e);
+                
+                window.FIREBASE_CONFIG = firebaseConfig; // Store for later use
+
+                messaging = firebase.messaging();
+                // Register the service worker with dynamic config from Vercel env
+                if ('serviceWorker' in navigator) {
+                    const encodedConfig = encodeURIComponent(JSON.stringify(firebaseConfig));
+                    navigator.serviceWorker.register(`/firebase-messaging-sw.js?config=${encodedConfig}`)
+                        .then(() => console.log("✅ Service Worker registered with dynamic config"))
+                        .catch(err => console.error("❌ SW Registration failed:", err));
                 }
 
                 await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
@@ -19861,9 +19863,11 @@
                 const registration = await navigator.serviceWorker.ready;
                 console.log("✅ Service Worker ready for FCM");
 
-                // Step 3: Get FCM Token
-                // Note: Use your actual Public VAPID Key from Firebase Console
-                const VAPID_KEY = "BBop0TXQqhZnoQVJkE-orBbvhepuPwPRpaL9USZEvn_GR-djSZr-SIpwy2hm9j5ENvMGhy7UNps_qxe2RYp14DU";
+                const VAPID_KEY = window.FIREBASE_CONFIG?.vapidKey;
+                if (!VAPID_KEY) {
+                    console.error("❌ VAPID_KEY not found in Firebase Config");
+                    return;
+                }
 
                 const token = await messaging.getToken({
                     vapidKey: VAPID_KEY,
