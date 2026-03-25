@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 
 <head>
@@ -1796,7 +1796,7 @@
                 auth = firebase.auth();
                 db = firebase.firestore();
                 storage = firebase.storage();
-                
+
                 window.FIREBASE_CONFIG = firebaseConfig; // Store for later use
 
                 messaging = firebase.messaging();
@@ -19863,37 +19863,53 @@
                 const registration = await navigator.serviceWorker.ready;
                 console.log("✅ Service Worker ready for FCM");
 
-                const VAPID_KEY = window.FIREBASE_CONFIG?.vapidKey;
+                const VAPID_KEY = window.FIREBASE_CONFIG?.vapidKey?.trim();
+                const SENDER_ID = window.FIREBASE_CONFIG?.messagingSenderId;
+
+                console.log("🔍 FCM Diagnostics:", {
+                    hasMessaging: !!messaging,
+                    hasVapidKey: !!VAPID_KEY,
+                    senderIdFromConfig: SENDER_ID,
+                    expectedSenderId: "808906988475"
+                });
+
                 if (!VAPID_KEY) {
                     console.error("❌ VAPID_KEY not found in Firebase Config");
                     return;
                 }
 
-                const token = await messaging.getToken({
-                    vapidKey: VAPID_KEY,
-                    serviceWorkerRegistration: registration
-                });
+                // Step 3: Get FCM Token
+                let token;
+                try {
+                    // Try primary method with explicit registration
+                    token = await messaging.getToken({
+                        vapidKey: VAPID_KEY,
+                        serviceWorkerRegistration: registration
+                    });
+                } catch (firstErr) {
+                    console.warn("⚠️ Primary getToken failed, trying fallback...", firstErr);
+                    // Fallback: Let the SDK find the registration itself
+                    token = await messaging.getToken({
+                        vapidKey: VAPID_KEY
+                    });
+                }
 
                 if (token) {
-                    console.log("✅ FCM Token:", token);
+                    console.log("✅ FCM Token successful:", token);
                     await db.collection('users').doc(uid).update({
                         fcmToken: token,
                         notificationsEnabled: true,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
-                    console.log("✅ Token updated in Firestore");
                 } else {
-                    console.warn("⚠️ No token received. Check if your VAPID key belongs to the current project.");
+                    console.warn("⚠️ No token received.");
                 }
 
             } catch (error) {
                 console.error("❌ FCM Registration failed:", error);
-
                 if (error.name === 'AbortError') {
-                    console.error("💡 AbortError usually means the VAPID key doesn't match the messagingSenderId in your config.");
+                    console.error("💡 AbortError check: Are you on HTTPS? Does your VAPID key match your Sender ID in Firebase Console?");
                 }
-
-
             }
         }
 
