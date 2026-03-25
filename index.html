@@ -19866,7 +19866,7 @@
                 const VAPID_KEY = "BBop0TXQqhZnoQVJkE-orBbvhepuPwPRpaL9USZEvn_GR-djSZr-SIpwy2hm9j5ENvMGhy7UNps_qxe2RYp14DU";
 
                 const token = await messaging.getToken({
-                    vapidKey: VAPID_KEY,
+                    vapidKey: process.env.VAPID_KEY,
                     serviceWorkerRegistration: registration
                 });
 
