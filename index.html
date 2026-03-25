@@ -1786,18 +1786,11 @@
 
         async function initFirebase() {
             try {
-                let firebaseConfig;
+                const response = await fetch("/api/firebaseConfig");
+                const firebaseConfig = await response.json();
+
                 if (!firebase.apps.length) {
-                    const response = await fetch("/api/firebaseConfig");
-                    firebaseConfig = await response.json();
                     firebase.initializeApp(firebaseConfig);
-                    // Store for messaging use
-                    window.firebaseConfig = firebaseConfig;
-                } else {
-                    // Re-fetch or use existing if any
-                    const response = await fetch("/api/firebaseConfig");
-                    firebaseConfig = await response.json();
-                    window.firebaseConfig = firebaseConfig;
                 }
 
                 auth = firebase.auth();
@@ -19873,7 +19866,7 @@
                 const VAPID_KEY = "BBop0TXQqhZnoQVJkE-orBbvhepuPwPRpaL9USZEvn_GR-djSZr-SIpwy2hm9j5ENvMGhy7UNps_qxe2RYp14DU";
 
                 const token = await messaging.getToken({
-                    vapidKey: window.firebaseConfig?.vapidKey || "BBop0TXQqhZnoQVJkE-orBbvhepuPwPRpaL9USZEvn_GR-djSZr-SIpwy2hm9j5ENvMGhy7UNps_qxe2RYp14DU",
+                    vapidKey: process.env.VAPID_KEY,
                     serviceWorkerRegistration: registration
                 });
 
