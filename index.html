@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 
     <head>
@@ -2097,7 +2097,8 @@
                     totalCredits: 'Total Credits',
                     totalExpenses: 'Total Expenses',
 
-                    totalGroupExpenses: 'Total Group Expenses',
+                    totalYourShare: 'Total Your Share',
+                    totalYouOwed: 'Total You Owed',
                     dailyTotal: 'Daily Total',
                     allTransactions: 'All Transactions',
                     combinedView: 'Combined view of all transactions',
@@ -2496,7 +2497,8 @@
                     allSettledUp: 'બધા ચૂકવાઈ ગયા!',
                     owes: 'દેવાદાર છે',
                     pending: 'બાકી',
-                    yourShare: 'તમારો હિસ્સો',
+                    totalYourShare: 'તમારો કુલ હિસ્સો',
+                    totalYouOwed: 'તમારું કુલ દેવું',
                     financialCalendar: 'નાણાકીય કેલેન્ડર',
                     transactions: 'વ્યવહારો',
                     totalCredits: 'કુલ ક્રેડિટ્સ',
@@ -14240,6 +14242,24 @@
                     }, 0))}</strong>
                                     </div>
                                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                        <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
+                                        <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                        const payerId = e.paidBy || e.userId;
+                        if (payerId === currentUser.uid) return sum;
+                        const breakdown = breakdowns[e.id];
+                        const settlements = e.settlements || [];
+                        const totalPaid = settlements.reduce((s, settlement) => {
+                            return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
+                        }, 0);
+                        let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                        if (myShare === 0) {
+                            const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                            myShare = breakdown?.contributions?.[guestKey] || 0;
+                        }
+                        return sum + Math.max(0, myShare - totalPaid);
+                    }, 0))}</strong>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                         <span class="text-secondary">${t('totalExpensesCount')}:</span>
                                         <strong>${activeExpenses.length}</strong>
                                     </div>
@@ -19124,6 +19144,8 @@
                         if (!groupData) return null;
 
                         const allMembers = [...(groupData.members || []), ...(groupData.guestMembers || []).map(name => `guest:${name}`)];
+                        // Fetch all members' details to populate memberMap
+                        /* Optimization: In a real app, fetch these once at the start */
                         const memberMap = allMembers.reduce((acc, m) => {
                             acc[m] = m.startsWith('guest:') ? { firstName: m.split(':')[1], isGuest: true } : { firstName: m };
                             return acc;
@@ -19137,17 +19159,28 @@
                             userShare = parseFloat(expense.amount) / allMembers.length;
                         }
 
-                        // Removed restrictive filtering
-                        // if (userShare <= 0 && expense.userId !== currentUser.uid) return null;
                         totalUserGroupShare += userShare;
+                        
+                        // Get payer's name
+                        const payerId = expense.paidBy || expense.userId;
+                        let payerName = t('unknown');
+                        const payer = memberMap[payerId];
+                        if (payer) {
+                            payerName = `${payer.firstName} ${payer.lastName || ''}`.trim();
+                        } else if (payerId.startsWith('guest:')) {
+                            payerName = payerId.replace('guest:', '');
+                        }
 
                         return {
+                            _date: expense.date.toDate(),
                             [t('date')]: expense.date.toDate().toLocaleDateString(),
                             [t('description')]: expense.description,
-                            [t('amount')]: formatCurrency(userShare),
-                            [t('group')]: groupsMap[expense.groupId] || 'Unknown',
-                            [t('category')]: expense.category,
-                            [t('paidBy')]: expense.paidBy
+                            [t('category')]: expense.category || '',
+                            [t('paidBy')]: payerName,
+                            [t('split')]: t((expense.splitType || 'equal').toLowerCase()),
+                            [t('amount')]: parseFloat(expense.amount) || 0,
+                            [t('yourShare')]: userShare,
+                            [t('remarks')]: expense.remarks || ''
                         };
                     }).filter(e => e !== null);
 
@@ -19183,31 +19216,48 @@
 
                     if (credits.length > 0) {
                         const creditData = credits.map(c => ({
+                            _date: c.date.toDate(),
                             [t('date')]: c.date.toDate().toLocaleDateString(),
                             [t('description')]: c.description,
-                            [t('amount')]: formatCurrency(c.amount),
+                            [t('amount')]: parseFloat(c.amount) || 0,
                             [t('category')]: c.category,
                             [t('mode')]: c.mode
                         }));
-                        const creditSheet = XLSX.utils.json_to_sheet(creditData);
-                        XLSX.utils.book_append_sheet(workbook, creditSheet, t('creditsReport'));
+                        exportToExcelEnhanced(creditData, '', t('creditsReport'), {
+                            workbook: workbook,
+                            skipWrite: true,
+                            includeMonthGrouping: true,
+                            includeMonthlySummary: true,
+                            amountColumns: [t('amount')]
+                        });
                     }
 
                     if (personal.length > 0) {
                         const personalData = personal.map(p => ({
+                            _date: p.date.toDate(),
                             [t('date')]: p.date.toDate().toLocaleDateString(),
                             [t('description')]: p.description,
-                            [t('amount')]: formatCurrency(p.amount),
+                            [t('amount')]: parseFloat(p.amount) || 0,
                             [t('category')]: p.category,
                             [t('mode')]: p.mode
                         }));
-                        const personalSheet = XLSX.utils.json_to_sheet(personalData);
-                        XLSX.utils.book_append_sheet(workbook, personalSheet, t('personalExpensesReport'));
+                        exportToExcelEnhanced(personalData, '', t('personalExpensesReport'), {
+                            workbook: workbook,
+                            skipWrite: true,
+                            includeMonthGrouping: true,
+                            includeMonthlySummary: true,
+                            amountColumns: [t('amount')]
+                        });
                     }
 
                     if (groupProcessedData.length > 0) {
-                        const groupSheet = XLSX.utils.json_to_sheet(groupProcessedData);
-                        XLSX.utils.book_append_sheet(workbook, groupSheet, t('groupReport'));
+                        exportToExcelEnhanced(groupProcessedData, '', t('groupReport'), {
+                            workbook: workbook,
+                            skipWrite: true,
+                            includeMonthGrouping: true,
+                            includeMonthlySummary: true,
+                            amountColumns: [t('amount'), t('yourShare')]
+                        });
                     }
 
                     XLSX.writeFile(workbook, `splitera-complete-data-${Date.now()}.xlsx`);
