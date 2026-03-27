@@ -12461,13 +12461,7 @@
                                     <div id="editGroupInvitesPreview" style="margin-top: 8px; display: none;"></div>
                                     <small style="color: var(--text-gray);">${t('separateCommasHelp')}</small>
                                 </div>
-                                <div class="form-group" style="display: flex; align-items: center; justify-content: space-between;">
-                                    <label class="form-label" style="margin-bottom: 0;">Smart Settle</label>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="editGroupSmartSettle" ${group.smartSettle ? 'checked' : ''}>
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                </div>
+
                                 
                                 <div class="form-group">
                                     <label class="form-label">${t('currentMembers')} (${members.length})</label>
@@ -12559,13 +12553,10 @@
 
                 const simplifyElement = document.getElementById('editGroupSimplify');
                 const simplify = simplifyElement ? simplifyElement.checked : false;
-                const smartSettleElement = document.getElementById('editGroupSmartSettle');
-                const smartSettle = smartSettleElement ? smartSettleElement.checked : false;
                 const updates = {
                     name,
                     description,
                     simplify,
-                    smartSettle,
                     creationDate: firebase.firestore.Timestamp.fromDate(new Date(dateVal))
                 };
                 if (guestNames.length > 0) {
@@ -12901,13 +12892,7 @@
                                 <label class="form-label">${t('descriptionOptional')}</label>
                                 <textarea class="form-textarea" id="groupDescription" rows="3"></textarea>
                             </div>
-                            <div class="form-group" style="display: flex; align-items: center; justify-content: space-between;">
-                                <label class="form-label" style="margin-bottom: 0;">Smart Settle</label>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="groupSmartSettle">
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
+
                         </form>
                     </div>
                     <div class="modal-footer">
@@ -12991,8 +12976,6 @@
                     }
                 }
 
-                const smartSettle = document.getElementById('groupSmartSettle') ? document.getElementById('groupSmartSettle').checked : false;
-
                 // Create Group
                 const groupData = {
                     name,
@@ -13004,7 +12987,6 @@
                     guestMembers: guestNames,
                     pendingRequests: [],
                     simplify: true, // Default: show minimal transactions to settle
-                    smartSettle: smartSettle,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
@@ -15616,9 +15598,6 @@
                     await db.collection('group_expenses').add(expenseData);
                     showToast('Success', 'Expense added!');
                 }
-
-                await runSmartSettle(groupId);
-
                 const modal = document.getElementById('groupExpenseModal');
                 if (modal) modal.remove();
                 document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
@@ -16055,7 +16034,6 @@
             showConfirmation('Delete Expense', 'Are you sure?', async () => {
                 try {
                     await db.collection('group_expenses').doc(expenseId).delete();
-                    await runSmartSettle(groupId);
                     // Close all and reload
                     document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
                     await viewGroupDetails(groupId);
@@ -16485,7 +16463,6 @@
             showLoading();
             try {
                 await db.collection('group_expenses').doc(expenseId).delete();
-                await runSmartSettle(groupId);
                 document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
                 await viewGroupDetails(groupId);
                 showToast('Success', 'Group expense deleted successfully!');
