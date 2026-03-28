@@ -27,7 +27,6 @@
     <script src="https://cdn.jsdelivr.net/npm/libphonenumber-js@1.10.44/bundle/libphonenumber-js.min.js"></script>
     <style>
         * {
-            font-size: 1rem;
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -8072,6 +8071,59 @@
             }
         }
 
+        /**
+         * Enhanced error handler for Authentication processes.
+         * Provides detailed instructions for Firebase configuration issues.
+         * @param {Error} error - The caught error object.
+         * @param {string} customTitle - Custom title for the toast notification.
+         */
+        async function handleAuthError(error, customTitle = 'Error') {
+            hideLoading();
+
+            // Expected error patterns to suppress from console (browser extensions, cancellations, etc.)
+            const suppressedPatterns = [
+                'message channel closed',
+                'listener indicated an asynchronous response',
+                'extension',
+                'chrome-extension',
+                'moz-extension',
+                'safari-extension',
+                'popup',
+                'blocked',
+                'closed-by-user',
+                'cancelled-by-user',
+                'auth/popup-closed-by-user',
+                'auth/cancelled-popup-request'
+            ];
+
+            const errorMessage = (error.message || '').toLowerCase();
+            const errorCode = (error.code || '').toLowerCase();
+            const shouldSuppress = suppressedPatterns.some(pattern =>
+                errorMessage.includes(pattern) || errorCode.includes(pattern)
+            );
+
+            if (!shouldSuppress) {
+                console.error(`❌ Authentication ${customTitle}:`, error);
+
+                if (error.code === 'auth/unauthorized-domain') {
+                    console.error('🚨 DOMAIN NOT AUTHORIZED 🚨');
+                    console.error('Current domain:', window.location.origin);
+                    console.error('To fix: Add this domain to Authorized domains in Firebase Console and Google Cloud Console.');
+                    showToast('Domain Error', 'This domain is not authorized. Check console for instructions.', 'error');
+                } else if (error.code === 'auth/user-disabled') {
+                    showToast('Auth Error', 'This account has been disabled.', 'error');
+                } else if (error.code === 'auth/operation-not-supported-in-this-environment') {
+                    showToast('Auth Error', 'Sign-in not supported in this environment. Use Email/Password.', 'error');
+                } else if (error.code === 'auth/invalid-api-key' || error.code === 'auth/app-deleted') {
+                    showToast('Config Error', 'Firebase configuration error. Check API keys.', 'error');
+                } else {
+                    showToast(customTitle, error.message || 'Authentication failed. Please try again.', 'error');
+                }
+            } else if (errorCode.includes('popup')) {
+                showToast('Auth Error', 'Sign-in was cancelled or popups are blocked.', 'error');
+            }
+        }
+
         // Google Authentication - Using Redirect to avoid CORS issues
         async function signInWithGoogle() {
             showLoading();
@@ -8086,103 +8138,35 @@
                     prompt: 'select_account'
                 });
 
-                // Try popup method first (works in most environments)
+                // For Median Android WebView, avoid popups as they are frequently blocked or cause issues
+                if (detectMedian()) {
+                    console.log("Median detected, using signInWithRedirect");
+                    await auth.signInWithRedirect(provider);
+                    return; // The page will redirect
+                }
+
+                // Normal browser behavior: Try popup method first
                 try {
                     const result = await auth.signInWithPopup(provider);
-                    auth.onAuthStateChanged(async (user) => {
-                        if (user) {
-                            console.log("User detected from auth state:", user.email);
-
-                            // If already on login page, navigate
-                            if (!currentUser) {
-                                await handleGoogleAuthSuccess(user);
-                            }
-                        }
-                    });
-                }
-
-                catch (popupError) {
-
-                    // Check if it's a popup blocker or extension issue
-                    const isPopupBlocked = popupError.code === 'auth/popup-blocked' ||
-                        popupError.code === 'auth/popup-closed-by-user' ||
-                        popupError.message.includes('popup') ||
-                        popupError.message.includes('blocked');
-
-                    if (!isPopupBlocked) {
-                        throw popupError; // Re-throw if it's not a popup issue
+                    if (result.user) {
+                        await handleGoogleAuthSuccess(result.user);
                     }
+                } catch (popupError) {
+                    console.warn("Popup blocked or failed, falling back to redirect:", popupError.message);
 
-                    // Fall back to redirect method
-                    await auth.signInWithRedirect(provider);
+                    // Check if it's a popup blocker or environment issue
+                    const isPopupIssue = popupError.code === 'auth/popup-blocked' ||
+                        popupError.code === 'auth/popup-closed-by-user' ||
+                        popupError.code === 'auth/operation-not-supported-in-this-environment';
+
+                    if (isPopupIssue) {
+                        await auth.signInWithRedirect(provider);
+                    } else {
+                        throw popupError;
+                    }
                 }
             } catch (error) {
-                hideLoading();
-
-                // Enhanced error handling
-                const suppressedErrorPatterns = [
-                    'message channel closed',
-                    'listener indicated an asynchronous response',
-                    'extension',
-                    'chrome-extension',
-                    'moz-extension',
-                    'safari-extension',
-                    'popup',
-                    'blocked',
-                    'closed-by-user'
-                ];
-
-                const errorMessage = (error.message || '').toLowerCase();
-                const errorCode = (error.code || '').toLowerCase();
-
-                const shouldSuppress = suppressedErrorPatterns.some(pattern =>
-                    errorMessage.includes(pattern.toLowerCase()) ||
-                    errorCode.includes(pattern.toLowerCase())
-                );
-
-                if (!shouldSuppress) {
-                    console.error('Google Sign-In Error:', error);
-                    if (error.code === 'auth/operation-not-supported-in-this-environment') {
-                        showToast('Auth Error', 'Google Sign-In is not supported in this environment. Please use Email/Password.', 'error');
-                    } else if (error.code === 'auth/unauthorized-domain') {
-                        console.error('🚨 DOMAIN NOT AUTHORIZED FOR OAUTH 🚨');
-                        console.error('Your current domain:', window.location.origin);
-                        console.error('');
-                        console.error('TO FIX THIS ERROR:');
-                        console.error('1. Go to Firebase Console: https://console.firebase.google.com');
-                        console.error('2. Select project: animai-studio-jtpei');
-                        console.error('3. Go to Authentication > Sign-in method > Google');
-                        console.error('4. Scroll to "Web SDK configuration"');
-                        console.error('5. Add your domain to "Authorized domains":');
-                        console.error('   -', window.location.origin);
-                        console.error('   - For Vercel: your-app-name.vercel.app');
-                        console.error('   - For Netlify: your-app-name.netlify.app');
-                        console.error('   - For GitHub Pages: your-username.github.io');
-                        console.error('');
-                        console.error('6. Also add to Google Cloud Console:');
-                        console.error('   - https://console.cloud.google.com/apis/credentials');
-                        console.error('   - OAuth 2.0 client IDs > Web client > Authorized redirect URIs');
-                        console.error('   - Add:', window.location.origin);
-                        console.error('');
-                        console.error('7. Wait 5-10 minutes for changes to propagate');
-                        console.error('8. Refresh this page and try again');
-                        console.error('');
-                        console.error('Current domain that needs to be added:', window.location.origin);
-
-                        showToast('Domain Error', 'Domain not authorized. Check console for setup instructions.', 'error');
-                    } else if (error.code === 'auth/invalid-api-key' || error.code === 'auth/app-deleted') {
-                        showToast('Config Error', 'Firebase configuration error. Please check your API keys.', 'error');
-                    } else if (error.code === 'auth/auth-domain-config-required' || error.code === 'auth/invalid-action-code') {
-                        console.error('🚨 AUTH CONFIG ERROR 🚨');
-                        console.error('This error usually means Google Sign-In is not enabled or the domain is not authorized.');
-                        console.error('Current domain:', window.location.origin);
-                        showToast('Config Error', 'Please enable Google Sign-In and authorize this domain in Firebase Console.', 'error');
-                    } else {
-                        showToast('Error', 'Failed to start Google Sign-In. Please try again.', 'error');
-                    }
-                } else {
-                    showToast('Auth Error', 'Please allow popups for this site or try again.', 'error');
-                }
+                await handleAuthError(error, 'Sign-In Error');
             }
         }
 
@@ -8217,8 +8201,7 @@
                 showToast(t('success'), t('welcomeBack'));
             } catch (error) {
                 await auth.signOut();
-                showToast('Error', 'Failed to sign in: ' + error.message, 'error');
-                hideLoading();
+                await handleAuthError(error, 'Sign-In Error');
             }
         }
 
@@ -8282,9 +8265,8 @@
                     showToast(t('success'), t('welcomeBack'));
                 }
             } catch (error) {
-                console.error('❌ Google Sign-up Error:', error);
                 await auth.signOut();
-                showToast('Error', 'Failed to sign up with Google: ' + error.message, 'error');
+                await handleAuthError(error, 'Sign-Up Error');
             } finally {
                 hideLoading();
             }
@@ -8324,8 +8306,7 @@
                 navigate('dashboard');
                 showToast('Success', 'Profile completed!');
             } catch (error) {
-                showToast('Error', error.message, 'error');
-                hideLoading();
+                await handleAuthError(error, 'Sign-Up Error');
             }
         }
 
@@ -8334,122 +8315,6 @@
             await handleGoogleAuthSignUp(user);
         }
 
-        async function signUpWithGoogle() {
-            showLoading();
-            try {
-                // Clear any previous auth state
-                sessionStorage.removeItem('googleAuthRedirectHandled');
-
-                const provider = new firebase.auth.GoogleAuthProvider();
-                provider.addScope('email');
-                provider.addScope('profile');
-                provider.setCustomParameters({
-                    prompt: 'select_account'
-                });
-
-                // Try popup method first (works in most environments)
-                try {
-                    const result = await auth.signInWithPopup(provider);
-                    auth.onAuthStateChanged(async (user) => {
-                        if (user) {
-                            console.log("User detected from auth state:", user.email);
-
-                            // If already on login page, navigate
-                            if (!currentUser) {
-                                await handleGoogleAuthSuccess(user);
-                            }
-                        }
-                    });
-                }
-
-                catch (popupError) {
-
-                    // Check if it's a popup blocker or extension issue
-                    const isPopupBlocked = popupError.code === 'auth/popup-blocked' ||
-                        popupError.code === 'auth/popup-closed-by-user' ||
-                        popupError.message.includes('popup') ||
-                        popupError.message.includes('blocked');
-
-                    if (!isPopupBlocked) {
-                        throw popupError; // Re-throw if it's not a popup issue
-                    }
-
-                    // Fall back to redirect method
-                    await auth.signInWithRedirect(provider);
-                }
-            } catch (error) {
-                hideLoading();
-
-                // Enhanced error handling
-                const suppressedErrorPatterns = [
-                    'message channel closed',
-                    'listener indicated an asynchronous response',
-                    'extension',
-                    'chrome-extension',
-                    'moz-extension',
-                    'safari-extension',
-                    'extension://',
-                    'moz-extension://',
-                    'chrome-extension://',
-                    'safari-extension://',
-                    'popup',
-                    'blocked',
-                    'closed-by-user'
-                ];
-
-                const errorMessage = (error.message || '').toLowerCase();
-                const errorCode = (error.code || '').toLowerCase();
-
-                const shouldSuppress = suppressedErrorPatterns.some(pattern =>
-                    errorMessage.includes(pattern.toLowerCase()) ||
-                    errorCode.includes(pattern.toLowerCase())
-                );
-
-                if (!shouldSuppress) {
-                    console.error('Google Sign-Up Error:', error);
-                    if (error.code === 'auth/operation-not-supported-in-this-environment') {
-                        showToast('Auth Error', 'Google Sign-In is not supported in this environment. Please use Email/Password.', 'error');
-                    } else if (error.code === 'auth/unauthorized-domain') {
-                        console.error('🚨 DOMAIN NOT AUTHORIZED FOR OAUTH 🚨');
-                        console.error('Your current domain:', window.location.origin);
-                        console.error('');
-                        console.error('TO FIX THIS ERROR:');
-                        console.error('1. Go to Firebase Console: https://console.firebase.google.com');
-                        console.error('2. Select project: animai-studio-jtpei');
-                        console.error('3. Go to Authentication > Sign-in method > Google');
-                        console.error('4. Scroll to "Web SDK configuration"');
-                        console.error('5. Add your domain to "Authorized domains":');
-                        console.error('   -', window.location.origin);
-                        console.error('   - For Vercel: your-app-name.vercel.app');
-                        console.error('   - For Netlify: your-app-name.netlify.app');
-                        console.error('   - For GitHub Pages: your-username.github.io');
-                        console.error('');
-                        console.error('6. Also add to Google Cloud Console:');
-                        console.error('   - https://console.cloud.google.com/apis/credentials');
-                        console.error('   - OAuth 2.0 client IDs > Web client > Authorized redirect URIs');
-                        console.error('   - Add:', window.location.origin);
-                        console.error('');
-                        console.error('7. Wait 5-10 minutes for changes to propagate');
-                        console.error('8. Refresh this page and try again');
-                        console.error('');
-                        console.error('Current domain that needs to be added:', window.location.origin);
-
-                        showToast('Domain Error', 'Domain not authorized. Check console for setup instructions.', 'error');
-                    } else if (error.code === 'auth/invalid-api-key' || error.code === 'auth/app-deleted') {
-                        showToast('Config Error', 'Firebase configuration error. Please check your API keys.', 'error');
-                    } else if (error.code === 'auth/auth-domain-config-required' || error.code === 'auth/invalid-action-code') {
-                        console.error('🚨 AUTH CONFIG ERROR 🚨');
-                        console.error('This error usually means Google Sign-In is not enabled or the domain is not authorized.');
-                        console.error('Current domain:', window.location.origin);
-                        showToast('Config Error', 'Please enable Google Sign-In and authorize this domain in Firebase Console.', 'error');
-                    } else {
-                        showToast('Error', 'Failed to start Google Sign-Up. Please try again.', 'error');
-                    }
-                } else {
-                    showToast('Auth Error', 'Please allow popups for this site or try again.', 'error');
-                }
-            }
-        }
 
         // Handle Google auth redirect result
         async function handleGoogleAuthRedirect() {
@@ -8486,70 +8351,9 @@
                         }
                     }
                 });
-            }
-
-            catch (error) {
-                // Enhanced error suppression for browser extensions and network issues
-                const suppressedErrorPatterns = [
-                    'message channel closed',
-                    'popup-closed-by-user',
-                    'listener indicated an asynchronous response',
-                    'network error',
-                    'timeout',
-                    'auth timeout',
-                    'extension',
-                    'chrome-extension',
-                    'moz-extension',
-                    'safari-extension',
-                    'extension://',
-                    'moz-extension://',
-                    'chrome-extension://',
-                    'safari-extension://'
-                ];
-
-                const errorMessage = (error.message || error.toString() || '').toLowerCase();
-                const errorCode = (error.code || '').toLowerCase();
-
-                const shouldSuppress = suppressedErrorPatterns.some(pattern =>
-                    errorMessage.includes(pattern.toLowerCase()) ||
-                    errorCode.includes(pattern.toLowerCase())
-                );
-
-                if (!shouldSuppress) {
-                    console.error("Google Auth Redirect Error:", error);
-                } else {
-
-                }
-
+            } catch (error) {
+                await handleAuthError(error, 'Redirect Error');
                 sessionStorage.removeItem('googleAuthRedirectHandled');
-
-                // Only show user-facing errors for actual auth failures
-                if (error.code === 'auth/operation-not-supported-in-this-environment') {
-                    showToast('Auth Error', 'Google Sign-In is not supported in this environment. Please use Email/Password.', 'error');
-                } else if (error.code === 'auth/unauthorized-domain' || error.code === 'auth/invalid-action-code') {
-                    console.error('🚨 AUTH CONFIG ERROR 🚨');
-                    console.error('Current domain:', window.location.origin);
-                    showToast('Config Error', 'Domain not authorized or Google Sign-In disabled. Click "Run diagnostics" for help.', 'error');
-                } else if (error.code === 'auth/user-disabled') {
-                    showToast('Auth Error', 'This account has been disabled.', 'error');
-                } else if (error.code === 'auth/user-not-found') {
-                    showToast('Auth Error', 'No account found with this Google account.', 'error');
-                } else if (error.code === 'auth/wrong-password') {
-                    showToast('Auth Error', 'Invalid credentials.', 'error');
-                } else if (error.code === 'auth/network-request-failed') {
-                    showToast('Network Error', 'Please check your internet connection and try again.', 'error');
-                } else if (error.code === 'auth/invalid-api-key' || error.code === 'auth/app-deleted') {
-                    showToast('Config Error', 'Firebase configuration error. Please check your API keys.', 'error');
-                } else if (error.code === 'auth/auth-domain-config-required' || error.code === 'auth/invalid-action-code') {
-                    console.error('🚨 AUTH CONFIG ERROR 🚨');
-                    console.error('This error usually means Google Sign-In is not enabled or the domain is not authorized.');
-                    console.error('Current domain:', window.location.origin);
-                    showToast('Config Error', 'Please enable Google Sign-In and authorize this domain in Firebase Console.', 'error');
-                } else if (error.code && !shouldSuppress && !error.code.includes('cancelled') && !error.code.includes('popup')) {
-                    showToast('Auth Error', 'Authentication failed. Please try again.', 'error');
-                }
-
-                hideLoading();
             }
         }
 
@@ -10005,6 +9809,18 @@
 
         // NEW: Save file safely using File System Access API or Web Share API
         async function saveFileSafely(blob, fileName, mimeType) {
+            // 0. Median/WebView Support for Export
+            if (detectMedian()) {
+                const reader = new FileReader();
+                reader.onloadend = function () {
+                    const base64data = reader.result;
+                    // Trigger native sharing via Median bridge
+                    window.location.href = 'median://sharing/shareFile?url=' + encodeURIComponent(base64data) + '&filename=' + encodeURIComponent(fileName);
+                }
+                reader.readAsDataURL(blob);
+                return true;
+            }
+
             // 1. Try File System Access API (Modern Desktop Browsers)
             if ('showSaveFilePicker' in window) {
                 try {
@@ -13873,14 +13689,12 @@
          * @param {string} groupId - The ID of the group to view.
          */
         async function viewGroupDetails(groupId) {
-            // Check if modal is already open - if so, just update it instead of creating a new one
-            const existingModal = document.querySelector('.modal-overlay.show');
-            const isUpdating = existingModal && existingModal.querySelector('.modal-large');
+            // Check if modal is already open
+            let existingModal = document.querySelector('.modal-overlay.show .modal-large');
+            const isUpdating = !!existingModal;
+
             if (!isUpdating) {
                 showLoading();
-            } else {
-                // Remove existing modal to prevent overlap
-                existingModal.remove();
             }
 
             try {
@@ -14211,200 +14025,197 @@
             `;
                 };
 
-                const modal = document.createElement('div');
-                modal.className = 'modal-overlay show';
-                modal.innerHTML = `
-            <div class="modal modal-large" style="max-width: 95vw; width: 1000px;">
-                <div class="modal-header">
-                    <div>
-                         <h3 class="modal-title">${escapeHTML(group.name)}</h3>
-                        <small class="text-secondary">${(group.members?.length || 0) + (group.guestMembers?.length || 0)} ${t('membersCount')} • ${t('groupCode')}: ${group.code}</small>
-                    </div>
-                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="modal-body" style="padding: 0;">
-                    <div class="row" style="margin: 0;">
-                        <div class="col-md-9" style="padding: 1.5rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                                <h4 style="margin:0;">${t('expenses')}</h4>
-                                <div style="display: flex; gap: 10px;">
-                                    <button class="btn btn-secondary btn-sm" onclick="exportGroupPDF('${groupId}')">
-                                        <i class="fas fa-file-pdf"></i> ${t('pdfReport')}
-                                    </button>
-                                    <button class="btn btn-success btn-sm" onclick="exportGroupExcel('${groupId}')">
-                                        <i class="fas fa-file-excel"></i> ${t('exportExcel')}
-                                    </button>
-                                    <button class="btn btn-primary btn-sm" onclick="openAddGroupExpenseModal('${groupId}', '${group.name}')">
-                                        <i class="fas fa-plus"></i> ${t('addExpense')}
-                                    </button>
-                                </div>
-                            </div>
+                if (isUpdating) {
+                    // Update only the inner content to prevent flicker
+                    const modalTitle = existingModal.querySelector('.modal-title');
+                    const modalSubtitle = existingModal.querySelector('.text-secondary');
+                    const modalBody = existingModal.querySelector('.modal-body');
 
-                            ${displayExpenses.length === 0 ? `
-                                <div class="empty-state">
-                                    <div class="empty-icon"><i class="fas fa-receipt"></i></div>
-                                    <div class="empty-title">${t('noExpensesFound')}</div>
-                                    <div class="empty-message">${t('addPersonalPrompt')}</div>
-                                </div>
-                            ` : `
-                                <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
-                                    <table class="table">
-                                        <thead>
-                                            <tr>
-                                                <th>${t('date')}</th>
-                                                <th>${t('description')}</th>
-                                                <th>${t('paidBy')}</th>
-                                                <th>${t('amount')}</th>
-                                                <th>${t('yourShare') || 'Your Share'}</th>
-                                                <th>${t('split')}</th>
-                                                <th>${t('remarks') || 'Remarks'}</th>
-                                                <th>${t('status')}</th>
-                                                <th>${t('actions')}</th>
-                                            </tr>
-                                        </thead>
-                                        ${activeExpenses.map(e => renderExpenseRow(e, false)).join('')}
-                                        ${settledExpenses.length > 0 ? `
-                                            <tbody>
-                                                <tr style="background: var(--bg-light); cursor: pointer;"
-                                                    onclick="document.querySelectorAll('.settled-expense-row-${groupId}').forEach(el => el.classList.toggle('hidden'))">
-                                                    <td colspan="10" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
-                                                        <i class="fas fa-history"></i> Show ${settledExpenses.length} Settled Expense${settledExpenses.length > 1 ? 's' : ''}
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                            ${settledExpenses.map(e => renderExpenseRow(e, true)).join('')}
-                                        ` : ''}
-                                    </table>
-                                </div>
+                    if (modalTitle) modalTitle.innerHTML = escapeHTML(group.name);
+                    if (modalSubtitle) modalSubtitle.innerHTML = `${(group.members?.length || 0) + (group.guestMembers?.length || 0)} ${t('membersCount')} • ${t('groupCode')}: ${group.code}`;
 
-                                <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border);">
-                                    <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('expenseSummary')}</h5>
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                        <span class="text-secondary">${t('totalExpenses')}:</span>
-                                        <strong style="color: var(--danger); font-size: 1.1rem;">${formatCurrency(displayExpenses.reduce((sum, exp) => {
-                    if (exp.category === 'Settlement' || exp.isSettlement) return sum;
-                    return sum + (parseFloat(exp.amount) || 0);
-                }, 0))}</strong>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                        <span class="text-secondary">${t('receivable')}:</span>
-                                        <strong style="color: var(--success);">${formatCurrency(displayExpenses.reduce((sum, e) => {
-                    const payerId = e.paidBy || e.userId;
-                    if (payerId !== currentUser.uid) return sum;
-                    const breakdown = breakdowns[e.id];
-                    const settlements = e.settlements || [];
-                    const totalReceived = settlements.reduce((s, settlement) => {
-                        return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
-                    }, 0);
-                    const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                    return sum + (parseFloat(e.amount) - myShare - totalReceived);
-                }, 0))}</strong>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                        <span class="text-secondary">${t('totalYourShare') || 'Total Your Share'}:</span>
-                                        <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
-                    const breakdown = breakdowns[e.id];
-                    let s = breakdown?.contributions?.[currentUser.uid] || 0;
-                    if (s === 0) {
-                        const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                        s = breakdown?.contributions?.[guestKey] || 0;
-                    }
-                    return sum + s;
-                }, 0))}</strong>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                        <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
-                                        <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
-                    const payerId = e.paidBy || e.userId;
-                    if (payerId === currentUser.uid) return sum;
-                    const breakdown = breakdowns[e.id];
-                    const settlements = e.settlements || [];
-                    const totalPaid = settlements.reduce((s, settlement) => {
-                        return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
-                    }, 0);
-                    let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                    if (myShare === 0) {
-                        const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                        myShare = breakdown?.contributions?.[guestKey] || 0;
-                    }
-                    return sum + Math.max(0, myShare - totalPaid);
-                }, 0))}</strong>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                        <span class="text-secondary">${t('totalExpensesCount')}:</span>
-                                        <strong>${activeExpenses.length}</strong>
-                                    </div>
-                                </div>
-                            `}
-                        </div>
-
-                        <div class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem;">
-                            <div style="margin-bottom: 2rem;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                                    <h5 style="margin-bottom: 0; color: var(--text-primary);">${t('members')}</h5>
-                                </div>
-                                <div style="display: flex; flex-direction: column; gap: 8px;">
-                                    ${currentGroupMembers.map(m => `
-                                        <div style="display: flex; align-items: center; gap: 10px;">
-                                            <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + m.firstName + '+' + m.lastName}" style="width: 30px; height: 30px; border-radius: 50%;">
-                                            <span style="font-size: 0.9rem;">${m.firstName} ${m.lastName}</span>
-                                            ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size: 0.8rem;"></i>' : ''}
+                    if (modalBody) {
+                        modalBody.innerHTML = `
+                            <div class="row" style="margin: 0;">
+                                <div class="col-md-9" style="padding: 1.5rem;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                        <h4 style="margin:0;">${t('expenses')}</h4>
+                                        <div style="display: flex; gap: 10px;">
+                                            <button class="btn btn-secondary btn-sm" onclick="exportGroupPDF('${groupId}')">
+                                                <i class="fas fa-file-pdf"></i> ${t('pdfReport')}
+                                            </button>
+                                            <button class="btn btn-success btn-sm" onclick="exportGroupExcel('${groupId}')">
+                                                <i class="fas fa-file-excel"></i> ${t('exportExcel')}
+                                            </button>
+                                            <button class="btn btn-primary btn-sm" onclick="openAddGroupExpenseModal('${groupId}', '${group.name}')">
+                                                <i class="fas fa-plus"></i> ${t('addExpense')}
+                                            </button>
                                         </div>
-                                    `).join('')}
+                                    </div>
+
+                                    ${displayExpenses.length === 0 ? `
+                                        <div class="empty-state">
+                                            <div class="empty-icon"><i class="fas fa-receipt"></i></div>
+                                            <div class="empty-title">${t('noExpensesFound')}</div>
+                                            <div class="empty-message">${t('addPersonalPrompt')}</div>
+                                        </div>
+                                    ` : `
+                                        <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+                                            <table class="table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>${t('date')}</th>
+                                                        <th>${t('description')}</th>
+                                                        <th>${t('paidBy')}</th>
+                                                        <th>${t('amount')}</th>
+                                                        <th>${t('yourShare') || 'Your Share'}</th>
+                                                        <th>${t('split')}</th>
+                                                        <th>${t('remarks') || 'Remarks'}</th>
+                                                        <th>${t('status')}</th>
+                                                        <th>${t('actions')}</th>
+                                                    </tr>
+                                                </thead>
+                                                ${activeExpenses.map(e => renderExpenseRow(e, false)).join('')}
+                                                ${settledExpenses.length > 0 ? `
+                                                    <tbody>
+                                                        <tr style="background: var(--bg-light); cursor: pointer;"
+                                                            onclick="this.closest('table').querySelectorAll('.settled-expense-row-${groupId}').forEach(el => el.classList.toggle('hidden'))">
+                                                            <td colspan="10" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
+                                                                <i class="fas fa-history"></i> Show ${settledExpenses.length} Settled Expense${settledExpenses.length > 1 ? 's' : ''}
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                    ${settledExpenses.map(e => renderExpenseRow(e, true)).join('')}
+                                                ` : ''}
+                                            </table>
+                                        </div>
+
+                                        <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border);">
+                                            <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('expenseSummary')}</h5>
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                                <span class="text-secondary">${t('totalExpenses')}:</span>
+                                                <strong style="color: var(--danger); font-size: 1.1rem;">${formatCurrency(displayExpenses.reduce((sum, exp) => {
+                            if (exp.category === 'Settlement' || exp.isSettlement) return sum;
+                            return sum + (parseFloat(exp.amount) || 0);
+                        }, 0))}</strong>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                                <span class="text-secondary">${t('receivable')}:</span>
+                                                <strong style="color: var(--success);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                            const payerId = e.paidBy || e.userId;
+                            if (payerId !== currentUser.uid) return sum;
+                            const breakdown = breakdowns[e.id];
+                            const settlements = e.settlements || [];
+                            const totalReceived = settlements.reduce((s, settlement) => {
+                                return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
+                            }, 0);
+                            const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                            return sum + (parseFloat(e.amount) - myShare - totalReceived);
+                        }, 0))}</strong>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                                <span class="text-secondary">${t('totalYourShare') || 'Total Your Share'}:</span>
+                                                <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                            const breakdown = breakdowns[e.id];
+                            let s = breakdown?.contributions?.[currentUser.uid] || 0;
+                            if (s === 0) {
+                                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                                s = breakdown?.contributions?.[guestKey] || 0;
+                            }
+                            return sum + s;
+                        }, 0))}</strong>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                                <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
+                                                <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                            const payerId = e.paidBy || e.userId;
+                            if (payerId === currentUser.uid) return sum;
+                            const breakdown = breakdowns[e.id];
+                            const settlements = e.settlements || [];
+                            const totalPaid = settlements.reduce((s, settlement) => {
+                                return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
+                            }, 0);
+                            let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                            if (myShare === 0) {
+                                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                                myShare = breakdown?.contributions?.[guestKey] || 0;
+                            }
+                            return sum + Math.max(0, myShare - totalPaid);
+                        }, 0))}</strong>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                                <span class="text-secondary">${t('totalExpensesCount')}:</span>
+                                                <strong>${activeExpenses.length}</strong>
+                                            </div>
+                                        </div>
+                                    `}
                                 </div>
-                            </div>
 
-                            <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('totalBalance')}</h5>
-
-                            ${debts.length === 0 ? `
-                                <div style="text-align: center; color: var(--success); padding: 1rem;">
-                                    <i class="fas fa-check-circle" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
-                                    <p>${t('allSettledUp')}</p>
-                                </div>
-                            ` : `
-                                <div class="debts-list">
-                                    ${debts.map(debt => {
-                    const from = memberMap[debt.from] || { firstName: 'Unknown' };
-                    const to = memberMap[debt.to] || { firstName: 'Unknown' };
-                    const isDebtor = debt.from === currentUser.uid;
-                    const isCreditor = debt.to === currentUser.uid;
-                    let actionIcons = '';
-                    let statusText = '';
-                    let cardClass = 'debt-card';
-
-                    if (isDebtor) {
-                        actionIcons = `
-                                                <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
-                                                    <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
-                                                        <i class="fas fa-check"></i>
-                                                    </button>
-                                                    <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsPaid')}" style="padding: 4px 8px; border-radius: 4px; background: var(--success); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
-                                                        <i class="fas fa-check-circle"></i>
-                                                    </button>
+                                <div class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem;">
+                                    <div style="margin-bottom: 2rem;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                            <h5 style="margin-bottom: 0; color: var(--text-primary);">${t('members')}</h5>
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                                            ${currentGroupMembers.map(m => `
+                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                    <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + m.firstName + '+' + m.lastName}" style="width: 30px; height: 30px; border-radius: 50%;">
+                                                    <span style="font-size: 0.9rem;">${m.firstName} ${m.lastName}</span>
+                                                    ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size: 0.8rem;"></i>' : ''}
                                                 </div>
-                                            `;
-                        statusText = `<span style="color: var(--danger); font-size: 0.8rem;">${t('youOwe')}</span>`;
-                        cardClass = 'debt-card debtor';
-                    } else if (isCreditor) {
-                        actionIcons = `
-                                                <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
-                                                    <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
-                                                        <i class="fas fa-check"></i>
-                                                    </button>
-                                                    <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsReceived')}" style="padding: 4px 8px; border-radius: 4px; background: var(--success); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
-                                                        <i class="fas fa-hand-holding-usd"></i>
-                                                    </button>
-                                                </div>
-                                            `;
-                        statusText = `<span style="color: var(--success); font-size: 0.8rem;">${t('owesYou')}</span>`;
-                        cardClass = 'debt-card creditor';
-                    } else {
-                        statusText = `<span class="text-secondary" style="font-size: 0.8rem;">${t('pending')}</span>`;
-                    }
+                                            `).join('')}
+                                        </div>
+                                    </div>
 
-                    return `
+                                    <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('totalBalance')}</h5>
+
+                                    ${debts.length === 0 ? `
+                                        <div style="text-align: center; color: var(--success); padding: 1rem;">
+                                            <i class="fas fa-check-circle" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                                            <p>${t('allSettledUp')}</p>
+                                        </div>
+                                    ` : `
+                                        <div class="debts-list">
+                                            ${debts.map(debt => {
+                            const from = memberMap[debt.from] || { firstName: 'Unknown' };
+                            const to = memberMap[debt.to] || { firstName: 'Unknown' };
+                            const isDebtor = debt.from === currentUser.uid;
+                            const isCreditor = debt.to === currentUser.uid;
+                            let actionIcons = '';
+                            let statusText = '';
+                            let cardClass = 'debt-card';
+
+                            if (isDebtor) {
+                                actionIcons = `
+                                                        <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
+                                                            <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                                <i class="fas fa-check"></i>
+                                                            </button>
+                                                            <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsPaid')}" style="padding: 4px 8px; border-radius: 4px; background: var(--success); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                                <i class="fas fa-check-circle"></i>
+                                                            </button>
+                                                        </div>
+                                                    `;
+                                statusText = `<span style="color: var(--danger); font-size: 0.8rem;">${t('youOwe')}</span>`;
+                                cardClass = 'debt-card debtor';
+                            } else if (isCreditor) {
+                                actionIcons = `
+                                                        <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
+                                                            <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                                <i class="fas fa-check"></i>
+                                                            </button>
+                                                            <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsReceived')}" style="padding: 4px 8px; border-radius: 4px; background: var(--success); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                                <i class="fas fa-hand-holding-usd"></i>
+                                                            </button>
+                                                        </div>
+                                                    `;
+                                statusText = `<span style="color: var(--success); font-size: 0.8rem;">${t('owesYou')}</span>`;
+                                cardClass = 'debt-card creditor';
+                            } else {
+                                statusText = `<span class="text-secondary" style="font-size: 0.8rem;">${t('pending')}</span>`;
+                            }
+
+                            return `
                                             <div class="${cardClass}" id="debt-card-${groupId}-${debt.from}-${debt.to}" style="background: var(--bg-card); padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border); font-size: 0.9rem; ${isDebtor ? 'border-left: 4px solid var(--danger);' : isCreditor ? 'border-left: 4px solid var(--success);' : ''}">
                                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                                     <div style="flex: 1;">
@@ -14420,23 +14231,244 @@
                                                 </div>
                                             </div>
                                         `;
-                }).join('')}
+                        }).join('')}
                                 </div>
-                            `}
+                                `}
+                            </div>
+                        </div>
+                    `;
+                    }
+                } else {
+                    // Create NEW modal from scratch
+                    const modal = document.createElement('div');
+                    modal.className = 'modal-overlay show';
+                    modal.innerHTML = `
+                <div class="modal modal-large">
+                    <div class="modal-header">
+                        <div>
+                            <h3 class="modal-title">${escapeHTML(group.name)}</h3>
+                            <p class="text-secondary" style="margin: 0; font-size: 0.85rem;">
+                                ${(group.members?.length || 0) + (group.guestMembers?.length || 0)} ${t('membersCount')} • ${t('groupCode')}: ${group.code}
+                            </p>
+                        </div>
+                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body" style="padding: 0;">
+                        <div class="row" style="margin: 0;">
+                            <div class="col-md-9" style="padding: 1.5rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                    <h4 style="margin:0;">${t('expenses')}</h4>
+                                    <div style="display: flex; gap: 10px;">
+                                        <button class="btn btn-secondary btn-sm" onclick="exportGroupPDF('${groupId}')">
+                                            <i class="fas fa-file-pdf"></i> ${t('pdfReport')}
+                                        </button>
+                                        <button class="btn btn-success btn-sm" onclick="exportGroupExcel('${groupId}')">
+                                            <i class="fas fa-file-excel"></i> ${t('exportExcel')}
+                                        </button>
+                                        <button class="btn btn-primary btn-sm" onclick="openAddGroupExpenseModal('${groupId}', '${group.name}')">
+                                            <i class="fas fa-plus"></i> ${t('addExpense')}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                ${displayExpenses.length === 0 ? `
+                                    <div class="empty-state">
+                                        <div class="empty-icon"><i class="fas fa-receipt"></i></div>
+                                        <div class="empty-title">${t('noExpensesFound')}</div>
+                                        <div class="empty-message">${t('addPersonalPrompt')}</div>
+                                    </div>
+                                ` : `
+                                    <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+                                        <table class="table">
+                                            <thead>
+                                                <tr>
+                                                    <th>${t('date')}</th>
+                                                    <th>${t('description')}</th>
+                                                    <th>${t('paidBy')}</th>
+                                                    <th>${t('amount')}</th>
+                                                    <th>${t('yourShare') || 'Your Share'}</th>
+                                                    <th>${t('split')}</th>
+                                                    <th>${t('remarks') || 'Remarks'}</th>
+                                                    <th>${t('status')}</th>
+                                                    <th>${t('actions')}</th>
+                                                </tr>
+                                            </thead>
+                                            ${activeExpenses.map(e => renderExpenseRow(e, false)).join('')}
+                                            ${settledExpenses.length > 0 ? `
+                                                <tbody>
+                                                    <tr style="background: var(--bg-light); cursor: pointer;"
+                                                        onclick="this.closest('table').querySelectorAll('.settled-expense-row-${groupId}').forEach(el => el.classList.toggle('hidden'))">
+                                                        <td colspan="10" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
+                                                            <i class="fas fa-history"></i> Show ${settledExpenses.length} Settled Expense${settledExpenses.length > 1 ? 's' : ''}
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                                ${settledExpenses.map(e => renderExpenseRow(e, true)).join('')}
+                                            ` : ''}
+                                        </table>
+                                    </div>
+
+                                    <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border);">
+                                        <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('expenseSummary')}</h5>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                            <span class="text-secondary">${t('totalExpenses')}:</span>
+                                            <strong style="color: var(--danger); font-size: 1.1rem;">${formatCurrency(displayExpenses.reduce((sum, exp) => {
+                        if (exp.category === 'Settlement' || exp.isSettlement) return sum;
+                        return sum + (parseFloat(exp.amount) || 0);
+                    }, 0))}</strong>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                            <span class="text-secondary">${t('receivable')}:</span>
+                                            <strong style="color: var(--success);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                        const payerId = e.paidBy || e.userId;
+                        if (payerId !== currentUser.uid) return sum;
+                        const breakdown = breakdowns[e.id];
+                        const settlements = e.settlements || [];
+                        const totalReceived = settlements.reduce((s, settlement) => {
+                            return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
+                        }, 0);
+                        const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                        return sum + (parseFloat(e.amount) - myShare - totalReceived);
+                    }, 0))}</strong>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                            <span class="text-secondary">${t('totalYourShare') || 'Total Your Share'}:</span>
+                                            <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                        const breakdown = breakdowns[e.id];
+                        let s = breakdown?.contributions?.[currentUser.uid] || 0;
+                        if (s === 0) {
+                            const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                            s = breakdown?.contributions?.[guestKey] || 0;
+                        }
+                        return sum + s;
+                    }, 0))}</strong>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                            <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
+                                            <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                        const payerId = e.paidBy || e.userId;
+                        if (payerId === currentUser.uid) return sum;
+                        const breakdown = breakdowns[e.id];
+                        const settlements = e.settlements || [];
+                        const totalPaid = settlements.reduce((s, settlement) => {
+                            return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
+                        }, 0);
+                        let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                        if (myShare === 0) {
+                            const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                            myShare = breakdown?.contributions?.[guestKey] || 0;
+                        }
+                        return sum + Math.max(0, myShare - totalPaid);
+                    }, 0))}</strong>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                            <span class="text-secondary">${t('totalExpensesCount')}:</span>
+                                            <strong>${activeExpenses.length}</strong>
+                                        </div>
+                                    </div>
+                                `}
+                            </div>
+
+                            <div class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem;">
+                                <div style="margin-bottom: 2rem;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                        <h5 style="margin-bottom: 0; color: var(--text-primary);">${t('members')}</h5>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                                        ${currentGroupMembers.map(m => `
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + m.firstName + '+' + m.lastName}" style="width: 30px; height: 30px; border-radius: 50%;">
+                                                <span style="font-size: 0.9rem;">${m.firstName} ${m.lastName}</span>
+                                                ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size: 0.8rem;"></i>' : ''}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+
+                                <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('totalBalance')}</h5>
+
+                                ${debts.length === 0 ? `
+                                    <div style="text-align: center; color: var(--success); padding: 1rem;">
+                                        <i class="fas fa-check-circle" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                                        <p>${t('allSettledUp')}</p>
+                                    </div>
+                                ` : `
+                                    <div class="debts-list">
+                                        ${debts.map(debt => {
+                        const from = memberMap[debt.from] || { firstName: 'Unknown' };
+                        const to = memberMap[debt.to] || { firstName: 'Unknown' };
+                        const isDebtor = debt.from === currentUser.uid;
+                        const isCreditor = debt.to === currentUser.uid;
+                        let actionIcons = '';
+                        let statusText = '';
+                        let cardClass = 'debt-card';
+
+                        if (isDebtor) {
+                            actionIcons = `
+                                                    <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
+                                                        <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                            <i class="fas fa-check"></i>
+                                                        </button>
+                                                        <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsPaid')}" style="padding: 4px 8px; border-radius: 4px; background: var(--success); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                    </div>
+                                                `;
+                            statusText = `<span style="color: var(--danger); font-size: 0.8rem;">${t('youOwe')}</span>`;
+                            cardClass = 'debt-card debtor';
+                        } else if (isCreditor) {
+                            actionIcons = `
+                                                    <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
+                                                        <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                            <i class="fas fa-check"></i>
+                                                        </button>
+                                                        <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsReceived')}" style="padding: 4px 8px; border-radius: 4px; background: var(--success); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                            <i class="fas fa-hand-holding-usd"></i>
+                                                        </button>
+                                                    </div>
+                                                `;
+                            statusText = `<span style="color: var(--success); font-size: 0.8rem;">${t('owesYou')}</span>`;
+                            cardClass = 'debt-card creditor';
+                        } else {
+                            statusText = `<span class="text-secondary" style="font-size: 0.8rem;">${t('pending')}</span>`;
+                        }
+
+                        return `
+                                        <div class="${cardClass}" id="debt-card-${groupId}-${debt.from}-${debt.to}" style="background: var(--bg-card); padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border); font-size: 0.9rem; ${isDebtor ? 'border-left: 4px solid var(--danger);' : isCreditor ? 'border-left: 4px solid var(--success);' : ''}">
+                                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                <div style="flex: 1;">
+                                                    <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 2px;">
+                                                        <strong style="color: var(--text-dark);">${from.firstName}</strong>
+                                                        <span class="text-secondary" style="font-size: 0.8rem;">→</span>
+                                                        <strong style="color: var(--text-dark);">${to.firstName}</strong>
+                                                    </div>
+                                                    ${statusText}
+                                                    <div style="font-weight: 700; font-size: 1.1rem; color: var(--primary); margin-top: 4px;">${formatCurrency(Math.abs(debt.amount))}</div>
+                                                </div>
+                                                ${actionIcons}
+                                            </div>
+                                        </div>
+                                    `;
+                    }).join('')}
+                                    </div>
+                                `}
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
 
-                // Remove any existing group detail modals to prevent overlap
-                document.querySelectorAll('.modal-overlay.show').forEach(m => {
-                    if (m.querySelector('.modal-large')) {
-                        m.remove();
-                    }
-                });
+                    // Remove any existing group detail modals to prevent overlap
+                    document.querySelectorAll('.modal-overlay.show').forEach(m => {
+                        if (m.querySelector('.modal-large')) {
+                            m.remove();
+                        }
+                    });
 
-                document.body.appendChild(modal);
+                    document.body.appendChild(modal);
+                }
 
             } catch (error) {
                 showToast('Error', error.message, 'error');
@@ -20376,7 +20408,7 @@
                     case 'dashboard': await renderDashboard(); break;
                     case 'credits': await renderCredits(); break;
                     case 'personal': await renderPersonal(); break;
-                    case 'groups': await renderGroups(); break;
+                    case 'groups': await viewGroupDetails(groupId); break;
                     case 'calendar': await renderCalendar(); break;
                     case 'details': await renderDetails(); break;
                     case 'settings': await renderSettings(); break;
@@ -20409,6 +20441,18 @@
             }
 
             // Handle Google auth redirect
+            if (detectMedian()) {
+                firebase.auth().getRedirectResult().then((result) => {
+                    if (result && result.user) {
+                        showToast('Success', 'Logged in successfully!');
+                    }
+                }).catch((error) => {
+                    if (error.code !== 'auth/redirect-cancelled-by-user') {
+                        console.error("Redirect login error:", error);
+                        showToast('Error', error.message, 'error');
+                    }
+                });
+            }
 
 
             document.querySelectorAll('.nav-link').forEach(link => {
