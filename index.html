@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 
 <head>
@@ -10814,7 +10814,7 @@
                         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
                             ${t('cancel')}
                         </button>
-                        <button class="btn btn-primary" onclick="saveCredit()">
+                        <button class="btn btn-primary" onclick="saveCredit(this)">
                             ${t('save')}
                         </button>
                     </div>
@@ -10874,8 +10874,8 @@
             renderCreditNewAttachments();
         }
 
-        async function saveCredit() {
-            const btn = event.target;
+        async function saveCredit(btn) {
+            if (!btn) btn = event.currentTarget || event.target.closest('button');
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
@@ -11595,7 +11595,7 @@
                         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
                             ${t('cancel')}
                         </button>
-                        <button class="btn btn-primary" onclick="savePersonal()">
+                        <button class="btn btn-primary" onclick="savePersonal(this)">
                             ${t('save')}
                         </button>
                     </div>
@@ -11652,8 +11652,8 @@
             renderPersonalNewAttachments();
         }
 
-        async function savePersonal() {
-            const btn = event.target;
+        async function savePersonal(btn) {
+            if (!btn) btn = event.currentTarget || event.target.closest('button');
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
@@ -12720,7 +12720,7 @@
                         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
                             ${t('cancel')}
                         </button>
-                        <button class="btn btn-primary" onclick="createGroup()">
+                        <button class="btn btn-primary" onclick="createGroup(this)">
                             <i class="fas fa-plus"></i>
                             ${t('createGroup')}
                         </button>
@@ -12730,8 +12730,8 @@
             document.body.appendChild(modal);
         }
 
-        async function createGroup() {
-            const btn = event.target;
+        async function createGroup(btn) {
+            if (!btn) btn = event.currentTarget || event.target.closest('button');
             btn.disabled = true;
             btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${t('creating')}`;
 
@@ -12882,7 +12882,7 @@
                         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
                             ${t('cancel')}
                         </button>
-                        <button class="btn btn-primary" onclick="joinGroup()">
+                        <button class="btn btn-primary" onclick="joinGroup(this)">
                             <i class="fas fa-sign-in-alt"></i>
                             ${t('joinGroup')}
                         </button>
@@ -12920,7 +12920,7 @@
                     </div>
                     <div class="modal-footer">
                         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-                        <button class="btn btn-primary" onclick="addMember('${groupId}')">
+                        <button class="btn btn-primary" onclick="addMember('${groupId}', this)">
                             <i class="fas fa-plus"></i> Add
                         </button>
                     </div>
@@ -13485,8 +13485,8 @@
             }
         }
 
-        async function addMember(groupId) {
-            const btn = event.target;
+        async function addMember(groupId, btn) {
+            if (!btn) btn = event.currentTarget || event.target.closest('button');
             const inputVal = document.getElementById('newMemberInput').value.trim();
             if (!inputVal) return;
 
@@ -13644,8 +13644,8 @@
             }
         }
 
-        async function joinGroup() {
-            const btn = event.target;
+        async function joinGroup(btn) {
+            if (!btn) btn = event.currentTarget || event.target.closest('button');
             btn.disabled = true;
             btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${t('requesting')}`;
 
@@ -15458,7 +15458,7 @@
                 <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
                     ${t('cancel')}
                 </button>
-                <button class="btn btn-primary" onclick="saveGroupExpense()">
+                <button class="btn btn-primary" onclick="saveGroupExpense(this)">
                     ${t('save')}
                 </button>
             </div>
@@ -15501,8 +15501,8 @@
         /**
          * Saves a new or edited group expense to Firestore.
          */
-        async function saveGroupExpense() {
-            const btn = event.target;
+        async function saveGroupExpense(btn) {
+            if (!btn) btn = event.currentTarget || event.target.closest('button');
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
             try {
