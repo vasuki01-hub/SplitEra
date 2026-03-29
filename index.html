@@ -15790,7 +15790,7 @@
                 const modal = document.getElementById('groupExpenseModal');
                 modal.querySelector('.modal-title').innerText = 'Edit Expense';
                 document.getElementById('editGroupExpenseId').value = expenseId;
-                document.getElementById('groupExpenseDate').value = expense.date.toDate().toISOString().split('T')[0];
+                document.getElementById('groupExpenseDate').value = safeDate(expense.date).toISOString().split('T')[0];
                 document.getElementById('groupExpenseAmount').value = expense.amount;
                 document.getElementById('groupExpenseDescription').value = expense.description;
                 document.getElementById('groupExpenseCategory').value = expense.category;
@@ -16124,21 +16124,6 @@
          * @param {string} expenseId - The ID of the expense to delete.
          * @param {string} groupId - The ID of the group.
          */
-        async function deleteGroupExpense(expenseId, groupId) {
-            showConfirmation('Delete Expense', 'Are you sure?', async () => {
-                try {
-                    await db.collection('group_expenses').doc(expenseId).delete();
-                    // Defer modal removal and data reload to avoid immediate flicker
-                    setTimeout(() => {
-                        document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
-                        viewGroupDetails(groupId);
-                    }, 500);
-                    showToast('Success', 'Expense deleted');
-                } catch (e) {
-                    showToast('Error', e.message, 'error');
-                }
-            });
-        }
 
         /**
          * Exports group data to a PDF file.
@@ -16541,7 +16526,7 @@
                 <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
                     ${t('cancel')}
                 </button>
-                <button class="btn btn-danger" onclick="confirmDeleteGroupExpense('${expenseId}', '${groupId}')">
+                <button class="btn btn-danger" onclick="confirmDeleteGroupExpense('${expenseId}', '${groupId}', this)">
                     ${t('delete')}
                 </button>
             </div>
@@ -16555,7 +16540,7 @@
          * @param {string} expenseId - The ID of the expense.
          * @param {string} groupId - The ID of the group.
          */
-        async function confirmDeleteGroupExpense(expenseId, groupId) {
+        async function confirmDeleteGroupExpense(expenseId, groupId, btn) {
             showLoading();
             try {
                 await db.collection('group_expenses').doc(expenseId).delete();
