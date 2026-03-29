@@ -8170,6 +8170,10 @@
             }
         }
 
+        async function signUpWithGoogle() {
+            return signInWithGoogle();
+        }
+
         // Handler for Google sign-in - check if account exists
         async function handleGoogleAuthSignIn(user) {
             showLoading();
