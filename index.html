@@ -10921,8 +10921,8 @@
                 window.uploadedFiles = []; // Clear queue
                 document.querySelector('.modal-overlay')?.remove();
                 showToast('Success', 'Credit added successfully!');
-                // Firestore onSnapshot listener will handle the data refresh
-                forceRefreshCurrentPage();
+                // Render credits directly for immediate update
+                renderCredits();
             } catch (error) {
                 showToast('Error', error.message, 'error');
                 btn.disabled = false;
@@ -11103,7 +11103,8 @@
                 const modal = document.getElementById(`edit-credit-modal-${id}`);
                 if (modal) modal.remove();
                 showToast('Success', 'Credit updated successfully!');
-                forceRefreshCurrentPage();
+                // Render credits directly for immediate update
+                renderCredits();
             } catch (error) {
                 showToast('Error', error.message, 'error');
                 if (btn) {
@@ -11183,7 +11184,8 @@
                 await db.collection('credits').doc(id).delete();
                 document.querySelector('.modal-overlay')?.remove();
                 showToast('Success', 'Credit deleted successfully!');
-                forceRefreshCurrentPage();
+                // Render credits directly for immediate update
+                renderCredits();
             } catch (error) {
                 showToast('Error', error.message, 'error');
             } finally {
@@ -11706,7 +11708,8 @@
                 window.uploadedFiles = []; // Clear queue
                 document.querySelector('.modal-overlay')?.remove();
                 showToast('Success', 'Expense added successfully!');
-                forceRefreshCurrentPage();
+                // Render personal expenses directly for immediate update
+                renderPersonal();
             } catch (error) {
                 showToast('Error', error.message, 'error');
                 if (btn) {
@@ -11884,7 +11887,8 @@
                 const modal = document.getElementById(`edit-personal-modal-${id}`);
                 if (modal) modal.remove();
                 showToast('Success', 'Expense updated successfully!');
-                forceRefreshCurrentPage();
+                // Render personal expenses directly for immediate update
+                renderPersonal();
             } catch (error) {
                 showToast('Error', error.message, 'error');
                 if (btn) {
@@ -11955,7 +11959,8 @@
                 await db.collection('personal_expenses').doc(id).delete();
                 document.querySelector('.modal-overlay')?.remove();
                 showToast('Success', 'Expense deleted successfully!');
-                forceRefreshCurrentPage();
+                // Render personal expenses directly for immediate update
+                renderPersonal();
             } catch (error) {
                 showToast('Error', error.message, 'error');
             } finally {
@@ -12880,7 +12885,8 @@
 
                 document.querySelector('.modal-overlay')?.remove();
                 showToast(t('success'), t('groupCreatedSuccess'));
-                forceRefreshCurrentPage();
+                // Render groups directly for immediate update
+                renderGroups();
             } catch (error) {
                 showToast(t('error'), error.message);
                 if (btn) {
@@ -14601,10 +14607,8 @@
                     await expenseRef.update(updateData);
                     showToast('Success', 'Balance entry deleted successfully!');
 
-                    // Defer data reload to avoid immediate flicker
-                    setTimeout(() => {
-                        viewGroupDetails(groupId);
-                    }, 500);
+                    // Refresh data directly for immediate update
+                    viewGroupDetails(groupId);
                 } catch (error) {
                     showToast('Error', 'Failed to delete balance entry: ' + error.message, 'error');
                 } finally {
@@ -14764,11 +14768,10 @@
                 });
                 showToast('Success', 'Settlement updated successfully!');
 
-                // Defer modal removal and data reload to avoid immediate flicker
-                setTimeout(() => {
-                    document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
-                    viewGroupDetails(groupId);
-                }, 500);
+                // Close the specific modal and refresh data
+                const targetModal = document.querySelector('.modal-overlay.show:last-child');
+                if (targetModal && !targetModal.querySelector('.modal-large')) targetModal.remove();
+                viewGroupDetails(groupId);
             } catch (error) {
                 showToast('Error', 'Failed to update settlement: ' + error.message, 'error');
             } finally {
@@ -14925,11 +14928,10 @@
                 });
                 showToast('Success', 'Balance updated successfully!');
 
-                // Defer modal removal and data reload to avoid immediate flicker
-                setTimeout(() => {
-                    document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
-                    viewGroupDetails(groupId);
-                }, 500);
+                // Close the specific modal and refresh data
+                const targetModal = document.querySelector('.modal-overlay.show:last-child');
+                if (targetModal && !targetModal.querySelector('.modal-large')) targetModal.remove();
+                viewGroupDetails(groupId);
             } catch (error) {
                 showToast('Error', 'Failed to update balance: ' + error.message, 'error');
             } finally {
@@ -15003,8 +15005,8 @@
                     if (totalBalanceDebtCardReverse) {
                         totalBalanceDebtCardReverse.remove();
                     }
-                    // Refresh the group view after a short delay to allow DOM updates to render
-                    setTimeout(() => viewGroupDetails(groupId), 300);
+                    // Refresh the group view immediately
+                    viewGroupDetails(groupId);
                 } catch (error) {
                     showToast('Error', 'Failed to settle balance: ' + error.message, 'error');
                 } finally {
@@ -15021,8 +15023,8 @@
         async function toggleGroupSimplify(groupId, simplify) {
             try {
                 await db.collection('groups').doc(groupId).update({ simplify: simplify });
-                // Refresh the group details view
-                setTimeout(() => viewGroupDetails(groupId), 500);
+                // Refresh the group details view immediately
+                viewGroupDetails(groupId);
             } catch (error) {
                 showToast('Error', error.message, 'error');
             }
@@ -15090,8 +15092,8 @@
                     if (totalBalanceDebtCardReverse) {
                         totalBalanceDebtCardReverse.remove();
                     }
-                    // Refresh the group view after a short delay to allow DOM updates to render
-                    setTimeout(() => viewGroupDetails(groupId), 300);
+                    // Refresh the group view immediately
+                    viewGroupDetails(groupId);
                 } catch (e) {
                     console.error(e);
                     showToast('Error', e.message, 'error');
@@ -15690,13 +15692,10 @@
                     await db.collection('group_expenses').add(expenseData);
                     showToast('Success', 'Expense added!');
                 }
-                const modal = document.getElementById('groupExpenseModal') || btn.closest('.modal-overlay');
-                if (modal) modal.remove();
-
-                setTimeout(() => {
-                    document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
-                    viewGroupDetails(groupId);
-                }, 500);
+                // Only remove the functional modal, keep Group Details open
+                const modalToAdd = document.getElementById('groupExpenseModal') || btn.closest('.modal-overlay');
+                if (modalToAdd && !modalToAdd.querySelector('.modal-large')) modalToAdd.remove();
+                viewGroupDetails(groupId);
             } catch (error) {
                 showToast('Error', error.message, 'error');
                 btn.disabled = false;
@@ -16560,7 +16559,9 @@
             showLoading();
             try {
                 await db.collection('group_expenses').doc(expenseId).delete();
-                document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+                // Close only the confirmation modal, not the parent Group Details
+                const confirmModal = btn.closest('.modal-overlay');
+                if (confirmModal) confirmModal.remove();
                 await viewGroupDetails(groupId);
                 showToast('Success', 'Group expense deleted successfully!');
             } catch (error) {
@@ -17730,7 +17731,8 @@
                 const modal = document.getElementById(`edit-details-modal-${id}`);
                 if (modal) modal.remove();
                 showToast('Success', 'Transaction updated successfully!');
-                forceRefreshCurrentPage();
+                // Render details directly for immediate update
+                renderDetails();
             } catch (error) {
                 showToast('Error', error.message, 'error');
                 if (btn) {
@@ -17746,7 +17748,9 @@
             editingRowId = null;
             const modal = document.getElementById(`edit-details-modal-${id}`);
             if (modal) modal.remove();
-            forceRefreshCurrentPage();
+            // No need to refresh the entire page on cancel
+            // renderDetails() could be called if we want to reset any unsaved changes in the DOM, 
+            // but the modal content is separate anyway.
         }
 
         async function removeDetailsAttachment(sectionType, id, urlToRemove) {
