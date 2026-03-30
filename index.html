@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 
 <head>
@@ -6305,14 +6305,14 @@
         let lastListenerParams = null;
         async function setupDataListeners(userId, email, phone) {
             lastListenerParams = { userId, email, phone };
-            
+
             // Unsubscribe from existing listeners
             dataState.listeners.forEach(unsubscribe => {
                 if (typeof unsubscribe === 'function') unsubscribe();
             });
             dataState.listeners = [];
-            dataState._inviteSnapshots = {}; 
-            
+            dataState._inviteSnapshots = {};
+
             // Reset loading states for fresh user session
             dataState.isLoaded.credits = false;
             dataState.isLoaded.personalExpenses = false;
@@ -6323,16 +6323,16 @@
             // Resolve tracker for initial load
             let resolveInitial;
             const initialLoadPromise = new Promise(resolve => { resolveInitial = resolve; });
-            
+
             const checkInitialLoad = () => {
-                if (dataState.isLoaded.credits && 
-                    dataState.isLoaded.personalExpenses && 
-                    dataState.isLoaded.groups && 
+                if (dataState.isLoaded.credits &&
+                    dataState.isLoaded.personalExpenses &&
+                    dataState.isLoaded.groups &&
                     dataState.isLoaded.groupExpenses) {
                     resolveInitial();
                 }
             };
-            
+
             // Expose checkInitialLoad to setupGroupExpensesListeners via closure/scope
             dataState._checkInitialLoad = checkInitialLoad;
 
@@ -6387,7 +6387,7 @@
             dataState.listeners.push(personalUnsub);
 
             // 3. Groups Listener
-                const groupsUnsub = db.collection('groups')
+            const groupsUnsub = db.collection('groups')
                 .where('members', 'array-contains', userId)
                 .onSnapshot(snapshot => {
                     dataState.groups = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -8207,11 +8207,12 @@
                     prompt: 'select_account'
                 });
 
-                // For Median Android WebView, avoid popups as they are frequently blocked or cause issues
-                if (detectMedian()) {
-                    console.log("Median detected, using signInWithRedirect");
+                // For Android/iOS App versions (WebViews), ALWAYS use signInWithRedirect
+                // This avoids popups which are frequently blocked or restricted by Google in WebViews
+                if (isAppEnvironment()) {
+                    console.log("App environment detected, using signInWithRedirect for Google Auth");
                     await auth.signInWithRedirect(provider);
-                    return; // The page will redirect
+                    return; // The page will redirect and we'll handle the result on reload
                 }
 
                 // Normal browser behavior: Try popup method first
@@ -8389,44 +8390,50 @@
         }
 
 
-        // Handle Google auth redirect result
+        // Handle Google auth redirect result (called on page load)
         async function handleGoogleAuthRedirect() {
-            // Check protocol first
+            // Check protocol first - Google Auth requires http/https
             if (window.location.protocol === 'file:') {
-                console.warn('Google Auth is not supported on file:// protocol.');
+                console.warn('Google Auth is not supported on file:// protocol. Use a web server.');
                 return;
             }
 
-            // Prevent infinite redirect loops
+            // Prevent infinite redirect loops by checking session state
             const redirectHandled = sessionStorage.getItem('googleAuthRedirectHandled');
             if (redirectHandled === 'true') {
-                // Google auth redirect already handled in this session
-                sessionStorage.removeItem('googleAuthRedirectHandled');
                 return;
             }
 
             try {
-                // Add timeout to prevent hanging
+                // Wait for the redirect result (e.g. after Google sends user back)
                 const result = await Promise.race([
                     auth.getRedirectResult(),
                     new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Auth timeout')), 10000)
+                        setTimeout(() => reject(new Error('Auth Fetch Timeout - Check your internet connection')), 15000)
                     )
                 ]);
 
-                auth.onAuthStateChanged(async (user) => {
-                    if (user) {
-                        console.log("User detected from auth state:", user.email);
-
-                        // If already on login page, navigate
-                        if (!currentUser) {
-                            await handleGoogleAuthSuccess(user);
-                        }
+                if (result && result.user) {
+                    console.log("Redirect success, user found:", result.user.email);
+                    sessionStorage.setItem('googleAuthRedirectHandled', 'true');
+                    await handleGoogleAuthSuccess(result.user);
+                } else {
+                    // No result but still on the page? Check current auth state as fallback
+                    const user = auth.currentUser;
+                    if (user && !currentUser) {
+                        console.log("Current user found despite empty redirect result");
+                        await handleGoogleAuthSuccess(user);
                     }
-                });
+                }
             } catch (error) {
-                await handleAuthError(error, 'Redirect Error');
-                sessionStorage.removeItem('googleAuthRedirectHandled');
+                // If it's a known non-critical error, don't show toast
+                if (error.code !== 'auth/redirect-cancelled-by-user' && error.code !== 'auth/no-auth-event') {
+                    console.error("Google Redirect Error Details:", error);
+                    await handleAuthError(error, 'Redirect Error');
+                }
+            } finally {
+                // Cleanup to allow future attempts
+                setTimeout(() => sessionStorage.removeItem('googleAuthRedirectHandled'), 2000);
             }
         }
 
@@ -8434,33 +8441,44 @@
             showLoading();
             let report = [];
             let issuesFound = false;
+            const ua = navigator.userAgent;
 
             try {
-                // 1. Protocol Check
+                // 1. Protocol Check (CRITICAL)
                 if (window.location.protocol === 'file:') {
-                    report.push(`<span style="color: var(--danger);">❌ <strong>CRITICAL:</strong> You are opening the file directly (file://). Google Sign-In will NEVER work this way.</span>`);
+                    report.push(`<span style="color: var(--danger);">❌ <strong>CRITICAL:</strong> You are opening the file directly (file://). Google Sign-In will <strong>never</strong> work this way in an APK or browser.</span>`);
                     issuesFound = true;
                 } else {
                     report.push(`<span style="color: var(--success);">✅ Protocol: ${window.location.protocol} (OK)</span>`);
                 }
 
-                // 2. Domain Check
+                // 2. Domain & Authorized Context
                 const domain = window.location.hostname;
                 report.push(`ℹ️ Current Domain: <strong>${domain}</strong>`);
 
-                // 3. Firebase Config Check
-                if (firebaseConfig.apiKey.includes('YOUR_')) {
+                // 3. User Agent Analysis (WebView Check)
+                const appEnv = isAppEnvironment();
+                report.push(`ℹ️ Environment: <strong>${appEnv ? 'Android/iOS App (WebView)' : 'Desktop/Mobile Browser'}</strong>`);
+                if (appEnv && ua.includes('Version/')) {
+                    report.push(`<span style="color: var(--warning);">⚠️ <strong>Warning:</strong> Restricted User Agent detected. If Google blocks login, update your APK settings to use a custom User Agent (Chrome-like string).</span>`);
+                }
+
+                // 4. Firebase Config Check
+                if (typeof firebaseConfig === 'undefined') {
+                    report.push(`<span style="color: var(--danger);">❌ Firebase config not loaded yet.</span>`);
+                    issuesFound = true;
+                } else if (firebaseConfig.apiKey.includes('YOUR_')) {
                     report.push(`<span style="color: var(--danger);">❌ <strong>CRITICAL:</strong> API Key is still a placeholder.</span>`);
                     issuesFound = true;
                 } else {
                     report.push(`<span style="color: var(--success);">✅ Firebase API Key (OK)</span>`);
                 }
 
-                if (firebaseConfig.authDomain !== 'animai-studio-jtpei.firebaseapp.com') {
+                if (firebaseConfig && firebaseConfig.authDomain !== 'animai-studio-jtpei.firebaseapp.com') {
                     report.push(`<span style="color: var(--warning);">⚠️ Auth Domain mismatch? Expected: animai-studio-jtpei.firebaseapp.com</span>`);
                 }
 
-                // 4. Test Provider
+                // 5. Test Provider Initialization
                 try {
                     const provider = new firebase.auth.GoogleAuthProvider();
                     report.push(`<span style="color: var(--success);">✅ Google Auth Provider initialized (OK)</span>`);
@@ -8474,32 +8492,33 @@
                 modal.innerHTML = `
                     <div class="modal">
                         <div class="modal-header">
-                            <h3 class="modal-title">Auth Diagnostics Report</h3>
+                            <h3 class="modal-title">Authentication Diagnostics</h3>
                             <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
-                        <div class="modal-body" style="line-height: 1.8;">
-                            <div style="background: var(--bg-light); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <div class="modal-body" style="line-height: 1.6;">
+                            <div style="background: var(--bg-light); padding: 1.25rem; border-radius: 12px; margin-bottom: 1.5rem; font-family: monospace; font-size: 0.9rem;">
                                 ${report.join('<br>')}
                             </div>
-                            \${issuesFound ? \`
-                                <div style="color: var(--danger); font-weight: bold; margin-bottom: 1rem;">
-                                    We found some potential issues!
+                            ${issuesFound || appEnv ? `
+                                <div style="color: var(--warning); font-weight: bold; margin-bottom: 1rem;">
+                                    Recommendations for Android APK:
                                 </div>
-                                <ol style="padding-left: 1.2rem;">
-                                    \${window.location.protocol === 'file:' ? '<li><strong>IMPORTANT:</strong> Use a local server (like "Live Server" in VS Code) instead of opening the file directly.</li>' : ''}
-                                    <li>Add <strong>\${domain}</strong> to "Authorized domains" in Firebase Console.</li>
-                                    <li>Ensure Google is enabled in Firebase Authentication settings.</li>
+                                <ol style="padding-left: 1.5rem; color: var(--text-gray); font-size: 0.9rem;">
+                                    ${window.location.protocol === 'file:' ? '<li><strong>Fix Protocol:</strong> Load your web app via a URL (https://) in your APK settings.</li>' : ''}
+                                    <li><strong>SHA-1 Fingerprint:</strong> Ensure your APK\'s SHA-1 is added to the Firebase Console project settings.</li>
+                                    <li><strong>Authorized Domain:</strong> Add <strong>${domain}</strong> to "Authorized domains" in Firebase > Auth > Settings.</li>
+                                    <li><strong>Custom User Agent:</strong> If you see "Disallowed UserAgent", set your APK\'s User Agent to a standard Chrome string.</li>
                                 </ol>
-                            \` : \`
+                            ` : `
                                 <div style="color: var(--success); font-weight: bold;">
-                                    Diagnostics look good! If it still fails, the issue is likely inside your Firebase Console settings (Signs-in method > Google).
+                                    Diagnostics look healthy! If it still fails, check the "Sign-in Method" settings in your Firebase Console.
                                 </div>
-                            \`}
+                            `}
                         </div>
                         <div class="modal-footer">
-                            <button class="btn btn-primary" onclick="this.closest('.modal-overlay').remove()">Close</button>
+                            <button class="btn btn-primary" style="width: 100%;" onclick="this.closest('.modal-overlay').remove()">Dismiss</button>
                         </div>
                     </div>
                 `;
@@ -9276,11 +9295,11 @@
 
         async function loadDashboardData() {
             // Updated loading check to include all critical components
-            const isFullyLoaded = dataState.isLoaded.credits && 
-                                 dataState.isLoaded.personalExpenses && 
-                                 dataState.isLoaded.groups &&
-                                 dataState.isLoaded.groupExpenses;
-            
+            const isFullyLoaded = dataState.isLoaded.credits &&
+                dataState.isLoaded.personalExpenses &&
+                dataState.isLoaded.groups &&
+                dataState.isLoaded.groupExpenses;
+
             if (!isFullyLoaded) {
                 // If we've been waiting here and navigate was called, show specific loader
                 const statsGrid = document.getElementById('statsGrid');
@@ -9924,7 +9943,7 @@
                         return true;
                     }
                 } catch (err) {
-                    if (err.name === 'AbortError') return false; 
+                    if (err.name === 'AbortError') return false;
                     console.error('Web Share API failed:', err);
                 }
             }
@@ -9945,7 +9964,7 @@
                     await writable.close();
                     return true;
                 } catch (err) {
-                    if (err.name === 'AbortError') return false; 
+                    if (err.name === 'AbortError') return false;
                     console.error('File System Access API failed:', err);
                 }
             }
@@ -9953,11 +9972,11 @@
             // 3. Robust Download Fallback (Blob URL)
             try {
                 const url = URL.createObjectURL(blob);
-                
+
                 // For generic WebViews, sometimes a direct location change works better
                 if (isWebView && !isMedian) {
                     const reader = new FileReader();
-                    reader.onloadend = function() {
+                    reader.onloadend = function () {
                         const base64data = reader.result;
                         const link = document.createElement('a');
                         link.href = base64data;
@@ -9966,7 +9985,7 @@
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
-                        
+
                         // Show a helper toast for WebViews
                         showToast(t('success'), 'Download started. If nothing happens, check app permissions.', 'info');
                     };
@@ -20191,9 +20210,27 @@
         document.head.appendChild(styleSheet);
 
         // Utility Functions
+        // Robust environment detection for WebViews (Median, GoNative, Custom WebView, etc.)
+        function isAppEnvironment() {
+            const ua = window.navigator.userAgent || window.navigator.vendor || window.opera;
+            const isAndroid = /Android/i.test(ua);
+            const isIos = /iPhone|iPad|iPod/i.test(ua);
+
+            // Check for known web-to-app converters
+            const isMedian = ua.includes('Median') || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.median);
+
+            // Generic WebView detection for Android (looking for "wv" or "Version/X.X Chrome/X.X")
+            const isAndroidWebView = isAndroid && (ua.includes('; wv)') || (ua.includes('Version/') && ua.includes('Chrome/')));
+
+            // Generic WebView detection for iOS (Safari is missing in most WebViews)
+            const isIosWebView = isIos && !ua.includes('Safari/');
+
+            return isMedian || isAndroidWebView || isIosWebView;
+        }
+
+        // Keep for backward compatibility
         function detectMedian() {
-            // Check for UA string or Median JS bridge
-            return window.navigator.userAgent.includes('Median') || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.median);
+            return isAppEnvironment();
         }
 
         function getMonthName(monthIndex) {
