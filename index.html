@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 
 <head>
@@ -391,7 +391,7 @@
             font-size: 0.875rem;
             cursor: pointer;
             transition: background 0.2s;
-            box-shadow: inset 0px 0px 20px 0px rgb(0 0 0 / 29%);
+            box-shadow: inset 0px 0px 20px 0px rgb(255 95 1 / 30%);
         }
 
         .dropdown-item:hover {
@@ -6305,12 +6305,36 @@
         let lastListenerParams = null;
         async function setupDataListeners(userId, email, phone) {
             lastListenerParams = { userId, email, phone };
+            
             // Unsubscribe from existing listeners
             dataState.listeners.forEach(unsubscribe => {
                 if (typeof unsubscribe === 'function') unsubscribe();
             });
             dataState.listeners = [];
-            dataState._inviteSnapshots = {}; // Temporary storage for merging invites
+            dataState._inviteSnapshots = {}; 
+            
+            // Reset loading states for fresh user session
+            dataState.isLoaded.credits = false;
+            dataState.isLoaded.personalExpenses = false;
+            dataState.isLoaded.groups = false;
+            dataState.isLoaded.groupExpenses = false;
+            dataState.isLoaded.groupInvites = false;
+
+            // Resolve tracker for initial load
+            let resolveInitial;
+            const initialLoadPromise = new Promise(resolve => { resolveInitial = resolve; });
+            
+            const checkInitialLoad = () => {
+                if (dataState.isLoaded.credits && 
+                    dataState.isLoaded.personalExpenses && 
+                    dataState.isLoaded.groups && 
+                    dataState.isLoaded.groupExpenses) {
+                    resolveInitial();
+                }
+            };
+            
+            // Expose checkInitialLoad to setupGroupExpensesListeners via closure/scope
+            dataState._checkInitialLoad = checkInitialLoad;
 
             // 1. Credits Listener (removed orderBy to avoid index requirement)
             const creditsUnsub = db.collection('credits')
@@ -6328,11 +6352,12 @@
                     dataState.isLoaded.credits = true;
                     dataState.paging.hasMoreCredits = snapshot.docs.length >= dataState.paging.creditsLimit;
                     debouncedRefresh();
+                    checkInitialLoad();
                 }, error => {
                     console.error('Credits listener error:', error);
-                    // Don't crash the app on index errors
                     dataState.isLoaded.credits = true;
                     debouncedRefresh();
+                    checkInitialLoad();
                 });
             dataState.listeners.push(creditsUnsub);
 
@@ -6352,16 +6377,17 @@
                     dataState.isLoaded.personalExpenses = true;
                     dataState.paging.hasMorePersonal = snapshot.docs.length >= dataState.paging.personalLimit;
                     debouncedRefresh();
+                    checkInitialLoad();
                 }, error => {
                     console.error('Personal expenses listener error:', error);
-                    // Don't crash the app on index errors
                     dataState.isLoaded.personalExpenses = true;
                     debouncedRefresh();
+                    checkInitialLoad();
                 });
             dataState.listeners.push(personalUnsub);
 
             // 3. Groups Listener
-            const groupsUnsub = db.collection('groups')
+                const groupsUnsub = db.collection('groups')
                 .where('members', 'array-contains', userId)
                 .onSnapshot(snapshot => {
                     dataState.groups = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -6370,7 +6396,12 @@
                     const groupIds = dataState.groups.map(g => g.id);
                     setupGroupExpensesListeners(groupIds);
                     debouncedRefresh();
-                }, error => console.error('Groups listener error:', error));
+                    checkInitialLoad();
+                }, error => {
+                    console.error('Groups listener error:', error);
+                    dataState.isLoaded.groups = true;
+                    checkInitialLoad();
+                });
             dataState.listeners.push(groupsUnsub);
 
             // 4. Group Invites Listeners (Multiple to cover UID, Email, Phone)
@@ -6407,9 +6438,21 @@
                 const unsubInvitesPhone = db.collection('group_invites')
                     .where('toPhone', '==', cleanPhone)
                     .where('status', '==', 'pending')
-                    .onSnapshot(snap => handleInvites(snap, 'phone'), err => console.error('Invite phone listener error:', err));
+                    .onSnapshot(snap => handleInvites(snap, 'phone'), err => {
+                        console.error('Invite phone listener error:', err);
+                        checkInitialLoad();
+                    });
                 dataState.listeners.push(unsubInvitesPhone);
+            } else {
+                // If no phone, mark invites as "loaded" for the checker
+                dataState.isLoaded.groupInvites = true;
+                checkInitialLoad();
             }
+
+            // Fallback resolve after 5 seconds to prevent hanging
+            setTimeout(resolveInitial, 5000);
+
+            return initialLoadPromise;
         }
 
         function loadMoreCredits() {
@@ -6432,6 +6475,9 @@
             if (groupIds.length === 0) {
                 dataState.groupExpenses = [];
                 dataState.isLoaded.groupExpenses = true;
+                if (typeof dataState._checkInitialLoad === 'function') {
+                    dataState._checkInitialLoad();
+                }
                 return;
             }
 
@@ -6442,7 +6488,16 @@
                     dataState.groupExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     dataState.isLoaded.groupExpenses = true;
                     debouncedRefresh();
-                }, error => console.error('Group expenses listener error:', error));
+                    if (typeof dataState._checkInitialLoad === 'function') {
+                        dataState._checkInitialLoad();
+                    }
+                }, error => {
+                    console.error('Group expenses listener error:', error);
+                    dataState.isLoaded.groupExpenses = true;
+                    if (typeof dataState._checkInitialLoad === 'function') {
+                        dataState._checkInitialLoad();
+                    }
+                });
             dataState.listeners.push(expensesUnsub);
         }
 
@@ -9220,9 +9275,21 @@
         }
 
         async function loadDashboardData() {
-            // Check if data is still loading
-            if (!dataState.isLoaded.credits || !dataState.isLoaded.personalExpenses || !dataState.isLoaded.groups) {
-                showLoading();
+            // Updated loading check to include all critical components
+            const isFullyLoaded = dataState.isLoaded.credits && 
+                                 dataState.isLoaded.personalExpenses && 
+                                 dataState.isLoaded.groups &&
+                                 dataState.isLoaded.groupExpenses;
+            
+            if (!isFullyLoaded) {
+                // If we've been waiting here and navigate was called, show specific loader
+                const statsGrid = document.getElementById('statsGrid');
+                if (statsGrid && !statsGrid.innerHTML.trim()) {
+                    statsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 2rem;">
+                        <div class="loading-spinner"></div>
+                        <p style="margin-top: 1rem; color: var(--text-gray);">${t('loading')}...</p>
+                    </div>`;
+                }
                 return;
             }
             hideLoading();
@@ -9511,11 +9578,11 @@
                 const yearFilter = document.getElementById('dashboardYear')?.value || 'all';
                 const monthFilter = document.getElementById('dashboardMonth')?.value || 'all';
 
-                // Load data
+                // Load data from Server to ensure deleted entries are removed
                 const [creditsSnapshot, personalSnapshot, groupsSnapshot] = await Promise.all([
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
+                    db.collection('credits').where('userId', '==', currentUser.uid).get({ source: 'server' }),
+                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get({ source: 'server' }),
+                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get({ source: 'server' })
                 ]);
 
                 let credits = creditsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -9827,8 +9894,12 @@
 
         // NEW: Save file safely using File System Access API or Web Share API
         async function saveFileSafely(blob, fileName, mimeType) {
+            const isMedian = detectMedian();
+            const isWebView = /wv|WebView|Android.*(wv|Version\/)/i.test(navigator.userAgent);
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
             // 0. Median/WebView Support for Export
-            if (detectMedian()) {
+            if (isMedian) {
                 const reader = new FileReader();
                 reader.onloadend = function () {
                     const base64data = reader.result;
@@ -9839,8 +9910,27 @@
                 return true;
             }
 
-            // 1. Try File System Access API (Modern Desktop Browsers)
-            if ('showSaveFilePicker' in window) {
+            // 1. Try Web Share API (Best for Mobile WebViews)
+            // We try this FIRST on mobile because it's the most reliable across different wrappers
+            if (isMobile && navigator.share && navigator.canShare) {
+                try {
+                    const file = new File([blob], fileName, { type: mimeType });
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            files: [file],
+                            title: fileName,
+                            text: `Exported ${fileName}`
+                        });
+                        return true;
+                    }
+                } catch (err) {
+                    if (err.name === 'AbortError') return false; 
+                    console.error('Web Share API failed:', err);
+                }
+            }
+
+            // 2. Try File System Access API (Modern Desktop Browsers)
+            if (!isMobile && 'showSaveFilePicker' in window) {
                 try {
                     const extension = mimeType === 'application/pdf' ? '.pdf' : '.xlsx';
                     const handle = await window.showSaveFilePicker({
@@ -9855,36 +9945,49 @@
                     await writable.close();
                     return true;
                 } catch (err) {
-                    if (err.name === 'AbortError') return false; // User cancelled
+                    if (err.name === 'AbortError') return false; 
                     console.error('File System Access API failed:', err);
                 }
             }
 
-            // 2. Try Web Share API (Mobile Browsers)
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], fileName, { type: mimeType })] })) {
-                try {
-                    await navigator.share({
-                        files: [new File([blob], fileName, { type: mimeType })],
-                        title: fileName,
-                        text: `Exported ${fileName}`
-                    });
+            // 3. Robust Download Fallback (Blob URL)
+            try {
+                const url = URL.createObjectURL(blob);
+                
+                // For generic WebViews, sometimes a direct location change works better
+                if (isWebView && !isMedian) {
+                    const reader = new FileReader();
+                    reader.onloadend = function() {
+                        const base64data = reader.result;
+                        const link = document.createElement('a');
+                        link.href = base64data;
+                        link.download = fileName;
+                        link.target = '_blank';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        // Show a helper toast for WebViews
+                        showToast(t('success'), 'Download started. If nothing happens, check app permissions.', 'info');
+                    };
+                    reader.readAsDataURL(blob);
                     return true;
-                } catch (err) {
-                    if (err.name === 'AbortError') return false; // User cancelled
-                    console.error('Web Share API failed:', err);
                 }
-            }
 
-            // 3. Fallback: Standard Download
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(url), 100);
-            return true;
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = fileName;
+                link.target = '_blank';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(url), 100);
+                return true;
+            } catch (err) {
+                console.error('Standard download failed:', err);
+                showToast(t('error'), 'Download failed. Try long-pressing the export button.', 'error');
+                return false;
+            }
         }
 
         // Enhanced Excel export helper with month grouping, colored headers, and monthly totals
@@ -9940,11 +10043,11 @@
                 const yearFilter = document.getElementById('dashboardYear')?.value || 'all';
                 const monthFilter = document.getElementById('dashboardMonth')?.value || 'all';
 
-                // Load data
+                // Load data from Server to ensure deleted entries are removed
                 const [creditsSnapshot, personalSnapshot, groupsSnapshot] = await Promise.all([
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
+                    db.collection('credits').where('userId', '==', currentUser.uid).get({ source: 'server' }),
+                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get({ source: 'server' }),
+                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get({ source: 'server' })
                 ]);
 
                 let credits = creditsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -9965,7 +10068,7 @@
                     const groupIds = groupsSnapshot.docs.map(doc => doc.id);
                     const groupExpensesSnapshot = await db.collection('group_expenses')
                         .where('groupId', 'in', groupIds.slice(0, 10))
-                        .get();
+                        .get({ source: 'server' });
 
                     const allGroups = groupsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     groupsData = groupExpensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -11209,7 +11312,7 @@
 
                 const snapshot = await db.collection('credits')
                     .where('userId', '==', currentUser.uid)
-                    .get();
+                    .get({ source: 'server' });
 
                 let credits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -11315,7 +11418,7 @@
 
                 const snapshot = await db.collection('credits')
                     .where('userId', '==', currentUser.uid)
-                    .get();
+                    .get({ source: 'server' });
 
                 let credits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 credits = filterByYearMonth(credits, yearFilter, monthFilter);
@@ -11984,7 +12087,7 @@
 
                 const snapshot = await db.collection('personal_expenses')
                     .where('userId', '==', currentUser.uid)
-                    .get();
+                    .get({ source: 'server' });
 
                 let expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -12083,7 +12186,7 @@
 
                 const snapshot = await db.collection('personal_expenses')
                     .where('userId', '==', currentUser.uid)
-                    .get();
+                    .get({ source: 'server' });
 
                 let expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 expenses = filterByYearMonth(expenses, yearFilter, monthFilter);
@@ -16137,10 +16240,10 @@
                 const t = (key) => translations[currentLang]?.[key] || translations['en'][key] || key;
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
-                const groupDoc = await db.collection('groups').doc(groupId).get();
+                const groupDoc = await db.collection('groups').doc(groupId).get({ source: 'server' });
                 const group = groupDoc.data();
                 const membersByType = await Promise.all(
-                    group.members.map(uid => db.collection('users').doc(uid).get())
+                    group.members.map(uid => db.collection('users').doc(uid).get({ source: 'server' }))
                 );
                 const memberMap = membersByType.reduce((acc, d) => {
                     acc[d.id] = { id: d.id, ...d.data() };
@@ -16159,7 +16262,7 @@
                 const monthFilter = document.getElementById('groupMonthFilter')?.value || 'all';
                 const expensesSnapshot = await db.collection('group_expenses')
                     .where('groupId', '==', groupId)
-                    .get();
+                    .get({ source: 'server' });
                 let expenses = expensesSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                 expenses = filterByYearMonth(expenses, yearFilter, monthFilter);
                 expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
@@ -16323,11 +16426,11 @@
                 const currentLang = localStorage.getItem('language') || currentLanguage || 'en';
                 const t = (key) => translations[currentLang]?.[key] || translations['en'][key] || key;
 
-                const groupDoc = await db.collection('groups').doc(groupId).get();
+                const groupDoc = await db.collection('groups').doc(groupId).get({ source: 'server' });
                 const group = groupDoc.data();
 
                 const membersByType = await Promise.all(
-                    group.members.map(uid => db.collection('users').doc(uid).get())
+                    group.members.map(uid => db.collection('users').doc(uid).get({ source: 'server' }))
                 );
                 const memberMap = membersByType.reduce((acc, d) => {
                     acc[d.id] = { id: d.id, ...d.data() };
@@ -16349,7 +16452,7 @@
 
                 const expensesSnapshot = await db.collection('group_expenses')
                     .where('groupId', '==', groupId)
-                    .get();
+                    .get({ source: 'server' });
 
                 let expenses = expensesSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                 expenses = filterByYearMonth(expenses, yearFilter, monthFilter);
@@ -17095,17 +17198,17 @@
                 const typeFilter = document.getElementById('detailsType')?.value || 'all';
                 const searchTerm = document.getElementById('detailsSearch')?.value || '';
 
-                // Fetch Data
+                // Fetch Data from Server to ensure deleted entries are removed
                 const [creditsSnapshot, personalSnapshot, groupsListSnapshot] = await Promise.all([
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
+                    db.collection('credits').where('userId', '==', currentUser.uid).get({ source: 'server' }),
+                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get({ source: 'server' }),
+                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get({ source: 'server' })
                 ]);
 
                 const groupIds = groupsListSnapshot.docs.map(doc => doc.id);
                 let groupExpenses = [];
                 if (groupIds.length > 0) {
-                    const expenseQueries = groupIds.map(id => db.collection('group_expenses').where('groupId', '==', id).get());
+                    const expenseQueries = groupIds.map(id => db.collection('group_expenses').where('groupId', '==', id).get({ source: 'server' }));
                     const expenseSnapshots = await Promise.all(expenseQueries);
                     groupExpenses = expenseSnapshots.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
                 }
@@ -17824,21 +17927,20 @@
                 const typeFilter = document.getElementById('detailsType')?.value || 'all';
                 const searchTerm = document.getElementById('detailsSearch')?.value || '';
 
-                // Load core user data: credits, personal expenses, and the list of groups the user is in
+                // Load core user data from server
                 const [creditsSnapshot, personalSnapshot, groupsListSnapshot] = await Promise.all([
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
+                    db.collection('credits').where('userId', '==', currentUser.uid).get({ source: 'server' }),
+                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get({ source: 'server' }),
+                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get({ source: 'server' })
                 ]);
 
                 // Extract group IDs for the groups the current user is a member of
                 const groupIds = groupsListSnapshot.docs.map(doc => doc.id);
 
-                // Fetch all group expenses for the groups the user is in
-                // Query per groupId to handle Firestore query limitations (max 10 in 'in' queries)
+                // Fetch all group expenses for the groups the user is in from server
                 let groupExpenses = [];
                 if (groupIds.length > 0) {
-                    const expenseQueries = groupIds.map(id => db.collection('group_expenses').where('groupId', '==', id).get());
+                    const expenseQueries = groupIds.map(id => db.collection('group_expenses').where('groupId', '==', id).get({ source: 'server' }));
                     const expenseSnapshots = await Promise.all(expenseQueries);
                     groupExpenses = expenseSnapshots.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
                 }
@@ -19064,17 +19166,17 @@
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
 
-                // Load all data
+                // Load all data from Server to ensure deleted entries are removed
                 const [creditsSnapshot, personalSnapshot, groupsListSnapshot] = await Promise.all([
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
+                    db.collection('credits').where('userId', '==', currentUser.uid).get({ source: 'server' }),
+                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get({ source: 'server' }),
+                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get({ source: 'server' })
                 ]);
 
                 // Fetch all group expenses for groups where user is a member
                 const groupIds = groupsListSnapshot.docs.map(doc => doc.id);
                 const groupExpensesPromises = groupIds.map(groupId =>
-                    db.collection('group_expenses').where('groupId', '==', groupId).get()
+                    db.collection('group_expenses').where('groupId', '==', groupId).get({ source: 'server' })
                 );
                 const groupExpensesSnapshots = await Promise.all(groupExpensesPromises);
                 const groupsSnapshot = { docs: groupExpensesSnapshots.flatMap(snap => snap.docs) };
@@ -19293,15 +19395,15 @@
             showLoading();
             try {
                 const [creditsSnapshot, personalSnapshot, groupsListSnapshot] = await Promise.all([
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
+                    db.collection('credits').where('userId', '==', currentUser.uid).get({ source: 'server' }),
+                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get({ source: 'server' }),
+                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get({ source: 'server' })
                 ]);
 
                 // Fetch all group expenses for groups where user is a member
                 const groupIds = groupsListSnapshot.docs.map(doc => doc.id);
                 const groupExpensesPromises = groupIds.map(groupId =>
-                    db.collection('group_expenses').where('groupId', '==', groupId).get()
+                    db.collection('group_expenses').where('groupId', '==', groupId).get({ source: 'server' })
                 );
                 const groupExpensesSnapshots = await Promise.all(groupExpensesPromises);
                 const groupsSnapshot = { docs: groupExpensesSnapshots.flatMap(snap => snap.docs) };
@@ -19378,15 +19480,15 @@
                 const t = (key) => translations[currentLang]?.[key] || translations['en'][key] || key;
 
                 const [creditsSnapshot, personalSnapshot, groupsListSnapshot] = await Promise.all([
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
+                    db.collection('credits').where('userId', '==', currentUser.uid).get({ source: 'server' }),
+                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get({ source: 'server' }),
+                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get({ source: 'server' })
                 ]);
 
                 // Fetch all group expenses for groups where user is a member
                 const groupIds = groupsListSnapshot.docs.map(doc => doc.id);
                 const groupExpensesPromises = groupIds.map(groupId =>
-                    db.collection('group_expenses').where('groupId', '==', groupId).get()
+                    db.collection('group_expenses').where('groupId', '==', groupId).get({ source: 'server' })
                 );
                 const groupExpensesSnapshots = await Promise.all(groupExpensesPromises);
                 const groupsSnapshot = { docs: groupExpensesSnapshots.flatMap(snap => snap.docs) };
@@ -19398,8 +19500,8 @@
                     if (g.members) g.members.forEach(m => allGroupMemberIds.add(m));
                 });
 
-                // Batch fetch user details
-                const userDocs = await Promise.all([...allGroupMemberIds].map(uid => db.collection('users').doc(uid).get()));
+                // Batch fetch user details from server
+                const userDocs = await Promise.all([...allGroupMemberIds].map(uid => db.collection('users').doc(uid).get({ source: 'server' })));
                 const globalUserMap = {};
                 userDocs.forEach(doc => { if (doc.exists) globalUserMap[doc.id] = doc.data(); });
 
@@ -20594,8 +20696,8 @@
                             // Apply theme using data-theme attribute (matches CSS selector)
                             document.documentElement.setAttribute('data-theme', currentUser.darkMode ? 'dark' : 'light');
 
-                            // Initialize real-time data listeners
-                            setupDataListeners(user.uid, user.email, currentUser.phone);
+                            // Initialize real-time data listeners and WAIT for initial data
+                            await setupDataListeners(user.uid, user.email, currentUser.phone);
 
                             // Show dashboard
                             renderMainLayout();
@@ -20652,8 +20754,8 @@
                                     darkMode: false
                                 };
 
-                                // Initialize data listeners
-                                setupDataListeners(user.uid, user.email, currentUser.phone);
+                                // Initialize data listeners and WAIT for initial data
+                                await setupDataListeners(user.uid, user.email, currentUser.phone);
 
                                 showToast('Success', 'Account created! Welcome ' + newUserData.firstName);
                                 await renderMainLayout();
