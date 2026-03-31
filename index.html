@@ -16,11 +16,10 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"
-        defer></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <!-- Phone Authentication Dependencies -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.2.1/build/css/intlTelInput.css">
     <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.2.1/build/js/intlTelInput.min.js"></script>
@@ -8207,9 +8206,12 @@
                     prompt: 'select_account'
                 });
 
-                // App Environment Check: Use Redirect immediately (Universal for WebViews)
-                if (isAppEnvironment()) {
-                    console.log("App environment detected, using signInWithRedirect for Google...");
+                // For ALL mobile environments (WebViews and Mobile Browsers), use Redirect for Google Auth
+                // This prevents "Popup blocked" and "External browser opening" issues in WebViews
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+                if (isAppEnvironment() || isMobile) {
+                    console.log("Mobile/App environment detected, forcing signInWithRedirect for Google Auth...");
                     await auth.signInWithRedirect(provider);
                     return;
                 }
@@ -10020,6 +10022,12 @@
         // Enhanced Excel export helper with month grouping, colored headers, and monthly totals
 
         async function exportToExcelEnhanced(data, fileName, sheetName = 'Sheet1', options = {}) {
+            // Check if XLSX library is available
+            if (typeof XLSX === 'undefined') {
+                console.error("XLSX library is not defined");
+                throw new Error("Excel export library (SheetJS) is not loaded correctly. Please check your internet connection.");
+            }
+
             const { workbook: existingWorkbook, skipWrite = false, ...sheetOptions } = options;
 
             const worksheet = createEnhancedWorksheet(data, sheetOptions);
@@ -16262,6 +16270,11 @@
         async function exportGroupPDF(groupId) {
             showLoading();
             try {
+                // Check if jsPDF is available
+                if (!window.jspdf || !window.jspdf.jsPDF) {
+                    throw new Error("PDF export library (jsPDF) is not loaded correctly. Please check your internet connection.");
+                }
+
                 // Get current language from settings
                 const currentLang = localStorage.getItem('language') || currentLanguage || 'en';
                 const t = (key) => translations[currentLang]?.[key] || translations['en'][key] || key;
@@ -17944,6 +17957,11 @@
             // Show loading indicator while processing
             showLoading();
             try {
+                // Check if jsPDF is available
+                if (!window.jspdf || !window.jspdf.jsPDF) {
+                    throw new Error("PDF export library (jsPDF) is not loaded correctly. Please check your internet connection.");
+                }
+
                 // Initialize jsPDF library for PDF generation
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
@@ -19186,6 +19204,11 @@
         async function exportAllDataPDF() {
             showLoading();
             try {
+                // Check if jsPDF is available
+                if (!window.jspdf || !window.jspdf.jsPDF) {
+                    throw new Error("PDF export library (jsPDF) is not loaded correctly. Please check your internet connection.");
+                }
+
                 // Get current language from settings
                 const currentLang = localStorage.getItem('language') || localStorage.getItem('lang') || 'en';
                 const t = (key) => translations[currentLang]?.[key] || translations['en'][key] || key;
@@ -20233,7 +20256,10 @@
             // Generic WebView detection for iOS (Safari is missing in most WebViews)
             const isIosWebView = isIos && !ua.includes('Safari/');
 
-            return isMedian || isAndroidWebView || isIosWebView;
+            // Robust mobile detection (important for auth flow fallback)
+            const isMobileBrowser = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+
+            return isMedian || isAndroidWebView || isIosWebView || isMobileBrowser;
         }
 
         // Keep for backward compatibility
