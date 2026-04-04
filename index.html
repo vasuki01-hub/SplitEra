@@ -26,6 +26,7 @@
     <script src="https://cdn.jsdelivr.net/npm/libphonenumber-js@1.10.44/bundle/libphonenumber-js.min.js"></script>
     <style>
         * {
+            font-size: 0.92rem;
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -2220,7 +2221,9 @@
                 smartSearch: 'Smart Search:',
                 smartSearchDescription: 'Just start typing. Our filters work instantly to find what you\'re looking for.',
                 readyToStartSplitting: 'Ready to start splitting?',
-                buildWithTransparency: 'Build with transparency.'
+                buildWithTransparency: 'Build with transparency.',
+                hasToGive: 'has to give {amount} to <strong>{name}</strong>',
+                hasToReceive: 'has to receive {amount} from <strong>{name}</strong>',
             },
 
             gu: {
@@ -2622,7 +2625,9 @@
                 smartSearch: 'સ્માર્ટ સર્ચ:',
                 smartSearchDescription: 'બસ ટાઇપ કરવાનું શરૂ કરો. અમારા ફિલ્ટર્સ તમે જે શોધી રહ્યા છો તે શોધવા માટે તરત જ કાર્ય કરે છે.',
                 readyToStartSplitting: 'વિભાજન શરૂ કરવા માટે તૈયાર છો?',
-                buildWithTransparency: 'પારદર્શિતા સાથે નિર્મિત.'
+                buildWithTransparency: 'પારદર્શિતા સાથે નિર્મિત.',
+                hasToGive: '<strong>{name}</strong> ને {amount} આપવાના છે',
+                hasToReceive: '<strong>{name}</strong> પાસેથી {amount} લેવાના છે',
             },
 
             hi: {
@@ -3023,7 +3028,9 @@
                 smartSearch: 'स्मार्ट सर्च:',
                 smartSearchDescription: 'बस टाइप करना शुरू करें। हमारे फिल्टर आपकी खोज को तुरंत खोजने के लिए काम करते हैं।',
                 readyToStartSplitting: 'विभाजन शुरू करने के लिए तैयार हैं?',
-                buildWithTransparency: 'पारदर्शिता के साथ निर्मित।'
+                buildWithTransparency: 'पारदर्शिता के साथ निर्मित।',
+                hasToGive: '<strong>{name}</strong> को {amount} देने हैं',
+                hasToReceive: '<strong>{name}</strong> से {amount} लेने हैं',
             },
 
             mr: {
@@ -3422,7 +3429,9 @@
                 smartSearch: 'स्मार्ट शोध:',
                 smartSearchDescription: 'फक्त टाइप करायला सुरुवात करा. आमचे फिल्टर त्वरित काम करतात आणि हवे ते लगेच दिसते.',
                 readyToStartSplitting: 'विभागणी सुरू करण्यास तयार आहात?',
-                buildWithTransparency: 'पारदर्शकतेने तयार केलेले.'
+                buildWithTransparency: 'पारदर्शकतेने तयार केलेले.',
+                hasToGive: '<strong>{name}</strong> ला {amount} द्यायचे आहेत',
+                hasToReceive: '<strong>{name}</strong> कडून {amount} घ्यायचे आहेत',
             },
 
             ta: {
@@ -3820,7 +3829,9 @@
                 smartSearch: 'ஸ்மார்ட் தேடல்:',
                 smartSearchDescription: 'தட்டச்சு செய்யத் தொடங்குங்கள் – எங்கள் வடிகட்டிகள் உடனடியாக வேலை செய்து நீங்கள் தேடுவதை காட்டும்.',
                 readyToStartSplitting: 'பிரிக்கத் தொடங்கத் தயாரா?',
-                buildWithTransparency: 'வெளிப்படைத்தன்மையுடன் உருவாக்கப்பட்டது.'
+                buildWithTransparency: 'வெளிப்படைத்தன்மையுடன் உருவாக்கப்பட்டது.',
+                hasToGive: '<strong>{name}</strong>-க்கு {amount} கொடுக்க வேண்டும்',
+                hasToReceive: '<strong>{name}</strong>-லிருந்து {amount} பெற வேண்டும்',
             },
 
             te: {
@@ -4219,7 +4230,9 @@
                 smartSearch: 'స్మార్ట్ సెర్చ్:',
                 smartSearchDescription: 'టైప్ చేయడం మొదలెట్టండి – మా ఫిల్టర్స్ ఇన్‌స్టంట్‌గా వర్క్ చేసి మీరు వెతికేది చూపిస్తాయి.',
                 readyToStartSplitting: 'స్ప్లిట్టింగ్ స్టార్ట్ చేయడానికి సిద్ధంగా ఉన్నారా?',
-                buildWithTransparency: 'పారదర్శకతతో బిల్డ్ చేయబడింది.'
+                buildWithTransparency: 'పారదర్శకతతో బిల్డ్ చేయబడింది.',
+                hasToGive: '<strong>{name}</strong> కి {amount} ఇవ్వాలి',
+                hasToReceive: '<strong>{name}</strong> నుండి {amount} తీసుకోవాలి',
             },
 
             sa: {
@@ -4618,7 +4631,9 @@
                 smartSearch: 'स्मार्ट् अन्वेषणम् :',
                 smartSearchDescription: 'केवलं टाइप् आरभत – अस्माकं निस्यन्दकाः सद्यः कार्यं कृत्वा अपेक्षितवस्तु दर्शयिष्यन्ति।',
                 readyToStartSplitting: 'विभाजनं प्रारभ्तुं सज्जः स्थ?',
-                buildWithTransparency: 'पारदर्शकतया निर्मितम्।'
+                buildWithTransparency: 'पारदर्शकतया निर्मितम्।',
+                hasToGive: '<strong>{name}</strong> कृते {amount} दातव्यम्',
+                hasToReceive: '<strong>{name}</strong> तः {amount} प्राप्तव्यम्',
             },
 
 
@@ -5018,7 +5033,9 @@
                 smartSearch: 'ਸਮਾਰਟ ਸਰਚ:',
                 smartSearchDescription: 'ਬੱਸ ਟਾਈਪ ਕਰਨਾ ਸ਼ੁਰੂ ਕਰੋ – ਸਾਡੇ ਫਿਲਟਰ ਤੁਰੰਤ ਕੰਮ ਕਰਕੇ ਤੁਹਾਨੂੰ ਲੋੜੀਂਦਾ ਚੀਜ਼ ਦਿਖਾਉਣਗੇ।',
                 readyToStartSplitting: 'ਵੰਡਣਾ ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਤਿਆਰ ਹੋ?',
-                buildWithTransparency: 'ਪਾਰਦਰਸ਼ਤਾ ਨਾਲ ਬਣਾਇਆ ਗਿਆ।'
+                buildWithTransparency: 'ਪਾਰਦਰਸ਼ਤਾ ਨਾਲ ਬਣਾਇਆ ਗਿਆ।',
+                hasToGive: '<strong>{name}</strong> ਨੂੰ {amount} ਦੇਣੇ ਹਨ',
+                hasToReceive: '<strong>{name}</strong> ਤੋਂ {amount} ਲੈਣੇ ਹਨ',
             },
 
             bn: {
@@ -5417,7 +5434,9 @@
                 smartSearch: 'স্মার্ট সার্চ:',
                 smartSearchDescription: 'শুধু টাইপ করা শুরু করুন – আমাদের ফিল্টার তাৎক্ষণিক কাজ করে আপনার খোঁজা জিনিস দেখিয়ে দেয়।',
                 readyToStartSplitting: 'ভাগ করা শুরু করতে প্রস্তুত?',
-                buildWithTransparency: 'স্বচ্ছতার সাথে তৈরি।'
+                buildWithTransparency: 'স্বচ্ছতার সাথে তৈরি।',
+                hasToGive: '<strong>{name}</strong> কে {amount} দিতে হবে',
+                hasToReceive: '<strong>{name}</strong> এর কাছ থেকে {amount} পেতে হবে',
             },
 
             kn: {
@@ -5816,7 +5835,9 @@
                 smartSearch: 'ಸ್ಮಾರ್ಟ್ ಸರ್ಚ್:',
                 smartSearchDescription: 'ಟೈಪ್ ಮಾಡಲು ಶುರು ಮಾಡಿ – ನಮ್ಮ ಫಿಲ್ಟರ್‌ಗಳು ತಕ್ಷಣ ಕೆಲಸ ಮಾಡಿ ನೀವು ಹುಡುಕುತ್ತಿರುವುದನ್ನು ತೋರಿಸುತ್ತವೆ.',
                 readyToStartSplitting: 'ಹಂಚಿಕೊಳ್ಳಲು ಸಿದ್ಧರಿದ್ದೀರಾ?',
-                buildWithTransparency: 'ಪಾರದರ್ಶಕತೆಯೊಂದಿಗೆ ನಿರ್ಮಿಸಲಾಗಿದೆ.'
+                buildWithTransparency: 'ಪಾರದರ್ಶಕತೆಯೊಂದಿಗೆ ನಿರ್ಮಿಸಲಾಗಿದೆ.',
+                hasToGive: '<strong>{name}</strong>-ಗೆ {amount} ನೀಡಬೇಕು',
+                hasToReceive: '<strong>{name}</strong>-ನಿಂದ {amount} ಪಡೆಯಬೇಕು',
             },
 
             ml: {
@@ -6215,7 +6236,9 @@
                 smartSearch: 'സ്മാർട്ട് സെർച്ച്:',
                 smartSearchDescription: 'ടൈപ്പ് ചെയ്യാൻ തുടങ്ങൂ – നമ്മുടെ ഫിൽട്ടറുകൾ തത്ക്ഷണം പ്രവർത്തിച്ച് നിനക്ക് വേണ്ടത് കാണിക്കും.',
                 readyToStartSplitting: 'സ്പ്ലിറ്റ് ചെയ്യാൻ തയ്യാറാണോ?',
-                buildWithTransparency: 'സുതാര്യതയോടെ നിർമ്മിച്ചത്.'
+                buildWithTransparency: 'സുതാര്യതയോടെ നിർമ്മിച്ചത്.',
+                hasToGive: '<strong>{name}</strong>-ന് {amount} നൽകണം',
+                hasToReceive: '<strong>{name}</strong>-ൽ നിന്ന് {amount} ലഭിക്കണം',
             },
         };
 
@@ -14395,7 +14418,7 @@
                                         const toMember = memberMap[d.to] || { firstName: d.to.startsWith('guest:') ? d.to.split(':')[1] : d.to };
                                         return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--danger);font-weight:500;">
                                         <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i>
-                                        <span>has to give ${formatCurrency(d.amount)} to <strong>${escapeHTML(toMember.firstName)}</strong></span>
+                                        <span>${(t('hasToGive') || 'has to give {amount} to <strong>{name}</strong>').replace('{amount}', formatCurrency(d.amount)).replace('{name}', escapeHTML(toMember.firstName))}</span>
                                     </div>`;
                                     });
                                 const receiveLines = debts
@@ -14404,7 +14427,7 @@
                                         const fromMember = memberMap[d.from] || { firstName: d.from.startsWith('guest:') ? d.from.split(':')[1] : d.from };
                                         return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--success);font-weight:500;">
                                         <i class="fas fa-arrow-left" style="font-size:0.65rem;"></i>
-                                        <span>has to receive ${formatCurrency(d.amount)} from <strong>${escapeHTML(fromMember.firstName)}</strong></span>
+                                        <span>${(t('hasToReceive') || 'has to receive {amount} from <strong>{name}</strong>').replace('{amount}', formatCurrency(d.amount)).replace('{name}', escapeHTML(fromMember.firstName))}</span>
                                     </div>`;
                                     });
                                 const allLines = [...giveLines, ...receiveLines];
@@ -14680,7 +14703,7 @@
                                     const toMember = memberMap[d.to] || { firstName: d.to.startsWith('guest:') ? d.to.split(':')[1] : d.to };
                                     return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--danger);font-weight:500;">
                                     <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i>
-                                    <span>has to give ${formatCurrency(d.amount)} to <strong>${escapeHTML(toMember.firstName)}</strong></span>
+                                    <span>${(t('hasToGive') || 'has to give {amount} to <strong>{name}</strong>').replace('{amount}', formatCurrency(d.amount)).replace('{name}', escapeHTML(toMember.firstName))}</span>
                                 </div>`;
                                 });
                             const receiveLines = debts
@@ -14689,7 +14712,7 @@
                                     const fromMember = memberMap[d.from] || { firstName: d.from.startsWith('guest:') ? d.from.split(':')[1] : d.from };
                                     return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--success);font-weight:500;">
                                     <i class="fas fa-arrow-left" style="font-size:0.65rem;"></i>
-                                    <span>has to receive ${formatCurrency(d.amount)} from <strong>${escapeHTML(fromMember.firstName)}</strong></span>
+                                    <span>${(t('hasToReceive') || 'has to receive {amount} from <strong>{name}</strong>').replace('{amount}', formatCurrency(d.amount)).replace('{name}', escapeHTML(fromMember.firstName))}</span>
                                 </div>`;
                                 });
                             const allLines = [...giveLines, ...receiveLines];
