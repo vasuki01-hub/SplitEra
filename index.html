@@ -14332,7 +14332,7 @@
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
-                                                <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                                                <strong style="color: var(--danger);">${formatCurrency(Math.max(0, displayExpenses.reduce((sum, e) => {
                             const payerId = e.paidBy || e.userId;
                             if (payerId === currentUser.uid) return sum;
                             const breakdown = breakdowns[e.id];
@@ -14346,7 +14346,17 @@
                                 myShare = breakdown?.contributions?.[guestKey] || 0;
                             }
                             return sum + Math.max(0, myShare - totalPaid);
-                        }, 0))}</strong>
+                        }, 0) - displayExpenses.reduce((sum, e) => {
+                            const payerId = e.paidBy || e.userId;
+                            if (payerId !== currentUser.uid) return sum;
+                            const breakdown = breakdowns[e.id];
+                            const settlements = e.settlements || [];
+                            const totalReceived = settlements.reduce((s, settlement) => {
+                                return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
+                            }, 0);
+                            const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                            return sum + Math.max(0, parseFloat(e.amount) - myShare - totalReceived);
+                        }, 0)))}</strong>
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('totalExpensesCount')}:</span>
@@ -14363,22 +14373,21 @@
                                         </div>
                                         <div style="display: flex; flex-direction: column; gap: 8px;">
                                             ${currentGroupMembers.map(m => {
-                            const netOwed = debts.reduce((sum, d) => {
-                                if (d.to === m.id) return sum + d.amount;
-                                if (d.from === m.id) return sum - d.amount;
-                                return sum;
-                            }, 0);
-                            const netLabel = netOwed > 0.01
-                                ? `<span style="font-size:0.75rem;color:var(--success);font-weight:600;margin-left:auto;white-space:nowrap;">+${formatCurrency(netOwed)}</span>`
-                                : netOwed < -0.01
-                                    ? `<span style="font-size:0.75rem;color:var(--danger);font-weight:600;margin-left:auto;white-space:nowrap;">${formatCurrency(netOwed)}</span>`
-                                    : `<span style="font-size:0.75rem;color:var(--success);font-weight:600;margin-left:auto;white-space:nowrap;">✓ Settled</span>`;
+                            const totalOwes = debts.reduce((sum, d) => d.from === m.id ? sum + d.amount : sum, 0);
+                            const totalOwed = debts.reduce((sum, d) => d.to === m.id ? sum + d.amount : sum, 0);
+                            const isSettled = totalOwes < 0.01 && totalOwed < 0.01;
+                            const balanceLabel = isSettled
+                                ? `<span style="font-size:0.72rem;color:var(--success);font-weight:600;margin-left:auto;white-space:nowrap;">✓ Settled</span>`
+                                : `<span style="margin-left:auto;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;gap:1px;">
+                                      ${totalOwes > 0.01 ? `<span style="font-size:0.72rem;color:var(--danger);font-weight:600;">Owes ${formatCurrency(totalOwes)}</span>` : ''}
+                                      ${totalOwed > 0.01 ? `<span style="font-size:0.72rem;color:var(--success);font-weight:600;">Owed ${formatCurrency(totalOwed)}</span>` : ''}
+                                   </span>`;
                             return `
-                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                <div style="display: flex; align-items: center; gap: 10px; padding: 4px 0;">
                                                     <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + m.firstName + '+' + m.lastName}" style="width: 30px; height: 30px; border-radius: 50%;">
-                                                    <span style="font-size: 0.9rem;">${m.firstName} ${m.lastName}</span>
+                                                    <span style="font-size: 0.9rem;">${m.firstName} ${m.lastName || ''}</span>
                                                     ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size: 0.8rem;"></i>' : ''}
-                                                    ${netLabel}
+                                                    ${balanceLabel}
                                                 </div>`;
                         }).join('')}
                                         </div>
@@ -14578,7 +14587,7 @@
                                         </div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                             <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
-                                            <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                                            <strong style="color: var(--danger);">${formatCurrency(Math.max(0, displayExpenses.reduce((sum, e) => {
                         const payerId = e.paidBy || e.userId;
                         if (payerId === currentUser.uid) return sum;
                         const breakdown = breakdowns[e.id];
@@ -14592,7 +14601,17 @@
                             myShare = breakdown?.contributions?.[guestKey] || 0;
                         }
                         return sum + Math.max(0, myShare - totalPaid);
-                    }, 0))}</strong>
+                    }, 0) - displayExpenses.reduce((sum, e) => {
+                        const payerId = e.paidBy || e.userId;
+                        if (payerId !== currentUser.uid) return sum;
+                        const breakdown = breakdowns[e.id];
+                        const settlements = e.settlements || [];
+                        const totalReceived = settlements.reduce((s, settlement) => {
+                            return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
+                        }, 0);
+                        const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                        return sum + Math.max(0, parseFloat(e.amount) - myShare - totalReceived);
+                    }, 0)))}</strong>
                                         </div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                             <span class="text-secondary">${t('totalExpensesCount')}:</span>
@@ -14609,22 +14628,21 @@
                                     </div>
                                     <div style="display: flex; flex-direction: column; gap: 8px;">
                                         ${currentGroupMembers.map(m => {
-                        const netOwed = debts.reduce((sum, d) => {
-                            if (d.to === m.id) return sum + d.amount;
-                            if (d.from === m.id) return sum - d.amount;
-                            return sum;
-                        }, 0);
-                        const netLabel = netOwed > 0.01
-                            ? `<span style="font-size:0.75rem;color:var(--success);font-weight:600;margin-left:auto;white-space:nowrap;">+${formatCurrency(netOwed)}</span>`
-                            : netOwed < -0.01
-                                ? `<span style="font-size:0.75rem;color:var(--danger);font-weight:600;margin-left:auto;white-space:nowrap;">${formatCurrency(netOwed)}</span>`
-                                : `<span style="font-size:0.75rem;color:var(--success);font-weight:600;margin-left:auto;white-space:nowrap;">✓ Settled</span>`;
+                        const totalOwes = debts.reduce((sum, d) => d.from === m.id ? sum + d.amount : sum, 0);
+                        const totalOwed = debts.reduce((sum, d) => d.to === m.id ? sum + d.amount : sum, 0);
+                        const isSettled = totalOwes < 0.01 && totalOwed < 0.01;
+                        const balanceLabel = isSettled
+                            ? `<span style="font-size:0.72rem;color:var(--success);font-weight:600;margin-left:auto;white-space:nowrap;">✓ Settled</span>`
+                            : `<span style="margin-left:auto;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;gap:1px;">
+                                  ${totalOwes > 0.01 ? `<span style="font-size:0.72rem;color:var(--danger);font-weight:600;">Owes ${formatCurrency(totalOwes)}</span>` : ''}
+                                  ${totalOwed > 0.01 ? `<span style="font-size:0.72rem;color:var(--success);font-weight:600;">Owed ${formatCurrency(totalOwed)}</span>` : ''}
+                               </span>`;
                         return `
-                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                            <div style="display: flex; align-items: center; gap: 10px; padding: 4px 0;">
                                                 <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + m.firstName + '+' + m.lastName}" style="width: 30px; height: 30px; border-radius: 50%;">
-                                                <span style="font-size: 0.9rem;">${m.firstName} ${m.lastName}</span>
+                                                <span style="font-size: 0.9rem;">${m.firstName} ${m.lastName || ''}</span>
                                                 ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size: 0.8rem;"></i>' : ''}
-                                                ${netLabel}
+                                                ${balanceLabel}
                                             </div>`;
                     }).join('')}
                                     </div>
