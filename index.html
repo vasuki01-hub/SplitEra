@@ -6953,31 +6953,6 @@
         }
 
         // Group data by month
-
-        function filterByDateRange(data, fromDate, toDate) {
-            if (!fromDate && !toDate) return data;
-
-            return data.filter(item => {
-                const itemDate = safeDate(item.date);
-                const itemTime = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate()).getTime();
-
-                if (fromDate) {
-                    const fd = safeDate(fromDate);
-                    if (itemTime < new Date(fd.getFullYear(), fd.getMonth(), fd.getDate()).getTime()) {
-                        return false;
-                    }
-                }
-
-                if (toDate) {
-                    const td = safeDate(toDate);
-                    if (itemTime > new Date(td.getFullYear(), td.getMonth(), td.getDate()).getTime()) {
-                        return false;
-                    }
-                }
-
-                return true;
-            });
-        }
         function groupByMonth(data) {
             const grouped = {};
 
@@ -9326,27 +9301,20 @@
                     
                     <div class="filters">
                         <div class="filter-group">
-                            <label class="form-label">From Date</label>
-                            <input type="date" class="form-input" id="dashboardFromDate" onchange="loadDashboardData()">
+                            <label class="form-label">${t('year')}</label>
+                            <select class="form-select" id="dashboardYear" onchange="loadDashboardData()">
+                                ${yearOptions.join('')}
+                            </select>
                         </div>
                         <div class="filter-group">
-                            <label class="form-label">To Date</label>
-                            <input type="date" class="form-input" id="dashboardToDate" onchange="loadDashboardData()">
+                            <label class="form-label">${t('month')}</label>
+                            <select class="form-select" id="dashboardMonth" onchange="loadDashboardData()">
+                                ${monthOptions.join('')}
+                            </select>
                         </div>
                     </div>
 
                     <canvas id="dashboardChart" style="max-height: 300px;"></canvas>
-                    
-                    <div style="margin-top: 2rem;">
-                        <h3 class="card-title">${t('expenseByCategory') || 'Expenses by Category'}</h3>
-                        <canvas id="expenseCategoryChart" style="max-height: 300px; margin-top: 1rem;"></canvas>
-                    </div>
-
-                    <div style="margin-top: 2rem;">
-                        <h3 class="card-title">${t('bankVsCredit') || 'Bank vs Credit Card'}</h3>
-                        <canvas id="bankCardsChart" style="max-height: 300px; margin-top: 1rem;"></canvas>
-                    </div>
-
                 </div>
             `;
 
@@ -9374,8 +9342,8 @@
             hideLoading();
 
             try {
-                const fromDate = document.getElementById('dashboardFromDate')?.value || '';
-                const toDate = document.getElementById('dashboardToDate')?.value || '';
+                const yearFilter = document.getElementById('dashboardYear')?.value || 'all';
+                const monthFilter = document.getElementById('dashboardMonth')?.value || 'all';
 
                 // Use data from global state
                 let credits = [...dataState.credits];
@@ -9384,8 +9352,8 @@
                 const groupExpenses = dataState.groupExpenses;
 
                 // Apply filters
-                credits = filterByDateRange(credits, fromDate, toDate);
-                personal = filterByDateRange(personal, fromDate, toDate);
+                credits = filterByYearMonth(credits, yearFilter, monthFilter);
+                personal = filterByYearMonth(personal, yearFilter, monthFilter);
 
                 const totalCredits = credits.reduce((sum, doc) => sum + doc.amount, 0);
                 const totalPersonal = personal.reduce((sum, doc) => sum + doc.amount, 0);
@@ -9398,7 +9366,7 @@
                 // Calculate user's share of group expenses
                 let totalGroupShare = 0;
                 if (groups.length > 0) {
-                    let filteredGroupExpenses = filterByDateRange(groupExpenses, fromDate, toDate);
+                    let filteredGroupExpenses = filterByYearMonth(groupExpenses, yearFilter, monthFilter);
 
                     // Calculate user's share for each group expense
                     for (const expense of filteredGroupExpenses) {
@@ -9635,119 +9603,6 @@
                             }
                         }
                     });
-
-                    // Categorize personal expenses
-                    const catTotals = {
-                        'Food': 0,
-                        'Entertainment': 0,
-                        'Travel': 0,
-                        'Shopping': 0,
-                        'Health': 0,
-                        'Bills': 0,
-                        'Others': 0
-                    };
-
-                    personal.forEach(p => {
-                        let cat = p.category || 'Others';
-                        if (!catTotals.hasOwnProperty(cat)) {
-                            cat = 'Others';
-                        }
-                        catTotals[cat] += Number(p.amount) || 0;
-                    });
-
-                    const catLabels = Object.keys(catTotals);
-                    const catData = Object.values(catTotals);
-
-                    // Expense Category Chart
-                    const catCtx = document.getElementById('expenseCategoryChart');
-                    if (catCtx) {
-                        const existingCatChart = Chart.getChart(catCtx);
-                        if (existingCatChart) existingCatChart.destroy();
-
-                        new Chart(catCtx.getContext('2d'), {
-                            type: 'pie', // using pie chart for 3D circular look
-                            data: {
-                                labels: catLabels,
-                                datasets: [{
-                                    data: catData,
-                                    backgroundColor: [
-                                        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#E7E9ED'
-                                    ],
-                                    borderWidth: 1,
-                                    hoverOffset: 20
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                    legend: { position: 'right', labels: { color: textColor } },
-                                    tooltip: {
-                                        callbacks: {
-                                            label: function (ctx) {
-                                                const val = ctx.raw || 0;
-                                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                                                const pct = total === 0 ? 0 : ((val / total) * 100).toFixed(1);
-                                                return ` ${ctx.label}: ${formatCurrency(val)} (${pct}%)`;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        });
-                    }
-
-                    // Bank vs Credit Card Chart
-                    const bankCtx = document.getElementById('bankCardsChart');
-                    if (bankCtx) {
-                        const existingBankChart = Chart.getChart(bankCtx);
-                        if (existingBankChart) existingBankChart.destroy();
-
-                        // the metrics are already calculated in renderDashboard
-                        // nonCreditCardCredits (Total Bank Balance), nonCreditCardExpenses, netBankAccountBalance
-                        // totalCreditCardCredits, totalCreditCardExpenses, netCreditCardBalance
-
-                        new Chart(bankCtx.getContext('2d'), {
-                            type: 'bar',
-                            data: {
-                                labels: ['Bank Account', 'Credit Card'],
-                                datasets: [
-                                    {
-                                        label: 'Net Balance',
-                                        data: [netBankAccountBalance, netCreditCardBalance],
-                                        backgroundColor: '#10B981',
-                                        borderRadius: 4
-                                    },
-                                    {
-                                        label: 'Total Expenses',
-                                        data: [nonCreditCardExpenses, totalCreditCardExpenses],
-                                        backgroundColor: '#EF4444',
-                                        borderRadius: 4
-                                    }
-                                ]
-                            },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                    legend: { position: 'top', labels: { color: textColor } },
-                                    tooltip: {
-                                        callbacks: {
-                                            label: function (ctx) {
-                                                return ` ${ctx.dataset.label}: ${formatCurrency(ctx.raw)}`;
-                                            }
-                                        }
-                                    }
-                                },
-                                scales: {
-                                    y: { ticks: { color: textColor }, grid: { color: isDark ? '#374151' : '#e5e7eb' } },
-                                    x: { ticks: { color: textColor }, grid: { display: false } }
-                                }
-                            }
-                        });
-                    }
-
-
                 }
             } catch (error) {
                 showToast('Error', error.message, 'error');
@@ -9767,8 +9622,8 @@
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
 
-                const fromDate = document.getElementById('dashboardFromDate')?.value || '';
-                const toDate = document.getElementById('dashboardToDate')?.value || '';
+                const yearFilter = document.getElementById('dashboardYear')?.value || 'all';
+                const monthFilter = document.getElementById('dashboardMonth')?.value || 'all';
 
                 // Load data from Server to ensure deleted entries are removed
                 const [creditsSnapshot, personalSnapshot, groupsSnapshot] = await Promise.all([
@@ -9779,8 +9634,8 @@
 
                 let credits = creditsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 let personal = personalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                credits = filterByDateRange(credits, fromDate, toDate);
-                personal = filterByDateRange(personal, fromDate, toDate);
+                credits = filterByYearMonth(credits, yearFilter, monthFilter);
+                personal = filterByYearMonth(personal, yearFilter, monthFilter);
 
                 // Header with saffron color
                 doc.setFillColor(255, 153, 51);
@@ -9812,7 +9667,7 @@
                         .get();
 
                     groupsData = groupExpensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    groupsData = filterByDateRange(groupsData, fromDate, toDate);
+                    groupsData = filterByYearMonth(groupsData, yearFilter, monthFilter);
 
                     // Calculate user's share for each group expense
                     for (const expense of groupsData) {
@@ -10243,8 +10098,8 @@
                 const currentLang = localStorage.getItem('language') || localStorage.getItem('lang') || 'en';
                 const t = (key) => translations[currentLang]?.[key] || translations['en'][key] || key;
 
-                const fromDate = document.getElementById('dashboardFromDate')?.value || '';
-                const toDate = document.getElementById('dashboardToDate')?.value || '';
+                const yearFilter = document.getElementById('dashboardYear')?.value || 'all';
+                const monthFilter = document.getElementById('dashboardMonth')?.value || 'all';
 
                 // Load data from Server to ensure deleted entries are removed
                 const [creditsSnapshot, personalSnapshot, groupsSnapshot] = await Promise.all([
@@ -10255,8 +10110,8 @@
 
                 let credits = creditsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 let personal = personalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                credits = filterByDateRange(credits, fromDate, toDate);
-                personal = filterByDateRange(personal, fromDate, toDate);
+                credits = filterByYearMonth(credits, yearFilter, monthFilter);
+                personal = filterByYearMonth(personal, yearFilter, monthFilter);
 
                 // Calculate totals including credit card specific
                 const totalCredits = credits.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
@@ -10275,7 +10130,7 @@
 
                     const allGroups = groupsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     groupsData = groupExpensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    groupsData = filterByDateRange(groupsData, fromDate, toDate);
+                    groupsData = filterByYearMonth(groupsData, yearFilter, monthFilter);
 
                     for (const expense of groupsData) {
                         const group = allGroups.find(g => g.id === expense.groupId);
@@ -10804,7 +10659,6 @@
                                 <tr>
                                     <th>${t('date')}</th>
                                     <th>${t('description')}</th>
-                        <th>${t('category') || 'Category'}</th>
                                     <th>${t('section')}</th>
                                     <th style="text-align: right">${t('amount')}</th>
                                 </tr>
@@ -10889,13 +10743,15 @@
                         <div class="filter-group">
                             <input type="text" class="form-input" placeholder="${t('search')}" id="creditsSearch" oninput="debouncedLoadCredits()">
                         </div>
-                        <div class="filter-group" style="display:flex; flex-direction:column; gap:0.2rem">
-                            <label style="font-size: 0.75rem">From Date</label>
-                            <input type="date" class="form-input" id="creditsFromDate" onchange="loadCredits()">
+                        <div class="filter-group">
+                            <select class="form-select" id="creditsYear" onchange="loadCredits()">
+                                ${yearOptions.join('')}
+                            </select>
                         </div>
-                        <div class="filter-group" style="display:flex; flex-direction:column; gap:0.2rem">
-                            <label style="font-size: 0.75rem">To Date</label>
-                            <input type="date" class="form-input" id="creditsToDate" onchange="loadCredits()">
+                        <div class="filter-group">
+                            <select class="form-select" id="creditsMonth" onchange="loadCredits()">
+                                ${monthOptions.join('')}
+                            </select>
                         </div>
                     </div>
 
@@ -11509,8 +11365,8 @@
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
 
-                const fromDate = document.getElementById('creditsFromDate')?.value || '';
-                const toDate = document.getElementById('creditsToDate')?.value || '';
+                const yearFilter = document.getElementById('creditsYear')?.value || 'all';
+                const monthFilter = document.getElementById('creditsMonth')?.value || 'all';
 
                 const snapshot = await db.collection('credits')
                     .where('userId', '==', currentUser.uid)
@@ -11519,7 +11375,7 @@
                 let credits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
                 // Apply filters
-                credits = filterByDateRange(credits, fromDate, toDate);
+                credits = filterByYearMonth(credits, yearFilter, monthFilter);
                 credits.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 // Header with orange color
@@ -11615,15 +11471,15 @@
                 const currentLang = localStorage.getItem('language') || currentLanguage || 'en';
                 const t = (key) => translations[currentLang]?.[key] || translations['en'][key] || key;
 
-                const fromDate = document.getElementById('creditsFromDate')?.value || '';
-                const toDate = document.getElementById('creditsToDate')?.value || '';
+                const yearFilter = document.getElementById('creditsYear')?.value || 'all';
+                const monthFilter = document.getElementById('creditsMonth')?.value || 'all';
 
                 const snapshot = await db.collection('credits')
                     .where('userId', '==', currentUser.uid)
                     .get({ source: 'server' });
 
                 let credits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                credits = filterByDateRange(credits, fromDate, toDate);
+                credits = filterByYearMonth(credits, yearFilter, monthFilter);
                 credits.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 const excelData = credits.map(credit => ({
@@ -11719,13 +11575,15 @@
                         <div class="filter-group">
                             <input type="text" class="form-input" placeholder="${t('search')}" id="personalSearch" oninput="debouncedLoadPersonal()">
                         </div>
-                        <div class="filter-group" style="display:flex; flex-direction:column; gap:0.2rem">
-                            <label style="font-size: 0.75rem">From Date</label>
-                            <input type="date" class="form-input" id="personalFromDate" onchange="loadPersonal()">
+                        <div class="filter-group">
+                            <select class="form-select" id="personalYear" onchange="loadPersonal()">
+                                ${yearOptions.join('')}
+                            </select>
                         </div>
-                        <div class="filter-group" style="display:flex; flex-direction:column; gap:0.2rem">
-                            <label style="font-size: 0.75rem">To Date</label>
-                            <input type="date" class="form-input" id="personalToDate" onchange="loadPersonal()">
+                        <div class="filter-group">
+                            <select class="form-select" id="personalMonth" onchange="loadPersonal()">
+                                ${monthOptions.join('')}
+                            </select>
                         </div>
                     </div>
 
@@ -11745,13 +11603,13 @@
 
             try {
                 const searchTerm = document.getElementById('personalSearch')?.value || '';
-                const fromDate = document.getElementById('personalFromDate')?.value || '';
-                const toDate = document.getElementById('personalToDate')?.value || '';
+                const yearFilter = document.getElementById('personalYear')?.value || 'all';
+                const monthFilter = document.getElementById('personalMonth')?.value || 'all';
 
                 let expenses = [...dataState.personalExpenses];
 
                 expenses = filterBySearch(expenses, searchTerm, ['description', 'category', 'mode', 'remarks', 'amount']);
-                expenses = filterByDateRange(expenses, fromDate, toDate);
+                expenses = filterByYearMonth(expenses, yearFilter, monthFilter);
                 expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 const total = expenses.reduce((sum, e) => sum + e.amount, 0);
@@ -12283,8 +12141,8 @@
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
 
-                const fromDate = document.getElementById('personalFromDate')?.value || '';
-                const toDate = document.getElementById('personalToDate')?.value || '';
+                const yearFilter = document.getElementById('personalYear')?.value || 'all';
+                const monthFilter = document.getElementById('personalMonth')?.value || 'all';
 
                 const snapshot = await db.collection('personal_expenses')
                     .where('userId', '==', currentUser.uid)
@@ -12293,7 +12151,7 @@
                 let expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
                 // Apply filters
-                expenses = filterByDateRange(expenses, fromDate, toDate);
+                expenses = filterByYearMonth(expenses, yearFilter, monthFilter);
                 expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 doc.setFillColor(255, 140, 66);
@@ -12382,15 +12240,15 @@
                 const currentLang = localStorage.getItem('language') || currentLanguage || 'en';
                 const t = (key) => translations[currentLang]?.[key] || translations['en'][key] || key;
 
-                const fromDate = document.getElementById('personalFromDate')?.value || '';
-                const toDate = document.getElementById('personalToDate')?.value || '';
+                const yearFilter = document.getElementById('personalYear')?.value || 'all';
+                const monthFilter = document.getElementById('personalMonth')?.value || 'all';
 
                 const snapshot = await db.collection('personal_expenses')
                     .where('userId', '==', currentUser.uid)
                     .get({ source: 'server' });
 
                 let expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                expenses = filterByDateRange(expenses, fromDate, toDate);
+                expenses = filterByYearMonth(expenses, yearFilter, monthFilter);
                 expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 const excelData = expenses.map(expense => ({
@@ -14099,8 +13957,8 @@
                     .where('groupId', '==', groupId)
                     .get();
 
-                const fromDate = document.getElementById('groupFromDateFilter')?.value || '';
-                const toDate = document.getElementById('groupToDateFilter')?.value || '';
+                const yearFilter = document.getElementById('groupYearFilter')?.value || 'all';
+                const monthFilter = document.getElementById('groupMonthFilter')?.value || 'all';
 
                 let allExpenses = expensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -14123,7 +13981,7 @@
                     !expense.description?.includes('Settlement')
                 );
 
-                expenses = filterByDateRange(expenses, fromDate, toDate);
+                expenses = filterByYearMonth(expenses, yearFilter, monthFilter);
                 expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 // Calculate Debts
@@ -16594,13 +16452,13 @@
                 }));
                 guests.forEach(g => { memberMap[g.id] = g; });
                 const allMemberIds = [...(group.members || []), ...guests.map(g => g.id)];
-                const fromDate = document.getElementById('groupFromDateFilter')?.value || '';
-                const toDate = document.getElementById('groupToDateFilter')?.value || '';
+                const yearFilter = document.getElementById('groupYearFilter')?.value || 'all';
+                const monthFilter = document.getElementById('groupMonthFilter')?.value || 'all';
                 const expensesSnapshot = await db.collection('group_expenses')
                     .where('groupId', '==', groupId)
                     .get({ source: 'server' });
                 let expenses = expensesSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                expenses = filterByDateRange(expenses, fromDate, toDate);
+                expenses = filterByYearMonth(expenses, yearFilter, monthFilter);
                 expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
                 // Use all members (registered + guests) for debt calculations
                 const debts = calculateGroupDebts(expenses, allMemberIds);
@@ -16783,15 +16641,15 @@
                 guests.forEach(g => { memberMap[g.id] = g; });
                 const allMemberIds = [...(group.members || []), ...guests.map(g => g.id)];
 
-                const fromDate = document.getElementById('groupFromDateFilter')?.value || '';
-                const toDate = document.getElementById('groupToDateFilter')?.value || '';
+                const yearFilter = document.getElementById('groupYearFilter')?.value || 'all';
+                const monthFilter = document.getElementById('groupMonthFilter')?.value || 'all';
 
                 const expensesSnapshot = await db.collection('group_expenses')
                     .where('groupId', '==', groupId)
                     .get({ source: 'server' });
 
                 let expenses = expensesSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                expenses = filterByDateRange(expenses, fromDate, toDate);
+                expenses = filterByYearMonth(expenses, yearFilter, monthFilter);
                 expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 const breakdowns = calculateExpenseBreakdown(expenses, allMemberIds, memberMap);
@@ -17143,13 +17001,17 @@
 
             <div class="filters">
                 <div class="filter-group">
-                            <label class="form-label">From Date</label>
-                            <input type="date" class="form-input" id="calendarFromDate" onchange="loadCalendar()">
-                        </div>
-                        <div class="filter-group">
-                            <label class="form-label">To Date</label>
-                            <input type="date" class="form-input" id="calendarToDate" onchange="loadCalendar()">
-                        </div>
+                    <label class="form-label">${t('year')}</label>
+                    <select class="form-select" id="calendarYear" onchange="loadCalendar()">
+                        ${yearOptions.join('')}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="form-label">${t('month')}</label>
+                    <select class="form-select" id="calendarMonth" onchange="loadCalendar()">
+                        ${monthOptions.join('')}
+                    </select>
+                </div>
             </div>
 
             <div id="calendarContainer"></div>
@@ -17158,7 +17020,7 @@
 
             // Auto-select newest year if exists
             if (sortedYears.length > 0) {
-                // Auto-select removed for date range
+                document.getElementById('calendarYear').value = sortedYears[0];
             }
 
             await loadCalendar();
@@ -17167,8 +17029,8 @@
         async function loadCalendar() {
             showLoading();
             try {
-                const fromDate = document.getElementById('calendarFromDate')?.value || '';
-                const toDate = document.getElementById('calendarToDate')?.value || '';
+                const yearFilter = document.getElementById('calendarYear')?.value || 'all';
+                const monthFilter = document.getElementById('calendarMonth')?.value || 'all';
 
                 // Load all data
                 // Load all data
@@ -17525,8 +17387,8 @@
         async function exportDetailsExcel() {
             showLoading();
             try {
-                const fromDate = document.getElementById('detailsFromDate')?.value || '';
-                const toDate = document.getElementById('detailsToDate')?.value || '';
+                const yearFilter = document.getElementById('detailsYear')?.value || 'all';
+                const monthFilter = document.getElementById('detailsMonth')?.value || 'all';
                 const typeFilter = document.getElementById('detailsType')?.value || 'all';
                 const searchTerm = document.getElementById('detailsSearch')?.value || '';
 
@@ -17597,7 +17459,7 @@
 
                 // Apply Filters
                 allData = filterBySearch(allData, searchTerm, ['description', 'mode', 'remarks', 'amount', 'section']);
-                allData = filterByDateRange(allData, fromDate, toDate);
+                allData = filterByYearMonth(allData, yearFilter, monthFilter);
 
                 // Format for Excel
                 const excelData = allData.map(item => ({
@@ -17710,14 +17572,16 @@
                 <div class="filter-group" style="flex: 2;">
                     <input type="text" class="form-input" placeholder="${t('search')}" id="detailsSearch" oninput="loadDetails()">
                 </div>
-                <div class="filter-group" style="display:flex; flex-direction:column; gap:0.2rem">
-                            <label style="font-size: 0.75rem">From Date</label>
-                            <input type="date" class="form-input" id="detailsFromDate" onchange="loadDetails()">
-                        </div>
-                        <div class="filter-group" style="display:flex; flex-direction:column; gap:0.2rem">
-                            <label style="font-size: 0.75rem">To Date</label>
-                            <input type="date" class="form-input" id="detailsToDate" onchange="loadDetails()">
-                        </div>
+                <div class="filter-group">
+                    <select class="form-select" id="detailsYear" onchange="loadDetails()">
+                        ${yearOptions.join('')}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <select class="form-select" id="detailsMonth" onchange="loadDetails()">
+                        ${monthOptions.join('')}
+                    </select>
+                </div>
                 <div class="filter-group">
                     <select class="form-select" id="detailsType" onchange="loadDetails()">
                         <option value="all">All Types</option>
@@ -17744,8 +17608,8 @@
             showLoading();
             try {
                 const searchTerm = document.getElementById('detailsSearch')?.value || '';
-                const fromDate = document.getElementById('detailsFromDate')?.value || '';
-                const toDate = document.getElementById('detailsToDate')?.value || '';
+                const yearFilter = document.getElementById('detailsYear')?.value || 'all';
+                const monthFilter = document.getElementById('detailsMonth')?.value || 'all';
                 const typeFilter = document.getElementById('detailsType')?.value || 'all';
 
                 // Load core user data: credits, personal expenses, and the list of groups the user is in
@@ -17872,7 +17736,7 @@
                 // Apply search filter across relevant fields
                 allData = filterBySearch(allData, searchTerm, ['description', 'mode', 'remarks', 'amount', 'section']);
                 // Apply year/month filters
-                allData = filterByDateRange(allData, fromDate, toDate);
+                allData = filterByYearMonth(allData, yearFilter, monthFilter);
                 // Sort by date descending
                 allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
@@ -18257,8 +18121,8 @@
                 const doc = new jsPDF();
 
                 // Retrieve filter values from UI elements
-                const fromDate = document.getElementById('detailsFromDate')?.value || '';
-                const toDate = document.getElementById('detailsToDate')?.value || '';
+                const yearFilter = document.getElementById('detailsYear')?.value || 'all';
+                const monthFilter = document.getElementById('detailsMonth')?.value || 'all';
                 const typeFilter = document.getElementById('detailsType')?.value || 'all';
                 const searchTerm = document.getElementById('detailsSearch')?.value || '';
 
@@ -18377,7 +18241,7 @@
                     allData = filterBySearch(allData, searchTerm, ['description', 'mode', 'remarks', 'amount', 'section']);
                 }
                 // Apply year and month filters
-                allData = filterByDateRange(allData, fromDate, toDate);
+                allData = filterByYearMonth(allData, yearFilter, monthFilter);
                 // Sort data by date in descending order
                 allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
@@ -18395,10 +18259,10 @@
                 let yPos = 40;
 
                 // Calculate totals for summary section
-                const filteredCredits = filterByDateRange(credits, fromDate, toDate);
-                const filteredPersonal = filterByDateRange(personal, fromDate, toDate);
+                const filteredCredits = filterByYearMonth(credits, yearFilter, monthFilter);
+                const filteredPersonal = filterByYearMonth(personal, yearFilter, monthFilter);
                 // Note: 'groups' variable already contains processed group expenses for the current user
-                const filteredGroups = filterByDateRange(groups, fromDate, toDate);
+                const filteredGroups = filterByYearMonth(groups, yearFilter, monthFilter);
 
                 const totalCredits = filteredCredits.reduce((sum, c) => sum + c.amount, 0);
                 const totalPersonal = filteredPersonal.reduce((sum, p) => sum + p.amount, 0);
@@ -18524,8 +18388,8 @@
                 const currentLang = localStorage.getItem('language') || currentLanguage || 'en';
                 const t = (key) => translations[currentLang]?.[key] || translations['en'][key] || key;
 
-                const fromDate = document.getElementById('detailsFromDate')?.value || '';
-                const toDate = document.getElementById('detailsToDate')?.value || '';
+                const yearFilter = document.getElementById('detailsYear')?.value || 'all';
+                const monthFilter = document.getElementById('detailsMonth')?.value || 'all';
                 const typeFilter = document.getElementById('detailsType')?.value || 'all';
                 const searchTerm = document.getElementById('detailsSearch')?.value || '';
 
@@ -18582,7 +18446,7 @@
                 if (typeFilter === 'all' || typeFilter === 'group') allData = allData.concat(groups);
 
                 if (searchTerm) allData = filterBySearch(allData, searchTerm, ['description', 'mode', 'remarks', 'amount', 'section']);
-                allData = filterByDateRange(allData, fromDate, toDate);
+                allData = filterByYearMonth(allData, yearFilter, monthFilter);
                 allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 const excelData = allData.map(item => ({
@@ -20620,31 +20484,6 @@
             });
         }
 
-
-        function filterByDateRange(data, fromDate, toDate) {
-            if (!fromDate && !toDate) return data;
-
-            return data.filter(item => {
-                const itemDate = safeDate(item.date);
-                const itemTime = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate()).getTime();
-
-                if (fromDate) {
-                    const fd = safeDate(fromDate);
-                    if (itemTime < new Date(fd.getFullYear(), fd.getMonth(), fd.getDate()).getTime()) {
-                        return false;
-                    }
-                }
-
-                if (toDate) {
-                    const td = safeDate(toDate);
-                    if (itemTime > new Date(td.getFullYear(), td.getMonth(), td.getDate()).getTime()) {
-                        return false;
-                    }
-                }
-
-                return true;
-            });
-        }
         function groupByMonth(data) {
             const grouped = {};
 
