@@ -14345,7 +14345,7 @@
                                 const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
                                 myShare = breakdown?.contributions?.[guestKey] || 0;
                             }
-                            return sum + Math.max(0, 0 - totalPaid);
+                            return sum + Math.max(0, myShare - totalPaid);
                         }, 0) - displayExpenses.reduce((sum, e) => {
                             const payerId = e.paidBy || e.userId;
                             if (payerId !== currentUser.uid) return sum;
@@ -14355,7 +14355,7 @@
                                 return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
                             }, 0);
                             const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                            return sum + Math.max(0, parseFloat(e.amount) - myShare - totalReceived);
+                            return sum + Math.max(0, parseFloat(e.amount) - totalReceived);
                         }, 0)))}</strong>
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
