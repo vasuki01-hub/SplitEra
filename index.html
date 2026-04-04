@@ -14332,13 +14332,47 @@
                         }, 0))}</strong>
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                                <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
-                                                <strong style="color: var(--danger);">${(() => {
-                                const owedToMe = debts.reduce((sum, d) => d.to === currentUser.uid ? d.amount : sum, 0);
-                                const iOwe = debts.reduce((sum, d) => d.from === currentUser.uid ? sum + d.amount : sum, 0);
-                                return formatCurrency(Math.max(0, iOwe - owedToMe));
+    <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
+    <strong style="color: var(--danger);">${(() => {
+                                const totalYourShare = displayExpenses.reduce((sum, e) => {
+                                    const breakdown = breakdowns[e.id];
+                                    let s = breakdown?.contributions?.[currentUser.uid] || 0;
+                                    if (s === 0) {
+                                        const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                                        s = breakdown?.contributions?.[guestKey] || 0;
+                                    }
+                                    return sum + s;
+                                }, 0);
+
+                                const netOwed = displayExpenses.reduce((sum, e) => {
+                                    const payerId = e.paidBy || e.userId;
+                                    const breakdown = breakdowns[e.id];
+                                    const settlements = e.settlements || [];
+
+                                    let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                                    if (myShare === 0) {
+                                        const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                                        myShare = breakdown?.contributions?.[guestKey] || 0;
+                                    }
+
+                                    if (payerId === currentUser.uid) {
+                                        const totalReceived = settlements.reduce((s, settlement) => {
+                                            return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) || 0 : 0);
+                                        }, 0);
+                                        const receivableThisExpense = parseFloat(e.amount) - myShare - totalReceived;
+                                        return sum - Math.max(0, receivableThisExpense);
+                                    } else {
+                                        const totalPaidByMe = settlements.reduce((s, settlement) => {
+                                            return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) || 0 : 0);
+                                        }, 0);
+                                        const stillOweThisExpense = myShare - totalPaidByMe;
+                                        return sum + Math.max(0, stillOweThisExpense);
+                                    }
+                                }, 0);
+
+                                return formatCurrency(Math.max(0, netOwed));
                             })()}</strong>
-                                            </div>
+</div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('totalExpensesCount')}:</span>
                                                 <strong>${activeExpenses.length}</strong>
@@ -14583,13 +14617,47 @@
                     }, 0))}</strong>
                                         </div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                            <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
-                                            <strong style="color: var(--danger);">${(() => {
-                            const owedToMe = debts.reduce((sum, d) => d.to === currentUser.uid ? sum + d.amount : sum, 0);
-                            const iOwe = debts.reduce((sum, d) => d.from === currentUser.uid ? sum + d.amount : sum, 0);
-                            return formatCurrency(Math.max(0, iOwe - owedToMe));
+    <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
+    <strong style="color: var(--danger);">${(() => {
+                            const totalYourShare = displayExpenses.reduce((sum, e) => {
+                                const breakdown = breakdowns[e.id];
+                                let s = breakdown?.contributions?.[currentUser.uid] || 0;
+                                if (s === 0) {
+                                    const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                                    s = breakdown?.contributions?.[guestKey] || 0;
+                                }
+                                return sum + s;
+                            }, 0);
+
+                            const netOwed = displayExpenses.reduce((sum, e) => {
+                                const payerId = e.paidBy || e.userId;
+                                const breakdown = breakdowns[e.id];
+                                const settlements = e.settlements || [];
+
+                                let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                                if (myShare === 0) {
+                                    const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                                    myShare = breakdown?.contributions?.[guestKey] || 0;
+                                }
+
+                                if (payerId === currentUser.uid) {
+                                    const totalReceived = settlements.reduce((s, settlement) => {
+                                        return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) || 0 : 0);
+                                    }, 0);
+                                    const receivableThisExpense = parseFloat(e.amount) - myShare - totalReceived;
+                                    return sum - Math.max(0, receivableThisExpense);
+                                } else {
+                                    const totalPaidByMe = settlements.reduce((s, settlement) => {
+                                        return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) || 0 : 0);
+                                    }, 0);
+                                    const stillOweThisExpense = myShare - totalPaidByMe;
+                                    return sum + Math.max(0, stillOweThisExpense);
+                                }
+                            }, 0);
+
+                            return formatCurrency(Math.max(0, netOwed));
                         })()}</strong>
-                                        </div>
+</div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                             <span class="text-secondary">${t('totalExpensesCount')}:</span>
                                             <strong>${activeExpenses.length}</strong>
