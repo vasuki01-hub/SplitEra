@@ -8211,14 +8211,14 @@
                 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
                 if (isAppEnvironment() || isMobile) {
-                    console.log("Mobile/App environment detected, forcing signInWithRedirect for Google Auth...");
+
                     await auth.signInWithRedirect(provider);
                     return;
                 }
 
                 // Browser environment: Default to signInWithPopup
                 try {
-                    console.log("Attempting Google Sign-In with Popup...");
+
                     const result = await auth.signInWithPopup(provider);
                     if (result.user) {
                         await handleGoogleAuthSuccess(result.user);
@@ -8234,7 +8234,7 @@
                         popupError.code === 'auth/operation-not-supported-in-this-environment';
 
                     if (shouldTryRedirect) {
-                        console.log("Falling back to signInWithRedirect...");
+
                         await auth.signInWithRedirect(provider);
                     } else {
                         throw popupError;
@@ -8419,14 +8419,14 @@
                 ]);
 
                 if (result && result.user) {
-                    console.log("Redirect success, user found:", result.user.email);
+
                     sessionStorage.setItem('googleAuthRedirectHandled', 'true');
                     await handleGoogleAuthSuccess(result.user);
                 } else {
                     // No result but still on the page? Check current auth state as fallback
                     const user = auth.currentUser;
                     if (user && !currentUser) {
-                        console.log("Current user found despite empty redirect result");
+
                         await handleGoogleAuthSuccess(user);
                     }
                 }
@@ -9922,7 +9922,7 @@
             const isApp = isAppEnvironment();
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-            console.log(`Saving file: ${fileName} (${mimeType}). Env: App=${isApp}, Mobile=${isMobile}`);
+
 
             // 1. Web Share API - The gold standard for modern Android WebViews
             // This triggers the Android Share Sheet, allowing "Save to Device"
@@ -9939,7 +9939,7 @@
                             title: fileName,
                             text: `SplitEra Export: ${fileName}`
                         });
-                        console.log("File shared successfully via Web Share API");
+
                         return true;
                     }
                 } catch (err) {
@@ -14292,7 +14292,7 @@
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('receivable')}:</span>
-                                                <strong style="color: var(--success);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                                                <strong style="color: var(--success);">${formatCurrency(Math.max(0, displayExpenses.reduce((sum, e) => {
                             const payerId = e.paidBy || e.userId;
                             if (payerId !== currentUser.uid) return sum;
                             const breakdown = breakdowns[e.id];
@@ -14302,7 +14302,21 @@
                             }, 0);
                             const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
                             return sum + (parseFloat(e.amount) - myShare - totalReceived);
-                        }, 0))}</strong>
+                        }, 0) - displayExpenses.reduce((sum, e) => {
+                            const payerId = e.paidBy || e.userId;
+                            if (payerId === currentUser.uid) return sum;
+                            const breakdown = breakdowns[e.id];
+                            const settlements = e.settlements || [];
+                            const totalPaid = settlements.reduce((s, settlement) => {
+                                return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
+                            }, 0);
+                            let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                            if (myShare === 0) {
+                                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                                myShare = breakdown?.contributions?.[guestKey] || 0;
+                            }
+                            return sum + Math.max(0, myShare - totalPaid);
+                        }, 0)))}</strong>
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('totalYourShare') || 'Total Your Share'}:</span>
@@ -14348,13 +14362,25 @@
                                             <h5 style="margin-bottom: 0; color: var(--text-primary);">${t('members')}</h5>
                                         </div>
                                         <div style="display: flex; flex-direction: column; gap: 8px;">
-                                            ${currentGroupMembers.map(m => `
+                                            ${currentGroupMembers.map(m => {
+                            const netOwed = debts.reduce((sum, d) => {
+                                if (d.to === m.id) return sum + d.amount;
+                                if (d.from === m.id) return sum - d.amount;
+                                return sum;
+                            }, 0);
+                            const netLabel = netOwed > 0.01
+                                ? `<span style="font-size:0.75rem;color:var(--success);font-weight:600;margin-left:auto;white-space:nowrap;">+${formatCurrency(netOwed)}</span>`
+                                : netOwed < -0.01
+                                    ? `<span style="font-size:0.75rem;color:var(--danger);font-weight:600;margin-left:auto;white-space:nowrap;">${formatCurrency(netOwed)}</span>`
+                                    : `<span style="font-size:0.75rem;color:var(--success);font-weight:600;margin-left:auto;white-space:nowrap;">✓ Settled</span>`;
+                            return `
                                                 <div style="display: flex; align-items: center; gap: 10px;">
                                                     <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + m.firstName + '+' + m.lastName}" style="width: 30px; height: 30px; border-radius: 50%;">
                                                     <span style="font-size: 0.9rem;">${m.firstName} ${m.lastName}</span>
                                                     ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size: 0.8rem;"></i>' : ''}
-                                                </div>
-                                            `).join('')}
+                                                    ${netLabel}
+                                                </div>`;
+                        }).join('')}
                                         </div>
                                     </div>
 
@@ -14512,7 +14538,7 @@
                                         </div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                             <span class="text-secondary">${t('receivable')}:</span>
-                                            <strong style="color: var(--success);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                                            <strong style="color: var(--success);">${formatCurrency(Math.max(0, displayExpenses.reduce((sum, e) => {
                         const payerId = e.paidBy || e.userId;
                         if (payerId !== currentUser.uid) return sum;
                         const breakdown = breakdowns[e.id];
@@ -14522,7 +14548,21 @@
                         }, 0);
                         const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
                         return sum + (parseFloat(e.amount) - myShare - totalReceived);
-                    }, 0))}</strong>
+                    }, 0) - displayExpenses.reduce((sum, e) => {
+                        const payerId = e.paidBy || e.userId;
+                        if (payerId === currentUser.uid) return sum;
+                        const breakdown = breakdowns[e.id];
+                        const settlements = e.settlements || [];
+                        const totalPaid = settlements.reduce((s, settlement) => {
+                            return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
+                        }, 0);
+                        let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                        if (myShare === 0) {
+                            const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                            myShare = breakdown?.contributions?.[guestKey] || 0;
+                        }
+                        return sum + Math.max(0, myShare - totalPaid);
+                    }, 0)))}</strong>
                                         </div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                             <span class="text-secondary">${t('totalYourShare') || 'Total Your Share'}:</span>
@@ -14568,13 +14608,25 @@
                                         <h5 style="margin-bottom: 0; color: var(--text-primary);">${t('members')}</h5>
                                     </div>
                                     <div style="display: flex; flex-direction: column; gap: 8px;">
-                                        ${currentGroupMembers.map(m => `
+                                        ${currentGroupMembers.map(m => {
+                        const netOwed = debts.reduce((sum, d) => {
+                            if (d.to === m.id) return sum + d.amount;
+                            if (d.from === m.id) return sum - d.amount;
+                            return sum;
+                        }, 0);
+                        const netLabel = netOwed > 0.01
+                            ? `<span style="font-size:0.75rem;color:var(--success);font-weight:600;margin-left:auto;white-space:nowrap;">+${formatCurrency(netOwed)}</span>`
+                            : netOwed < -0.01
+                                ? `<span style="font-size:0.75rem;color:var(--danger);font-weight:600;margin-left:auto;white-space:nowrap;">${formatCurrency(netOwed)}</span>`
+                                : `<span style="font-size:0.75rem;color:var(--success);font-weight:600;margin-left:auto;white-space:nowrap;">✓ Settled</span>`;
+                        return `
                                             <div style="display: flex; align-items: center; gap: 10px;">
                                                 <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + m.firstName + '+' + m.lastName}" style="width: 30px; height: 30px; border-radius: 50%;">
                                                 <span style="font-size: 0.9rem;">${m.firstName} ${m.lastName}</span>
                                                 ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size: 0.8rem;"></i>' : ''}
-                                            </div>
-                                        `).join('')}
+                                                ${netLabel}
+                                            </div>`;
+                    }).join('')}
                                     </div>
                                 </div>
 
