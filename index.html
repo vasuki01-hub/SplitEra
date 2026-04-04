@@ -14371,23 +14371,39 @@
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                             <h5 style="margin-bottom: 0; color: var(--text-primary);">${t('members')}</h5>
                                         </div>
-                                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                                        <div style="display: flex; flex-direction: column; gap: 10px;">
                                             ${currentGroupMembers.map(m => {
-                            const totalOwes = debts.reduce((sum, d) => d.from === m.id ? sum + d.amount : sum, 0);
-                            const totalOwed = debts.reduce((sum, d) => d.to === m.id ? sum + d.amount : sum, 0);
-                            const isSettled = totalOwes < 0.01 && totalOwed < 0.01;
-                            const balanceLabel = isSettled
-                                ? `<span style="font-size:0.72rem;color:var(--success);font-weight:600;margin-left:auto;white-space:nowrap;">✓ Settled</span>`
-                                : `<span style="margin-left:auto;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;gap:1px;">
-                                      ${totalOwes > 0.01 ? `<span style="font-size:0.72rem;color:var(--danger);font-weight:600;">Owes ${formatCurrency(totalOwes)}</span>` : ''}
-                                      ${totalOwed > 0.01 ? `<span style="font-size:0.72rem;color:var(--success);font-weight:600;">Owed ${formatCurrency(totalOwed)}</span>` : ''}
-                                   </span>`;
+                            // Collect settlement lines FROM this member's perspective
+                            const giveLines = debts
+                                .filter(d => d.from === m.id && d.amount > 0.01)
+                                .map(d => {
+                                    const toMember = memberMap[d.to] || { firstName: d.to.startsWith('guest:') ? d.to.split(':')[1] : d.to };
+                                    return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--danger);font-weight:500;">
+                                        <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i>
+                                        <span>has to give ${formatCurrency(d.amount)} to <strong>${escapeHTML(toMember.firstName)}</strong></span>
+                                    </div>`;
+                                });
+                            const receiveLines = debts
+                                .filter(d => d.to === m.id && d.amount > 0.01)
+                                .map(d => {
+                                    const fromMember = memberMap[d.from] || { firstName: d.from.startsWith('guest:') ? d.from.split(':')[1] : d.from };
+                                    return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--success);font-weight:500;">
+                                        <i class="fas fa-arrow-left" style="font-size:0.65rem;"></i>
+                                        <span>has to receive ${formatCurrency(d.amount)} from <strong>${escapeHTML(fromMember.firstName)}</strong></span>
+                                    </div>`;
+                                });
+                            const allLines = [...giveLines, ...receiveLines];
+                            const isSettled = allLines.length === 0;
                             return `
-                                                <div style="display: flex; align-items: center; gap: 10px; padding: 4px 0;">
-                                                    <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + m.firstName + '+' + m.lastName}" style="width: 30px; height: 30px; border-radius: 50%;">
-                                                    <span style="font-size: 0.9rem;">${m.firstName} ${m.lastName || ''}</span>
-                                                    ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size: 0.8rem;"></i>' : ''}
-                                                    ${balanceLabel}
+                                                <div style="background:var(--bg-card);border-radius:8px;padding:8px 10px;border:1px solid var(--border);${!isSettled ? (giveLines.length > 0 && receiveLines.length === 0 ? 'border-left:3px solid var(--danger);' : receiveLines.length > 0 && giveLines.length === 0 ? 'border-left:3px solid var(--success);' : 'border-left:3px solid var(--primary);') : 'border-left:3px solid var(--success);'}">
+                                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:${isSettled ? '0' : '6px'};">
+                                                        <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(m.firstName) + '+' + encodeURIComponent(m.lastName || '')}" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;">
+                                                        <span style="font-size:0.88rem;font-weight:600;color:var(--text-dark);flex:1;">${escapeHTML(m.firstName)} ${escapeHTML(m.lastName || '')}</span>
+                                                        ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size:0.75rem;"></i>' : ''}
+                                                        ${m.id === currentUser.uid ? '<span style="font-size:0.65rem;background:var(--primary);color:#fff;border-radius:4px;padding:1px 5px;">You</span>' : ''}
+                                                        ${isSettled ? '<span style="font-size:0.68rem;color:var(--success);font-weight:600;margin-left:auto;">✓ Settled</span>' : ''}
+                                                    </div>
+                                                    ${allLines.length > 0 ? `<div style="display:flex;flex-direction:column;gap:3px;padding-left:36px;">${allLines.join('')}</div>` : ''}
                                                 </div>`;
                         }).join('')}
                                         </div>
@@ -14626,23 +14642,39 @@
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                         <h5 style="margin-bottom: 0; color: var(--text-primary);">${t('members')}</h5>
                                     </div>
-                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div style="display: flex; flex-direction: column; gap: 10px;">
                                         ${currentGroupMembers.map(m => {
-                        const totalOwes = debts.reduce((sum, d) => d.from === m.id ? sum + d.amount : sum, 0);
-                        const totalOwed = debts.reduce((sum, d) => d.to === m.id ? sum + d.amount : sum, 0);
-                        const isSettled = totalOwes < 0.01 && totalOwed < 0.01;
-                        const balanceLabel = isSettled
-                            ? `<span style="font-size:0.72rem;color:var(--success);font-weight:600;margin-left:auto;white-space:nowrap;">✓ Settled</span>`
-                            : `<span style="margin-left:auto;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;gap:1px;">
-                                  ${totalOwes > 0.01 ? `<span style="font-size:0.72rem;color:var(--danger);font-weight:600;">Owes ${formatCurrency(totalOwes)}</span>` : ''}
-                                  ${totalOwed > 0.01 ? `<span style="font-size:0.72rem;color:var(--success);font-weight:600;">Owed ${formatCurrency(totalOwed)}</span>` : ''}
-                               </span>`;
+                        // Collect settlement lines FROM this member's perspective
+                        const giveLines = debts
+                            .filter(d => d.from === m.id && d.amount > 0.01)
+                            .map(d => {
+                                const toMember = memberMap[d.to] || { firstName: d.to.startsWith('guest:') ? d.to.split(':')[1] : d.to };
+                                return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--danger);font-weight:500;">
+                                    <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i>
+                                    <span>has to give ${formatCurrency(d.amount)} to <strong>${escapeHTML(toMember.firstName)}</strong></span>
+                                </div>`;
+                            });
+                        const receiveLines = debts
+                            .filter(d => d.to === m.id && d.amount > 0.01)
+                            .map(d => {
+                                const fromMember = memberMap[d.from] || { firstName: d.from.startsWith('guest:') ? d.from.split(':')[1] : d.from };
+                                return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--success);font-weight:500;">
+                                    <i class="fas fa-arrow-left" style="font-size:0.65rem;"></i>
+                                    <span>has to receive ${formatCurrency(d.amount)} from <strong>${escapeHTML(fromMember.firstName)}</strong></span>
+                                </div>`;
+                            });
+                        const allLines = [...giveLines, ...receiveLines];
+                        const isSettled = allLines.length === 0;
                         return `
-                                            <div style="display: flex; align-items: center; gap: 10px; padding: 4px 0;">
-                                                <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + m.firstName + '+' + m.lastName}" style="width: 30px; height: 30px; border-radius: 50%;">
-                                                <span style="font-size: 0.9rem;">${m.firstName} ${m.lastName || ''}</span>
-                                                ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size: 0.8rem;"></i>' : ''}
-                                                ${balanceLabel}
+                                            <div style="background:var(--bg-card);border-radius:8px;padding:8px 10px;border:1px solid var(--border);${!isSettled ? (giveLines.length > 0 && receiveLines.length === 0 ? 'border-left:3px solid var(--danger);' : receiveLines.length > 0 && giveLines.length === 0 ? 'border-left:3px solid var(--success);' : 'border-left:3px solid var(--primary);') : 'border-left:3px solid var(--success);'}">
+                                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:${isSettled ? '0' : '6px'};">
+                                                    <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(m.firstName) + '+' + encodeURIComponent(m.lastName || '')}" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;">
+                                                    <span style="font-size:0.88rem;font-weight:600;color:var(--text-dark);flex:1;">${escapeHTML(m.firstName)} ${escapeHTML(m.lastName || '')}</span>
+                                                    ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size:0.75rem;"></i>' : ''}
+                                                    ${m.id === currentUser.uid ? '<span style="font-size:0.65rem;background:var(--primary);color:#fff;border-radius:4px;padding:1px 5px;">You</span>' : ''}
+                                                    ${isSettled ? '<span style="font-size:0.68rem;color:var(--success);font-weight:600;margin-left:auto;">✓ Settled</span>' : ''}
+                                                </div>
+                                                ${allLines.length > 0 ? `<div style="display:flex;flex-direction:column;gap:3px;padding-left:36px;">${allLines.join('')}</div>` : ''}
                                             </div>`;
                     }).join('')}
                                     </div>
