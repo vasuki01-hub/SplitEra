@@ -14334,7 +14334,7 @@
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
                                                 <strong style="color: var(--danger);">${(() => {
-                                const owedToMe = debts.reduce((sum, d) => d.to === currentUser.uid ? sum + d.amount : sum, 0);
+                                const owedToMe = debts.reduce((sum, d) => d.to === currentUser.uid ? sum : sum, 0);
                                 const iOwe = debts.reduce((sum, d) => d.from === currentUser.uid ? sum + d.amount : sum, 0);
                                 return formatCurrency(Math.max(0, iOwe - owedToMe));
                             })()}</strong>
