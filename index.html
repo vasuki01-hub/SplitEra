@@ -9902,6 +9902,11 @@
                 const totalCreditCardExpenses = personal.filter(e => e.mode === 'Credit Card').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
                 const netCreditCardBalance = totalCreditCardCredits - totalCreditCardExpenses;
 
+                // Cash specific calculations
+                const totalCashCredits = credits.filter(c => c.mode === 'Cash').reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+                const totalCashExpenses = personal.filter(e => e.mode === 'Cash').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+                const netCashBalance = totalCashCredits - totalCashExpenses;
+
                 // Calculate user's share of group expenses
                 let totalGroupShare = 0;
                 let groupsData = [];
@@ -9938,8 +9943,9 @@
                 const netBalance = totalCredits - totalPersonal - totalGroupShare;
 
                 // Net Bank Account Balance Calculation for PDF
-                const nonCreditCardCredits = totalCredits - totalCreditCardCredits;
-                const nonCreditCardExpenses = totalPersonal - totalCreditCardExpenses;
+                // Formula: (Total Credits (non-CC, non-Cash)) - (Total Personal (non-CC, non-Cash)) - (Total Group Share)
+                const nonCreditCardCredits = totalCredits - totalCreditCardCredits - totalCashCredits;
+                const nonCreditCardExpenses = totalPersonal - totalCreditCardExpenses - totalCashExpenses;
                 const netBankAccountBalance = nonCreditCardCredits - nonCreditCardExpenses - totalGroupShare;
 
                 doc.setFontSize(14);
@@ -10373,6 +10379,11 @@
                 const totalCreditCardExpenses = personal.filter(e => e.mode === 'Credit Card').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
                 const netCreditCardBalance = totalCreditCardCredits - totalCreditCardExpenses;
 
+                // Cash specific calculations
+                const totalCashCredits = credits.filter(c => c.mode === 'Cash').reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+                const totalCashExpenses = personal.filter(e => e.mode === 'Cash').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+                const netCashBalance = totalCashCredits - totalCashExpenses;
+
                 let groupsData = [];
                 let totalGroupShare = 0;
                 if (groupsSnapshot.docs.length > 0) {
@@ -10405,8 +10416,9 @@
                 const netBalance = totalCredits - totalPersonal - totalGroupShare;
 
                 // Net Bank Account Balance Calculation
-                const nonCreditCardCredits = totalCredits - totalCreditCardCredits;
-                const nonCreditCardExpenses = totalPersonal - totalCreditCardExpenses;
+                // Formula: (Total Credits (non-CC, non-Cash)) - (Total Personal (non-CC, non-Cash)) - (Total Group Share)
+                const nonCreditCardCredits = totalCredits - totalCreditCardCredits - totalCashCredits;
+                const nonCreditCardExpenses = totalPersonal - totalCreditCardExpenses - totalCashExpenses;
                 const netBankAccountBalance = nonCreditCardCredits - nonCreditCardExpenses - totalGroupShare;
 
                 // Prepare summary data
@@ -11652,12 +11664,15 @@
 
                 const total = credits.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
                 const creditCardCredits = credits.filter(c => c.mode === 'Credit Card').reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
-                const totalBankBalance = total - creditCardCredits;
+                const cashCredits = credits.filter(c => c.mode === 'Cash').reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+                const totalBankBalance = total - creditCardCredits - cashCredits;
 
                 doc.setFontSize(12);
                 doc.text(`${t('totalCreditsLabel')}: ${formatCurrency(total, true)}`, 14, yPos);
                 yPos += 7;
                 doc.text(`${t('totalBankBalance')}: ${formatCurrency(totalBankBalance, true)}`, 14, yPos);
+                yPos += 7;
+                doc.text(`${t('totalCashCredits')}: ${formatCurrency(cashCredits, true)}`, 14, yPos);
                 yPos += 15;
 
                 const grouped = groupByMonth(credits);
@@ -11753,14 +11768,16 @@
                 }));
 
                 const creditCardCredits = credits.filter(c => c.mode === 'Credit Card').reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+                const cashCredits = credits.filter(c => c.mode === 'Cash').reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
                 const totalAmount = credits.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
 
                 const workbook = XLSX.utils.book_new();
                 const summaryData = [
                     ['Metric', 'Amount'],
                     [t('totalCreditsLabel'), totalAmount],
-                    [t('totalBankBalance'), totalAmount - creditCardCredits],
-                    [t('totalCreditCardCredits'), creditCardCredits]
+                    [t('totalBankBalance'), totalAmount - creditCardCredits - cashCredits],
+                    [t('totalCreditCardCredits'), creditCardCredits],
+                    [t('totalCashCredits'), cashCredits]
                 ];
                 const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
                 XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
@@ -12524,13 +12541,15 @@
 
                 const totalPersonal = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
                 const creditCardExpenses = expenses.filter(e => e.mode === 'Credit Card').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+                const cashExpenses = expenses.filter(e => e.mode === 'Cash').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
                 const workbook = XLSX.utils.book_new();
                 const summaryData = [
                     ['Metric', 'Amount'],
                     [t('totalPersonalExpenses'), totalPersonal],
-                    [t('totalBankBalanceExpenses'), totalPersonal - creditCardExpenses],
-                    [t('totalCreditCardExpenses'), creditCardExpenses]
+                    [t('totalBankBalanceExpenses'), totalPersonal - creditCardExpenses - cashExpenses],
+                    [t('totalCreditCardExpenses'), creditCardExpenses],
+                    [t('totalCashExpenses'), cashExpenses]
                 ];
                 const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
                 XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
