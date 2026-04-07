@@ -8313,38 +8313,36 @@
                     prompt: 'select_account'
                 });
 
-                // For ALL mobile environments (WebViews and Mobile Browsers), use Redirect for Google Auth
-                // This prevents "Popup blocked" and "External browser opening" issues in WebViews
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-                if (isAppEnvironment() || isMobile) {
-
-                    await auth.signInWithRedirect(provider);
-                    return;
-                }
-
-                // Browser environment: Default to signInWithPopup
+                // ALWAYS attempt signInWithPopup FIRST!
+                // Web-to-app converters (like Median) often provide native Google Sign-In 
+                // by explicitly intercepting signInWithPopup. If we skip this, their native plugin won't trigger.
                 try {
-
                     const result = await auth.signInWithPopup(provider);
-                    if (result.user) {
+                    if (result && result.user) {
                         await handleGoogleAuthSuccess(result.user);
-                        return;
                     }
                 } catch (popupError) {
-                    console.warn("Popup sign-in failed or restricted:", popupError.code, popupError.message);
+                    console.warn("Popup sign-in failed or restricted:", popupError.code || popupError.message);
 
-                    // Fallback to Redirect for common browser popup errors
+                    // Fallback to Redirect for WebViews and mobile browsers if popup gets blocked or is unsupported
                     const shouldTryRedirect =
                         popupError.code === 'auth/popup-blocked' ||
-                        popupError.code === 'auth/popup-closed-by-user' ||
-                        popupError.code === 'auth/operation-not-supported-in-this-environment';
+                        popupError.code === 'auth/operation-not-supported-in-this-environment' ||
+                        isAppEnvironment();
 
                     if (shouldTryRedirect) {
-
-                        await auth.signInWithRedirect(provider);
+                        try {
+                            await auth.signInWithRedirect(provider);
+                        } catch (redirectErr) {
+                            await handleAuthError(redirectErr, 'Sign-In Redirect Error');
+                        }
                     } else {
-                        throw popupError;
+                        // Avoid throwing error if user just closed the popup manually
+                        if (popupError.code !== 'auth/popup-closed-by-user' && popupError.code !== 'auth/cancelled-popup-request') {
+                            await handleAuthError(popupError, 'Sign-In Error');
+                        } else {
+                            hideLoading();
+                        }
                     }
                 }
             } catch (error) {
@@ -10212,6 +10210,31 @@
                     reader.onerror = reject;
                     reader.readAsDataURL(b);
                 });
+            }
+
+            // Universal App Fallback via Firebase Storage
+            // This is arguably the most bulletproof way to trigger Android's native DownloadManager 
+            // across generic web-to-app converters that struggle with Base64/Blob URIs.
+            const isApp = isAppEnvironment();
+            if (isApp && typeof storage !== 'undefined' && auth.currentUser) {
+                try {
+                    let finalName = fileName;
+                    if (!finalName.includes('.')) {
+                        finalName += mimeType.includes('pdf') ? '.pdf' : '.xlsx';
+                    }
+                    const storageRef = storage.ref(`exports/${auth.currentUser.uid}/${Date.now()}_${finalName}`);
+                    await storageRef.put(blob, { contentType: mimeType });
+                    const downloadUrl = await storageRef.getDownloadURL();
+
+                    // Assigning location.href to an HTTPS file download URL triggers Android Intent natively
+                    window.location.href = downloadUrl;
+
+                    // Fail-safe open in new tab
+                    setTimeout(() => { window.open(downloadUrl, '_blank'); }, 1000);
+                    return true;
+                } catch (err) {
+                    console.warn('Universal app export fallback failed, reverting to local bridges:', err);
+                }
             }
 
             // ── 1. Median JS Bridge (highest priority inside Median app) ──────────
