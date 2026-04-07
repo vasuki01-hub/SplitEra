@@ -8313,40 +8313,11 @@
                     prompt: 'select_account'
                 });
 
-                // For ALL mobile environments (WebViews and Mobile Browsers), use Redirect for Google Auth
-                // This prevents "Popup blocked" and "External browser opening" issues in WebViews
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-                if (isAppEnvironment() || isMobile) {
-
-                    await auth.signInWithRedirect(provider);
-                    return;
-                }
-
-                // Browser environment: Default to signInWithPopup
-                try {
-
-                    const result = await auth.signInWithPopup(provider);
-                    if (result.user) {
-                        await handleGoogleAuthSuccess(result.user);
-                        return;
-                    }
-                } catch (popupError) {
-                    console.warn("Popup sign-in failed or restricted:", popupError.code, popupError.message);
-
-                    // Fallback to Redirect for common browser popup errors
-                    const shouldTryRedirect =
-                        popupError.code === 'auth/popup-blocked' ||
-                        popupError.code === 'auth/popup-closed-by-user' ||
-                        popupError.code === 'auth/operation-not-supported-in-this-environment';
-
-                    if (shouldTryRedirect) {
-
-                        await auth.signInWithRedirect(provider);
-                    } else {
-                        throw popupError;
-                    }
-                }
+                // Always use redirect flow for Google auth.
+                // This avoids popup/COOP issues like:
+                // "Cross-Origin-Opener-Policy policy would block the window.closed call"
+                await auth.signInWithRedirect(provider);
+                return;
             } catch (error) {
                 await handleAuthError(error, 'Sign-In Error');
             }
@@ -10250,7 +10221,7 @@
                         return true;
                     }
                 } catch (err) {
-                    if (err.name === 'AbortError') return false; // user cancelled — do not fallback
+                    if (err.name === 'AbortError') throw new Error('File share cancelled by user.');
                     console.warn('Web Share API failed, trying base64 link:', err);
                 }
             }
@@ -10262,6 +10233,19 @@
             if (isAndroid) {
                 try {
                     const base64 = await blobToBase64(blob);
+
+                    // Native Android bridge fallback (if converter exposes it)
+                    if (window.Android && typeof window.Android.downloadBase64File === 'function') {
+                        window.Android.downloadBase64File(base64, fileName, mimeType);
+                        return true;
+                    }
+
+                    // iOS/Hybrid bridge fallback (if converter exposes it)
+                    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.downloadFile) {
+                        window.webkit.messageHandlers.downloadFile.postMessage({ base64, fileName, mimeType });
+                        return true;
+                    }
+
                     const link = document.createElement('a');
                     link.href = base64;
                     link.download = fileName;
@@ -10269,6 +10253,16 @@
                     document.body.appendChild(link);
                     link.click();
                     setTimeout(() => document.body.removeChild(link), 1000);
+
+                    // Some wrappers ignore <a download>, but react to top-level navigation.
+                    // Keep this as a delayed fallback.
+                    setTimeout(() => {
+                        try {
+                            window.location.href = base64;
+                        } catch (navErr) {
+                            console.warn('Android data-URL navigation fallback failed:', navErr);
+                        }
+                    }, 150);
                     return true;
                 } catch (err) {
                     console.warn('Android base64 download failed:', err);
@@ -10288,7 +10282,7 @@
                     await writable.close();
                     return true;
                 } catch (err) {
-                    if (err.name === 'AbortError') return false;
+                    if (err.name === 'AbortError') throw new Error('File save cancelled by user.');
                     console.warn('File System Access API failed:', err);
                 }
             }
@@ -10307,32 +10301,7 @@
             } catch (err) {
                 console.warn('All direct download methods failed:', err);
             }
-
-            // ── 6. Last resort: upload to Firebase Storage and open HTTPS URL ────
-            // Many web-to-app WebViews block blob: URLs and data: URL downloads.
-            // A real HTTPS URL download is the most compatible option.
-            try {
-                if (typeof storage === 'undefined' || !storage) throw new Error('Storage not initialized');
-                const user = (typeof auth !== 'undefined' && auth) ? auth.currentUser : null;
-                if (!user) throw new Error('User not authenticated');
-
-                const safeName = String(fileName || 'export')
-                    .replace(/[^\w.\-() ]+/g, '_')
-                    .replace(/\s+/g, '_')
-                    .slice(0, 120);
-
-                const path = `exports/${user.uid}/${Date.now()}-${safeName}`;
-                const ref = storage.ref().child(path);
-                await ref.put(blob, { contentType: mimeType });
-                const downloadUrl = await ref.getDownloadURL();
-
-                // Try to open in same WebView first; wrappers typically intercept and download.
-                window.location.href = downloadUrl;
-                return true;
-            } catch (uploadErr) {
-                console.error('Storage upload fallback failed:', uploadErr);
-                return false;
-            }
+            throw new Error('Download failed in this app WebView. Enable file download support in converter settings.');
         }
 
         // Enhanced Excel export helper with month grouping, colored headers, and monthly totals
