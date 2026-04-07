@@ -10305,7 +10305,32 @@
                 setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(link); }, 1000);
                 return true;
             } catch (err) {
-                console.error('All download methods failed:', err);
+                console.warn('All direct download methods failed:', err);
+            }
+
+            // ── 6. Last resort: upload to Firebase Storage and open HTTPS URL ────
+            // Many web-to-app WebViews block blob: URLs and data: URL downloads.
+            // A real HTTPS URL download is the most compatible option.
+            try {
+                if (typeof storage === 'undefined' || !storage) throw new Error('Storage not initialized');
+                const user = (typeof auth !== 'undefined' && auth) ? auth.currentUser : null;
+                if (!user) throw new Error('User not authenticated');
+
+                const safeName = String(fileName || 'export')
+                    .replace(/[^\w.\-() ]+/g, '_')
+                    .replace(/\s+/g, '_')
+                    .slice(0, 120);
+
+                const path = `exports/${user.uid}/${Date.now()}-${safeName}`;
+                const ref = storage.ref().child(path);
+                await ref.put(blob, { contentType: mimeType });
+                const downloadUrl = await ref.getDownloadURL();
+
+                // Try to open in same WebView first; wrappers typically intercept and download.
+                window.location.href = downloadUrl;
+                return true;
+            } catch (uploadErr) {
+                console.error('Storage upload fallback failed:', uploadErr);
                 return false;
             }
         }
@@ -21150,20 +21175,6 @@
                     <button onclick="this.parentElement.remove()" style="margin-left: 10px; background: transparent; border: none; cursor: pointer; color: inherit;">✕</button>
                 `;
                 document.body.prepend(warningDiv);
-            }
-
-            // Handle Google auth redirect
-            if (detectMedian()) {
-                firebase.auth().getRedirectResult().then((result) => {
-                    if (result && result.user) {
-                        showToast('Success', 'Logged in successfully!');
-                    }
-                }).catch((error) => {
-                    if (error.code !== 'auth/redirect-cancelled-by-user') {
-                        console.error("Redirect login error:", error);
-                        showToast('Error', error.message, 'error');
-                    }
-                });
             }
 
 
