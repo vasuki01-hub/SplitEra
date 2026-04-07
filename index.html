@@ -896,6 +896,75 @@
             font-weight: 700;
         }
 
+        /* Dashboard expandable metric banners */
+        .dashboard-expandable-block {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .dashboard-main-card {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .dashboard-main-card:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: 3px;
+        }
+
+        .dashboard-collapse {
+            max-height: 0px;
+            opacity: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease, opacity 0.25s ease;
+        }
+
+        .dashboard-collapse.open {
+            max-height: 420px; /* enough for 3 sub-cards */
+            opacity: 1;
+        }
+
+        .dashboard-subcards {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding-top: 0.25rem;
+        }
+
+        .dashboard-sub-card {
+            padding: 1rem;
+            border-left-width: 0.35rem;
+            border-radius: 1.5rem;
+        }
+
+        .dashboard-sub-card .stat-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            font-size: 1.25rem;
+        }
+
+        .dashboard-sub-card .stat-label {
+            font-size: 0.8rem;
+        }
+
+        .dashboard-sub-card .stat-value {
+            font-size: 1.25rem;
+        }
+
+        .dashboard-expand-arrow {
+            margin-left: auto;
+            padding-left: 0.5rem;
+            display: flex;
+            align-items: center;
+            color: var(--text-gray);
+        }
+
+        .dashboard-expand-arrow i {
+            transition: transform 0.35s ease;
+            transform-origin: center;
+        }
+
         /* Filters */
         .filters {
             display: flex;
@@ -9341,6 +9410,20 @@
             }
         }
 
+        function toggleDashboardCollapse(collapseId, iconId) {
+            const collapseEl = document.getElementById(collapseId);
+            if (!collapseEl) return;
+
+            const open = collapseEl.classList.toggle('open');
+
+            if (iconId) {
+                const iconEl = document.getElementById(iconId);
+                if (iconEl) {
+                    iconEl.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+                }
+            }
+        }
+
         // Dashboard Page
         async function renderDashboard() {
             const content = document.getElementById('mainContent');
@@ -9494,139 +9577,186 @@
                 // Render stats
                 const statsGrid = document.getElementById('statsGrid');
                 statsGrid.innerHTML = `
-                    <div class="stat-card">
-                        <div class="stat-icon ${netBalance >= 0 ? 'green' : 'red'}">
-                            <i class="fas fa-${netBalance >= 0 ? 'arrow-up' : 'arrow-down'}"></i>
+                    <div class="dashboard-expandable-block">
+                        <div class="stat-card dashboard-main-card" role="button" tabindex="0"
+                             onclick="toggleDashboardCollapse('dash-collapse-netBalance','dash-expand-icon-netBalance')"
+                             onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); toggleDashboardCollapse('dash-collapse-netBalance','dash-expand-icon-netBalance'); }">
+                            <div class="stat-icon ${netBalance >= 0 ? 'green' : 'red'}">
+                                <i class="fas fa-${netBalance >= 0 ? 'arrow-up' : 'arrow-down'}"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-label">${t('netBalance')}</div>
+                                <div class="stat-value" style="color: ${netBalance >= 0 ? 'var(--success)' : 'var(--danger)'}">
+                                    ${formatCurrency(netBalance)}
+                                </div>
+                            </div>
+                            <div class="dashboard-expand-arrow">
+                                <i class="fas fa-chevron-down" id="dash-expand-icon-netBalance" style="transform: rotate(0deg);"></i>
+                            </div>
                         </div>
-                        <div class="stat-content">
-                            <div class="stat-label">${t('netBalance')}</div>
-                            <div class="stat-value" style="color: ${netBalance >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                                ${formatCurrency(netBalance)}
+
+                        <div class="dashboard-collapse" id="dash-collapse-netBalance">
+                            <div class="dashboard-subcards">
+                                <div class="stat-card dashboard-sub-card">
+                                    <div class="stat-icon ${netBankAccountBalance >= 0 ? 'green' : 'red'}" style="background: ${netBankAccountBalance >= 0 ? '#e0f2f1' : '#ffebee'}; color: ${netBankAccountBalance >= 0 ? '#00695c' : '#c62828'};">
+                                        <i class="fas fa-university"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">${t('netBankAccountBalance')}</div>
+                                        <div class="stat-value" style="color: ${netBankAccountBalance >= 0 ? 'var(--success)' : 'var(--danger)'}">
+                                            ${formatCurrency(netBankAccountBalance)}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="stat-card dashboard-sub-card">
+                                    <div class="stat-icon ${netCreditCardBalance >= 0 ? 'green' : 'red'}">
+                                        <i class="fas fa-credit-card"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">${t('netCreditCardBalance')}</div>
+                                        <div class="stat-value" style="color: ${netCreditCardBalance >= 0 ? 'var(--success)' : 'var(--danger)'}">
+                                            ${formatCurrency(netCreditCardBalance)}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="stat-card dashboard-sub-card">
+                                    <div class="stat-icon ${netCashBalance >= 0 ? 'green' : 'red'}">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">${t('netCashBalance') || 'Net Cash Balance'}</div>
+                                        <div class="stat-value" style="color: ${netCashBalance >= 0 ? 'var(--success)' : 'var(--danger)'}">
+                                            ${formatCurrency(netCashBalance)}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon green">
-                            <i class="fas fa-plus-circle"></i>
+
+                    <div class="dashboard-expandable-block">
+                        <div class="stat-card dashboard-main-card" role="button" tabindex="0"
+                             onclick="toggleDashboardCollapse('dash-collapse-totalCredits','dash-expand-icon-totalCredits')"
+                             onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); toggleDashboardCollapse('dash-collapse-totalCredits','dash-expand-icon-totalCredits'); }">
+                            <div class="stat-icon green">
+                                <i class="fas fa-plus-circle"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-label">${t('totalCredits')}</div>
+                                <div class="stat-value">${formatCurrency(totalCredits)}</div>
+                            </div>
+                            <div class="dashboard-expand-arrow">
+                                <i class="fas fa-chevron-down" id="dash-expand-icon-totalCredits" style="transform: rotate(0deg);"></i>
+                            </div>
                         </div>
-                        <div class="stat-content">
-                            <div class="stat-label">${t('totalCredits')}</div>
-                            <div class="stat-value">${formatCurrency(totalCredits)}</div>
+
+                        <div class="dashboard-collapse" id="dash-collapse-totalCredits">
+                            <div class="dashboard-subcards">
+                                <div class="stat-card dashboard-sub-card">
+                                    <div class="stat-icon green">
+                                        <i class="fas fa-university"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">${t('totalBankBalance')}</div>
+                                        <div class="stat-value" style="color: var(--success)">
+                                            ${formatCurrency(nonCreditCardCredits)}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="stat-card dashboard-sub-card">
+                                    <div class="stat-icon green">
+                                        <i class="fas fa-hand-holding-usd"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">${t('totalCreditCardCredits')}</div>
+                                        <div class="stat-value">
+                                            ${formatCurrency(totalCreditCardCredits)}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="stat-card dashboard-sub-card">
+                                    <div class="stat-icon green">
+                                        <i class="fas fa-hand-holding-usd"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">${t('totalCashCredits') || 'Total Cash Credits'}</div>
+                                        <div class="stat-value">
+                                            ${formatCurrency(totalCashCredits)}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon red">
-                            <i class="fas fa-minus-circle"></i>
+
+                    <div class="dashboard-expandable-block">
+                        <div class="stat-card dashboard-main-card" role="button" tabindex="0"
+                             onclick="toggleDashboardCollapse('dash-collapse-totalExpenses','dash-expand-icon-totalExpenses')"
+                             onkeydown="if(event.key==='Enter' || event.key===' '){ event.preventDefault(); toggleDashboardCollapse('dash-collapse-totalExpenses','dash-expand-icon-totalExpenses'); }">
+                            <div class="stat-icon red">
+                                <i class="fas fa-minus-circle"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-label">${t('totalExpenses')}</div>
+                                <div class="stat-value">${formatCurrency(totalPersonal + totalGroupShare)}</div>
+                            </div>
+                            <div class="dashboard-expand-arrow">
+                                <i class="fas fa-chevron-down" id="dash-expand-icon-totalExpenses" style="transform: rotate(0deg);"></i>
+                            </div>
                         </div>
-                        <div class="stat-content">
-                            <div class="stat-label">${t('totalExpenses')}</div>
-                            <div class="stat-value">${formatCurrency(totalPersonal + totalGroupShare)}</div>
+
+                        <div class="dashboard-collapse" id="dash-collapse-totalExpenses">
+                            <div class="dashboard-subcards">
+                                <div class="stat-card dashboard-sub-card">
+                                    <div class="stat-icon red">
+                                        <i class="fas fa-wallet"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">${t('totalBankBalanceExpenses')}</div>
+                                        <div class="stat-value" style="color: var(--danger)">
+                                            ${formatCurrency(nonCreditCardExpenses)}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="stat-card dashboard-sub-card">
+                                    <div class="stat-icon red">
+                                        <i class="fas fa-shopping-cart"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">${t('totalCreditCardExpenses')}</div>
+                                        <div class="stat-value">
+                                            ${formatCurrency(totalCreditCardExpenses)}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="stat-card dashboard-sub-card">
+                                    <div class="stat-icon red">
+                                        <i class="fas fa-wallet"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">${t('totalCashExpenses') || 'Total Cash Expenses'}</div>
+                                        <div class="stat-value">
+                                            ${formatCurrency(totalCashExpenses)}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
+
                     <div class="stat-card">
                         <div class="stat-icon blue">
                             <i class="fas fa-users"></i>
                         </div>
                         <div class="stat-content">
                             <div class="stat-label">${t('groupExpenses')}</div>
-                            <div class="stat-value">${formatCurrency(totalGroupShare)}
-                                </div>
-                        </div>
-                    </div>
-                    <!-- Net Bank Account Balance Banner -->
-                    <div class="stat-card">
-                        <div class="stat-icon ${netBankAccountBalance >= 0 ? 'green' : 'red'}" style="background: ${netBankAccountBalance >= 0 ? '#e0f2f1' : '#ffebee'}; color: ${netBankAccountBalance >= 0 ? '#00695c' : '#c62828'};">
-                            <i class="fas fa-university"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-label">${t('netBankAccountBalance')}</div>
-                            <div class="stat-value" style="color: ${netBankAccountBalance >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                                ${formatCurrency(netBankAccountBalance)}
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Total Bank Balance Banner (NEW) -->
-                    <div class="stat-card">
-                        <div class="stat-icon green">
-                            <i class="fas fa-university"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-label">${t('totalBankBalance')}</div>
-                            <div class="stat-value" style="color: var(--success)">
-                                ${formatCurrency(nonCreditCardCredits)}
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Total Bank Balance Expenses Banner -->
-                    <div class="stat-card">
-                        <div class="stat-icon red">
-                            <i class="fas fa-wallet"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-label">${t('totalBankBalanceExpenses')}</div>
-                            <div class="stat-value" style="color: var(--danger)">
-                                ${formatCurrency(nonCreditCardExpenses)}
-                            </div>
-                        </div>
-                    </div>
-                    <!-- New Card Banners -->
-                    <div class="stat-card">
-                        <div class="stat-icon ${netCreditCardBalance >= 0 ? 'green' : 'red'}">
-                            <i class="fas fa-credit-card"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-label">${t('netCreditCardBalance')}</div>
-                            <div class="stat-value" style="color: ${netCreditCardBalance >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                                ${formatCurrency(netCreditCardBalance)}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon green">
-                            <i class="fas fa-hand-holding-usd"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-label">${t('totalCreditCardCredits')}</div>
-                            <div class="stat-value">${formatCurrency(totalCreditCardCredits)}</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon red">
-                            <i class="fas fa-shopping-cart"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-label">${t('totalCreditCardExpenses')}</div>
-                            <div class="stat-value">${formatCurrency(totalCreditCardExpenses)}</div>
-                        </div>
-                    </div>
-                    <!-- Cash Banners -->
-                    <div class="stat-card">
-                        <div class="stat-icon ${netCashBalance >= 0 ? 'green' : 'red'}">
-                            <i class="fas fa-money-bill-wave"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-label">${t('netCashBalance') || 'Net Cash Balance'}</div>
-                            <div class="stat-value" style="color: ${netCashBalance >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                                ${formatCurrency(netCashBalance)}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon green">
-                            <i class="fas fa-hand-holding-usd"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-label">${t('totalCashCredits') || 'Total Cash Credits'}</div>
-                            <div class="stat-value">${formatCurrency(totalCashCredits)}</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon red">
-                            <i class="fas fa-wallet"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-label">${t('totalCashExpenses') || 'Total Cash Expenses'}</div>
-                            <div class="stat-value">${formatCurrency(totalCashExpenses)}</div>
+                            <div class="stat-value">${formatCurrency(totalGroupShare)}</div>
                         </div>
                     </div>
                 `;
