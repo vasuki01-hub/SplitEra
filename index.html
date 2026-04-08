@@ -921,7 +921,8 @@
         }
 
         .dashboard-collapse.open {
-            max-height: 420px; /* enough for 3 sub-cards */
+            max-height: 420px;
+            /* enough for 3 sub-cards */
             opacity: 1;
         }
 
@@ -1908,6 +1909,20 @@
                 addExpense: 'Add Expense',
                 createGroup: 'Create Group',
                 joinGroup: 'Join Group',
+                recentActivity: 'Recent Activity',
+                activityLog: 'Activity Log',
+                performedBy: 'Performed By',
+                noActivityFound: 'No activity found yet.',
+                activity_expense_added: 'added expense',
+                activity_expense_edited: 'edited expense',
+                activity_expense_deleted: 'deleted expense',
+                activity_member_joined: 'joined the group',
+                activity_member_added: 'added member',
+                activity_member_removed: 'removed member',
+                activity_member_left: 'left the group',
+                activity_settlement_added: 'recorded a settlement',
+                activity_settlement_deleted: 'deleted a settlement',
+                activity_group_updated: 'updated group settings',
                 exportPDF: 'Export PDF',
                 search: 'Search...',
                 year: 'Year',
@@ -2327,6 +2342,20 @@
                 addExpense: 'ખર્ચ ઉમેરો',
                 createGroup: 'જૂથ બનાવો',
                 joinGroup: 'જૂથમાં જોડાઓ',
+                recentActivity: 'તાજેતરની પ્રવૃત્તિ',
+                activityLog: 'પ્રવૃત્તિ લોગ',
+                performedBy: 'દ્વારા કરવામાં આવ્યું',
+                noActivityFound: 'હજુ સુધી કોઈ પ્રવૃત્તિ મળી નથી.',
+                activity_expense_added: 'ખર્ચ ઉમેર્યો',
+                activity_expense_edited: 'ખર્ચ સંપાદિત કર્યો',
+                activity_expense_deleted: 'ખર્ચ કાઢી નાખ્યો',
+                activity_member_joined: 'જૂથમાં જોડાયા',
+                activity_member_added: 'સભ્ય ઉમેર્યા',
+                activity_member_removed: 'સભ્યને દૂર કર્યા',
+                activity_member_left: 'જૂથ છોડી દીધું',
+                activity_settlement_added: 'તાવટ નોંધાવી',
+                activity_settlement_deleted: 'તાવટ કાઢી નાખી',
+                activity_group_updated: 'જૂથ સેટિંગ્સ અપડેટ કરી',
                 exportPDF: 'PDF નિકાસ કરો',
                 search: 'શોધો...',
                 year: 'વર્ષ',
@@ -11319,10 +11348,19 @@
                 await db.collection('groups').doc(groupId).update({
                     members: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
                 });
-                // Update invite status
                 await db.collection('group_invites').doc(inviteId).update({
                     status: 'accepted'
-                }); // or delete()
+                });
+
+                // Log activity: member joined
+                try {
+                    await logGroupActivity(groupId, 'member_joined', {
+                        targetId: currentUser.uid,
+                        targetName: `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim()
+                    });
+                } catch (e) {
+                    console.error('Failed to log member_joined activity', e);
+                }
 
                 container.textContent = 'Accepted';
                 container.style.color = 'var(--success)';
@@ -13014,6 +13052,25 @@
 
                 await db.collection('groups').doc(groupId).update(updates);
 
+                // Log activity: group updated
+                try {
+                    await logGroupActivity(groupId, 'group_updated', {
+                        groupName: name
+                    });
+
+                    // Log activity: guests added if any
+                    if (guestNames.length > 0) {
+                        for (const g of guestNames) {
+                            await logGroupActivity(groupId, 'member_added', {
+                                targetName: g,
+                                targetId: `guest:${g}`
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to log group activity', e);
+                }
+
                 // Send Invites
                 if (emailsToInvite.length > 0) {
                     const batch = db.batch();
@@ -13055,6 +13112,26 @@
                     await db.collection('groups').doc(groupId).update({
                         members: firebase.firestore.FieldValue.arrayRemove(memberIdOrId)
                     });
+                }
+
+                // Log activity: member removed
+                try {
+                    let targetName = memberIdOrId;
+                    if (memberIdOrId.startsWith('guest:')) {
+                        targetName = memberIdOrId.replace('guest:', '');
+                    } else {
+                        const targetSnap = await db.collection('users').doc(memberIdOrId).get();
+                        if (targetSnap.exists) {
+                            targetName = `${targetSnap.data().firstName} ${targetSnap.data().lastName || ''}`.trim();
+                        }
+                    }
+
+                    await logGroupActivity(groupId, 'member_removed', {
+                        targetId: memberIdOrId,
+                        targetName: targetName
+                    });
+                } catch (e) {
+                    console.error('Failed to log member_removed activity', e);
                 }
 
                 // Close modal and refresh
@@ -13261,6 +13338,19 @@
                     pendingRequests: firebase.firestore.FieldValue.arrayRemove(userId)
                 });
 
+                // Log activity: member joined (via request)
+                try {
+                    const targetSnap = await db.collection('users').doc(userId).get();
+                    const targetName = targetSnap.exists ? `${targetSnap.data().firstName} ${targetSnap.data().lastName || ''}`.trim() : userId;
+
+                    await logGroupActivity(groupId, 'member_joined', {
+                        targetId: userId,
+                        targetName: targetName
+                    });
+                } catch (e) {
+                    console.error('Failed to log member_joined activity', e);
+                }
+
                 container.innerHTML = '<div style="color: var(--success); text-align: center; width: 100%;">Accepted</div>';
                 setTimeout(() => container.remove(), 1000);
 
@@ -13295,6 +13385,15 @@
                     });
 
                     showToast('Success', 'Left group successfully');
+                    // Log activity for member leaving
+                    try {
+                        await logGroupActivity(groupId, 'member_left', {
+                            targetId: currentUser.uid,
+                            targetName: `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim()
+                        });
+                    } catch (e) {
+                        console.error('Failed to log member_left activity', e);
+                    }
                     forceRefreshCurrentPage();
                 } catch (error) {
                     showToast('Error', error.message, 'error');
@@ -13303,6 +13402,22 @@
                 }
             });
         }
+
+        // Switch between "Expenses" and "Activity" sections in the Group Details modal
+        window.switchGroupDetailsTab = function (tab, groupId) {
+            const expensesSection = document.getElementById(`group-expenses-section-${groupId}`);
+            const activitySection = document.getElementById(`group-activity-section-${groupId}`);
+            if (!expensesSection || !activitySection) return;
+
+            expensesSection.style.display = tab === 'expenses' ? '' : 'none';
+            activitySection.style.display = tab === 'activity' ? '' : 'none';
+
+            document.querySelectorAll(`.group-tab-${groupId}`).forEach(btn => {
+                const isActive = btn.getAttribute('data-tab') === tab;
+                btn.classList.toggle('active', isActive);
+                btn.style.borderBottom = isActive ? '2px solid var(--primary)' : '2px solid transparent';
+            });
+        };
 
 
         function openCreateGroupModal() {
@@ -14206,6 +14321,16 @@
                         members: firebase.firestore.FieldValue.arrayUnion(existingUser.id)
                     });
 
+                    // Log activity: member added
+                    try {
+                        await logGroupActivity(groupId, 'member_added', {
+                            targetId: existingUser.id,
+                            targetName: userDisplayName
+                        });
+                    } catch (e) {
+                        console.error('Failed to log member_added activity', e);
+                    }
+
                     showToast('Success', `Added ${userDisplayName} to group!`, 'success');
 
                     // Refresh view
@@ -14239,8 +14364,19 @@
                         guestMembers: firebase.firestore.FieldValue.arrayUnion(guestValue)
                     });
 
-                    // If it was just a raw phone number, might want to display it nicer?
-                    // But "Name|Phone" is already handled by viewGroupDetails for display.
+                    // Log activity: member added (guest)
+                    try {
+                        let guestName = guestValue;
+                        if (guestValue.includes('|')) {
+                            guestName = guestValue.split('|')[0].trim();
+                        }
+                        await logGroupActivity(groupId, 'member_added', {
+                            targetId: `guest:${guestValue}`,
+                            targetName: guestName
+                        });
+                    } catch (e) {
+                        console.error('Failed to log member_added (guest) activity', e);
+                    }
 
                     showToast('Success', `Added guest member!`, 'success');
 
@@ -14319,6 +14455,16 @@
                     pendingRequests: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
                 });
 
+                // Log activity: member joined (initial request/join attempt)
+                try {
+                    await logGroupActivity(groupDoc.id, 'member_joined', {
+                        targetId: currentUser.uid,
+                        targetName: `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim()
+                    });
+                } catch (e) {
+                    console.error('Failed to log member_joined activity', e);
+                }
+
                 document.querySelector('.modal-overlay').remove();
                 showToast(t('success'), t('joinRequestSent'));
             } catch (error) {
@@ -14329,10 +14475,43 @@
         }
 
         let currentGroupMembers = []; // Global to hold current view members
+        let activityUnsubscribe = null; // Unsubscribe function for real-time activity listener
 
         /**
-         * Displays detailed information about a group, including members, expenses, debts, and balances.
-         * Fetches data from Firestore, processes expenses, calculates debts and breakdowns, and renders a modal.
+         * Logs a single activity event for a group.
+         * Used for Activity tab in Group Details.
+         * @param {string} groupId
+         * @param {string} type - e.g. 'member_added', 'expense_added'
+         * @param {Object} details - extra fields for description rendering
+         */
+        async function logGroupActivity(groupId, type, details = {}) {
+            try {
+                if (!currentUser || !db || !firebase) return;
+
+                const performedByName =
+                    `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() ||
+                    currentUser.displayName ||
+                    currentUser.email ||
+                    'Unknown user';
+
+                const activity = {
+                    groupId,
+                    type,
+                    performedBy: currentUser.uid,
+                    performedByName,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    ...details
+                };
+
+                await db.collection('group_activities').add(activity);
+            } catch (err) {
+                console.error('Failed to log group activity', type, err);
+            }
+        }
+
+        /**
+         * Displays detailed information about a group, including members, expenses, debts, balances,
+         * and the activity log.
          * @param {string} groupId - The ID of the group to view.
          */
         async function viewGroupDetails(groupId) {
@@ -14388,6 +14567,128 @@
                 const expensesSnapshot = await db.collection('group_expenses')
                     .where('groupId', '==', groupId)
                     .get();
+
+                // Fetch activity log entries for this group
+                let activityLimit = 50;
+                if (activityUnsubscribe) {
+                    activityUnsubscribe();
+                    activityUnsubscribe = null;
+                }
+
+                const setupActivityListener = (limit) => {
+                    const activitySection = document.getElementById(`group-activity-section-${groupId}`);
+                    if (!activitySection) return;
+
+                    if (activityUnsubscribe) activityUnsubscribe();
+
+                    activityUnsubscribe = db.collection('group_activities')
+                        .where('groupId', '==', groupId)
+                        .orderBy('createdAt', 'desc')
+                        .limit(limit)
+                        .onSnapshot(snapshot => {
+                            const activities = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            renderActivityContent(activities, limit);
+                        }, err => {
+                            console.error('Activity listener error:', err);
+                        });
+                };
+
+                const renderActivityContent = (activities, currentLimit) => {
+                    const container = document.getElementById(`activity-log-container-${groupId}`);
+                    if (!container) return;
+
+                    if (activities.length === 0) {
+                        container.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-icon"><i class="fas fa-stream"></i></div>
+                                <div class="empty-title">${t('noActivityFound')}</div>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    let html = `
+                        <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>${t('date')}</th>
+                                        <th>${t('time') || 'Time'}</th>
+                                        <th>${t('activityLog')}</th>
+                                        <th>${t('performedBy')}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+
+                    activities.forEach(a => {
+                        const date = a.createdAt?.toDate ? a.createdAt.toDate() : new Date();
+                        const dt = date.toLocaleDateString();
+                        const tm = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const actor = a.performedByName || t('unknown');
+                        let description = '';
+
+                        const typeKeys = {
+                            'member_added': 'activity_member_added',
+                            'member_removed': 'activity_member_removed',
+                            'member_joined': 'activity_member_joined',
+                            'member_left': 'activity_member_left',
+                            'expense_added': 'activity_expense_added',
+                            'expense_edited': 'activity_expense_edited',
+                            'expense_deleted': 'activity_expense_deleted',
+                            'settlement_added': 'activity_settlement_added',
+                            'settlement_deleted': 'activity_settlement_deleted',
+                            'group_updated': 'activity_group_updated'
+                        };
+
+                        if (typeKeys[a.type]) {
+                            const actionText = t(typeKeys[a.type]);
+                            if (a.type === 'member_added' || a.type === 'member_removed') {
+                                description = `${actor} ${actionText} ${a.targetName || a.targetId || t('member')}`;
+                            } else if (a.type.startsWith('expense_')) {
+                                description = `${actor} ${actionText}: ${a.expenseDescription || ''}`;
+                            } else if (a.type.startsWith('settlement_')) {
+                                description = `${actor} ${actionText} ${formatCurrency(a.amount || 0)}`;
+                                if (a.fromName && a.toName) {
+                                    description += ` (${a.fromName} → ${a.toName})`;
+                                }
+                            } else {
+                                description = `${actor} ${actionText}`;
+                            }
+                        } else {
+                            description = a.description || t('activityLog');
+                        }
+
+                        html += `
+                            <tr>
+                                <td>${dt}</td>
+                                <td>${tm}</td>
+                                <td style="max-width:300px;">${escapeHTML(description)}</td>
+                                <td style="white-space:nowrap;">
+                                    <span class="badge badge-light" style="font-weight:500;">${escapeHTML(actor)}</span>
+                                </td>
+                            </tr>
+                        `;
+                    });
+
+                    html += `
+                                </tbody>
+                            </table>
+                        </div>
+                        ${activities.length >= currentLimit ? `
+                            <div style="text-align: center; margin-top: 1rem;">
+                                <button class="btn btn-sm btn-outline-primary" onclick="window.loadMoreGroupActivity('${groupId}', ${currentLimit + 50})">
+                                    <i class="fas fa-plus"></i> ${t('loadMore')}
+                                </button>
+                            </div>
+                        ` : ''}
+                    `;
+                    container.innerHTML = html;
+                };
+
+                window.loadMoreGroupActivity = (gid, newLimit) => {
+                    setupActivityListener(newLimit);
+                };
 
                 const fromDate = document.getElementById('groupFromDateFilter')?.value || '';
                 const toDate = document.getElementById('groupToDateFilter')?.value || '';
@@ -14686,70 +14987,90 @@
                         modalBody.innerHTML = `
                             <div class="row" style="margin: 0;">
                                 <div class="col-md-9" style="padding: 1.5rem;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                                        <h4 style="margin:0;">${t('expenses')}</h4>
-                                        <div style="display: flex; gap: 10px;">
-                                            <button class="btn btn-secondary btn-sm" onclick="exportGroupPDF('${groupId}')">
-                                                <i class="fas fa-file-pdf"></i> ${t('pdfReport')}
-                                            </button>
-                                            <button class="btn btn-success btn-sm" onclick="exportGroupExcel('${groupId}')">
-                                                <i class="fas fa-file-excel"></i> ${t('exportExcel')}
-                                            </button>
-                                            <button class="btn btn-primary btn-sm" onclick="openAddGroupExpenseModal('${groupId}', '${group.name}')">
-                                                <i class="fas fa-plus"></i> ${t('addExpense')}
-                                            </button>
-                                        </div>
+                                    <!-- Tabs -->
+                                    <div class="group-details-tabs" style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem;">
+                                        <button
+                                            class="btn btn-sm btn-light group-tab group-tab-${groupId} active"
+                                            data-tab="expenses"
+                                            onclick="switchGroupDetailsTab('expenses', '${groupId}')"
+                                            style="border-bottom: 2px solid var(--primary);">
+                                            ${t('expenses')}
+                                        </button>
+                                        <button
+                                            class="btn btn-sm btn-light group-tab group-tab-${groupId}"
+                                            data-tab="activity"
+                                            onclick="switchGroupDetailsTab('activity', '${groupId}')"
+                                            style="border-bottom: 2px solid transparent;">
+                                            ${t('recentActivity')}
+                                        </button>
                                     </div>
 
-                                    ${displayExpenses.length === 0 ? `
-                                        <div class="empty-state">
-                                            <div class="empty-icon"><i class="fas fa-receipt"></i></div>
-                                            <div class="empty-title">${t('noExpensesFound')}</div>
-                                            <div class="empty-message">${t('addPersonalPrompt')}</div>
-                                        </div>
-                                    ` : `
-                                        <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
-                                            <table class="table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>${t('date')}</th>
-                                                        <th>${t('description')}</th>
-                                                        <th>${t('paidBy')}</th>
-                                                        <th>${t('amount')}</th>
-                                                        <th>${t('yourShare') || 'Your Share'}</th>
-                                                        <th>${t('split')}</th>
-                                                        <th>${t('remarks') || 'Remarks'}</th>
-                                                        <th>${t('status')}</th>
-                                                        <th>${t('actions')}</th>
-                                                    </tr>
-                                                </thead>
-                                                ${activeExpenses.map(e => renderExpenseRow(e, false)).join('')}
-                                                ${settledExpenses.length > 0 ? `
-                                                    <tbody>
-                                                        <tr style="background: var(--bg-light); cursor: pointer;"
-                                                            onclick="this.closest('table').querySelectorAll('.settled-expense-row-${groupId}').forEach(el => el.classList.toggle('hidden'))">
-                                                            <td colspan="10" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
-                                                                <i class="fas fa-history"></i> Show ${settledExpenses.length} Settled Expense${settledExpenses.length > 1 ? 's' : ''}
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                    ${settledExpenses.map(e => renderExpenseRow(e, true)).join('')}
-                                                ` : ''}
-                                            </table>
+                                    <!-- Expenses section -->
+                                    <div id="group-expenses-section-${groupId}">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                            <h4 style="margin:0;">${t('expenses')}</h4>
+                                            <div style="display: flex; gap: 10px;">
+                                                <button class="btn btn-secondary btn-sm" onclick="exportGroupPDF('${groupId}')">
+                                                    <i class="fas fa-file-pdf"></i> ${t('pdfReport')}
+                                                </button>
+                                                <button class="btn btn-success btn-sm" onclick="exportGroupExcel('${groupId}')">
+                                                    <i class="fas fa-file-excel"></i> ${t('exportExcel')}
+                                                </button>
+                                                <button class="btn btn-primary btn-sm" onclick="openAddGroupExpenseModal('${groupId}', '${group.name}')">
+                                                    <i class="fas fa-plus"></i> ${t('addExpense')}
+                                                </button>
+                                            </div>
                                         </div>
 
-                                        <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border);">
-                                            <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('expenseSummary')}</h5>
-                                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                                <span class="text-secondary">${t('totalExpenses')}:</span>
-                                                <strong style="color: var(--danger); font-size: 1.1rem;">${formatCurrency(displayExpenses.reduce((sum, exp) => {
+                                        ${displayExpenses.length === 0 ? `
+                                            <div class="empty-state">
+                                                <div class="empty-icon"><i class="fas fa-receipt"></i></div>
+                                                <div class="empty-title">${t('noExpensesFound')}</div>
+                                                <div class="empty-message">${t('addPersonalPrompt')}</div>
+                                            </div>
+                                        ` : `
+                                            <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+                                                <table class="table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>${t('date')}</th>
+                                                            <th>${t('description')}</th>
+                                                            <th>${t('paidBy')}</th>
+                                                            <th>${t('amount')}</th>
+                                                            <th>${t('yourShare') || 'Your Share'}</th>
+                                                            <th>${t('split')}</th>
+                                                            <th>${t('remarks') || 'Remarks'}</th>
+                                                            <th>${t('status')}</th>
+                                                            <th>${t('actions')}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    ${activeExpenses.map(e => renderExpenseRow(e, false)).join('')}
+                                                    ${settledExpenses.length > 0 ? `
+                                                        <tbody>
+                                                            <tr style="background: var(--bg-light); cursor: pointer;"
+                                                                onclick="this.closest('table').querySelectorAll('.settled-expense-row-${groupId}').forEach(el => el.classList.toggle('hidden'))">
+                                                                <td colspan="10" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
+                                                                    <i class="fas fa-history"></i> Show ${settledExpenses.length} Settled Expense${settledExpenses.length > 1 ? 's' : ''}
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                        ${settledExpenses.map(e => renderExpenseRow(e, true)).join('')}
+                                                    ` : ''}
+                                                </table>
+                                            </div>
+
+                                            <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border);">
+                                                <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('expenseSummary')}</h5>
+                                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                                    <span class="text-secondary">${t('totalExpenses')}:</span>
+                                                    <strong style="color: var(--danger); font-size: 1.1rem;">${formatCurrency(displayExpenses.reduce((sum, exp) => {
                             if (exp.category === 'Settlement' || exp.isSettlement) return sum;
                             return sum + (parseFloat(exp.amount) || 0);
                         }, 0))}</strong>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                                <span class="text-secondary">${t('receivable')}:</span>
-                                                <strong style="color: var(--success);">${formatCurrency(Math.max(0, displayExpenses.reduce((sum, e) => {
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                                    <span class="text-secondary">${t('receivable')}:</span>
+                                                    <strong style="color: var(--success);">${formatCurrency(Math.max(0, displayExpenses.reduce((sum, e) => {
                             const payerId = e.paidBy || e.userId;
                             if (payerId !== currentUser.uid) return sum;
                             const breakdown = breakdowns[e.id];
@@ -14774,10 +15095,10 @@
                             }
                             return sum + Math.max(0, myShare - totalPaid);
                         }, 0)))}</strong>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                                <span class="text-secondary">${t('totalYourShare') || 'Total Your Share'}:</span>
-                                                <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                                    <span class="text-secondary">${t('totalYourShare') || 'Total Your Share'}:</span>
+                                                    <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
                             const breakdown = breakdowns[e.id];
                             let s = breakdown?.contributions?.[currentUser.uid] || 0;
                             if (s === 0) {
@@ -14786,8 +15107,8 @@
                             }
                             return sum + s;
                         }, 0))}</strong>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
     <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
     <strong style="color: var(--danger);">${(() => {
                                 const totalYourShare = displayExpenses.reduce((sum, e) => {
@@ -14835,6 +15156,18 @@
                                             </div>
                                         </div>
                                     `}
+
+                                    <!-- Activity section -->
+                                    <div id="group-activity-section-${groupId}" style="display:none; margin-top: 0.5rem;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                            <h4 style="margin:0;">${t('recentActivity')}</h4>
+                                        </div>
+                                        <div id="activity-log-container-${groupId}">
+                                            <div style="text-align: center; padding: 2rem;">
+                                                <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--primary);"></i>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem;">
@@ -14964,13 +15297,33 @@
                                 ${(group.members?.length || 0) + (group.guestMembers?.length || 0)} ${t('membersCount')} • ${t('groupCode')}: ${group.code}
                             </p>
                         </div>
-                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                        <button class="modal-close" onclick="if(activityUnsubscribe){activityUnsubscribe();activityUnsubscribe=null;};this.closest('.modal-overlay').remove()">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
                     <div class="modal-body" style="padding: 0;">
                         <div class="row" style="margin: 0;">
                             <div class="col-md-9" style="padding: 1.5rem;">
+                                <!-- Tabs -->
+                                <div class="group-details-tabs" style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem;">
+                                    <button
+                                        class="btn btn-sm btn-light group-tab group-tab-${groupId} active"
+                                        data-tab="expenses"
+                                        onclick="switchGroupDetailsTab('expenses', '${groupId}')"
+                                        style="border-bottom: 2px solid var(--primary);">
+                                        ${t('expenses')}
+                                    </button>
+                                    <button
+                                        class="btn btn-sm btn-light group-tab group-tab-${groupId}"
+                                        data-tab="activity"
+                                        onclick="switchGroupDetailsTab('activity', '${groupId}')"
+                                        style="border-bottom: 2px solid transparent;">
+                                        ${t('recentActivity')}
+                                    </button>
+                                </div>
+
+                                <!-- Expenses section -->
+                                <div id="group-expenses-section-${groupId}">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                     <h4 style="margin:0;">${t('expenses')}</h4>
                                     <div style="display: flex; gap: 10px;">
@@ -15248,6 +15601,9 @@
                     document.body.appendChild(modal);
                 }
 
+                // Initialize Activity Listener
+                setupActivityListener(activityLimit);
+
             } catch (error) {
                 showToast('Error', error.message, 'error');
             } finally {
@@ -15286,6 +15642,29 @@
                         settlements: updatedSettlements,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
+
+                    // Log activity: settlement deleted
+                    try {
+                        const s = settlements.find(s => s.id === settlementId || s.settlementId === settlementId || (s.fromUser + '_' + s.toUser + '_' + s.amount + '_' + (s.date?.toMillis?.() || s.date)) === settlementId);
+                        if (s) {
+                            const fromSnap = await db.collection('users').doc(s.fromUser).get();
+                            const toSnap = await db.collection('users').doc(s.toUser).get();
+                            const fromName = fromSnap.exists ? `${fromSnap.data().firstName} ${fromSnap.data().lastName || ''}`.trim() : s.fromUser;
+                            const toName = toSnap.exists ? `${toSnap.data().firstName} ${toSnap.data().lastName || ''}`.trim() : s.toUser;
+
+                            await logGroupActivity(groupId, 'settlement_deleted', {
+                                expenseId,
+                                amount: s.amount,
+                                fromId: s.fromUser,
+                                fromName,
+                                toId: s.toUser,
+                                toName
+                            });
+                        }
+                    } catch (e) {
+                        console.error('Failed to log settlement_deleted activity', e);
+                    }
+
                     showToast('Success', 'Settlement deleted successfully!');
 
                     // Defer data reload to avoid immediate flicker
@@ -15707,6 +16086,24 @@
                         updatedAt: timestamp
                     });
                     await batch.commit();
+
+                    // Log activity: settlement added
+                    try {
+                        const targetSnap = await db.collection('users').doc(memberId).get();
+                        const targetName = targetSnap.exists ? `${targetSnap.data().firstName} ${targetSnap.data().lastName || ''}`.trim() : (memberId.startsWith('guest:') ? memberId.split(':')[1] : memberId);
+
+                        await logGroupActivity(groupId, 'settlement_added', {
+                            amount: amount,
+                            fromId: fromUser,
+                            fromName: fromUser === currentUser.uid ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : (fromUser.startsWith('guest:') ? fromUser.split(':')[1] : 'Unknown'),
+                            toId: toUser,
+                            toName: toUser === currentUser.uid ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : targetName,
+                            expenseId: expenseId
+                        });
+                    } catch (e) {
+                        console.error('Failed to log settlement_added activity', e);
+                    }
+
                     showToast('Success', 'Balance settled successfully!');
                     // Real-time DOM updates for individual balance
                     var individualBalanceElement = document.getElementById(`individual-balance-${expenseId}-${memberId}`);
@@ -15807,6 +16204,25 @@
                         }
                     });
                     await batch.commit();
+
+                    // Log activity: settlement added
+                    try {
+                        const fromSnap = await db.collection('users').doc(fromUid).get();
+                        const toSnap = await db.collection('users').doc(toUid).get();
+                        const fromName = fromSnap.exists ? `${fromSnap.data().firstName} ${fromSnap.data().lastName || ''}`.trim() : fromUid;
+                        const toName = toSnap.exists ? `${toSnap.data().firstName} ${toSnap.data().lastName || ''}`.trim() : toUid;
+
+                        await logGroupActivity(groupId, 'settlement_added', {
+                            amount: amountVal,
+                            fromId: fromUid,
+                            fromName: fromName,
+                            toId: toUid,
+                            toName: toName
+                        });
+                    } catch (e) {
+                        console.error('Failed to log settlement_added activity', e);
+                    }
+
                     showToast('Success', 'Settlement recorded and balances updated!');
                     // Real-time DOM updates for total balance debt card
                     var totalBalanceDebtCard = document.getElementById(`debt-card-${groupId}-${fromUid}-${toUid}`);
@@ -16412,10 +16828,32 @@
                 if (editId) {
                     await db.collection('group_expenses').doc(editId).update(expenseData);
                     showToast('Success', 'Expense updated!');
+
+                    // Log activity: expense edited
+                    try {
+                        await logGroupActivity(groupId, 'expense_edited', {
+                            expenseId: editId,
+                            amount: expenseData.amount,
+                            expenseDescription: expenseData.description || ''
+                        });
+                    } catch (e) {
+                        console.error('Failed to log expense_edited activity', e);
+                    }
                 } else {
                     expenseData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                    await db.collection('group_expenses').add(expenseData);
+                    const addedRef = await db.collection('group_expenses').add(expenseData);
                     showToast('Success', 'Expense added!');
+
+                    // Log activity: expense added
+                    try {
+                        await logGroupActivity(groupId, 'expense_added', {
+                            expenseId: addedRef.id,
+                            amount: expenseData.amount,
+                            expenseDescription: expenseData.description || ''
+                        });
+                    } catch (e) {
+                        console.error('Failed to log expense_added activity', e);
+                    }
                 }
                 // Only remove the functional modal, keep Group Details open
                 const modalToAdd = document.getElementById('groupExpenseModal') || btn.closest('.modal-overlay');
@@ -17273,10 +17711,26 @@
         async function confirmDeleteGroupExpense(expenseId, groupId, btn) {
             showLoading();
             try {
+                // Fetch description before deletion for logging
+                const expDoc = await db.collection('group_expenses').doc(expenseId).get();
+                const expData = expDoc.data() || {};
+                const description = expData.description || 'Expense';
+
                 await db.collection('group_expenses').doc(expenseId).delete();
                 // Close only the confirmation modal, not the parent Group Details
                 const confirmModal = btn.closest('.modal-overlay');
                 if (confirmModal) confirmModal.remove();
+
+                // Log activity: expense deleted
+                try {
+                    await logGroupActivity(groupId, 'expense_deleted', {
+                        expenseId,
+                        expenseDescription: description
+                    });
+                } catch (e) {
+                    console.error('Failed to log expense_deleted activity', e);
+                }
+
                 await viewGroupDetails(groupId);
                 showToast('Success', 'Group expense deleted successfully!');
             } catch (error) {
