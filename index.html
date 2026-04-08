@@ -1925,9 +1925,6 @@
                 expenseByCategory: 'Expense by Category',
                 personalExpenses: 'Total Expenses',
                 groupExpenses: 'Group Expenses',
-                activity: 'Activity',
-                activityLogHint: 'Date and time of each action, who did it, and what changed.',
-                noActivityYet: 'No activity recorded yet. New actions will appear here.',
                 netCreditCardBalance: 'Net Credit Card Balance',
                 totalCreditCardCredits: 'Total Credit Card Credits',
                 totalCreditCardExpenses: 'Total Credit Card Expenses',
@@ -11327,8 +11324,6 @@
                     status: 'accepted'
                 }); // or delete()
 
-                await logGroupActivity(groupId, 'member_joined', `${getActorDisplayName()} joined the group (accepted an invitation).`);
-
                 container.textContent = 'Accepted';
                 container.style.color = 'var(--success)';
                 container.style.textAlign = 'center';
@@ -13019,12 +13014,6 @@
 
                 await db.collection('groups').doc(groupId).update(updates);
 
-                await logGroupActivity(groupId, 'group_updated', `${getActorDisplayName()} updated group details.`, {
-                    name,
-                    guestsAdded: guestNames.length,
-                    pendingEmailInvites: emailsToInvite.length
-                });
-
                 // Send Invites
                 if (emailsToInvite.length > 0) {
                     const batch = db.batch();
@@ -13067,18 +13056,6 @@
                         members: firebase.firestore.FieldValue.arrayRemove(memberIdOrId)
                     });
                 }
-
-                let targetLabel = memberIdOrId.startsWith('guest:') ? memberIdOrId.replace('guest:', '') : memberIdOrId;
-                if (!memberIdOrId.startsWith('guest:')) {
-                    try {
-                        const ud = await db.collection('users').doc(memberIdOrId).get();
-                        if (ud.exists) {
-                            const d = ud.data();
-                            targetLabel = `${d.firstName || ''} ${d.lastName || ''}`.trim() || memberIdOrId;
-                        }
-                    } catch (_) { }
-                }
-                await logGroupActivity(groupId, 'member_removed', `${getActorDisplayName()} removed ${targetLabel} from the group.`, { targetId: memberIdOrId });
 
                 // Close modal and refresh
                 document.querySelector('.modal-overlay')?.remove();
@@ -13284,16 +13261,6 @@
                     pendingRequests: firebase.firestore.FieldValue.arrayRemove(userId)
                 });
 
-                let reqName = userId;
-                try {
-                    const ud = await db.collection('users').doc(userId).get();
-                    if (ud.exists) {
-                        const d = ud.data();
-                        reqName = `${d.firstName || ''} ${d.lastName || ''}`.trim() || userId;
-                    }
-                } catch (_) { }
-                await logGroupActivity(groupId, 'member_added', `${getActorDisplayName()} accepted ${reqName}'s request to join the group.`, { addedUid: userId, addedName: reqName });
-
                 container.innerHTML = '<div style="color: var(--success); text-align: center; width: 100%;">Accepted</div>';
                 setTimeout(() => container.remove(), 1000);
 
@@ -13311,16 +13278,6 @@
                     pendingRequests: firebase.firestore.FieldValue.arrayRemove(userId)
                 });
 
-                let denyName = userId;
-                try {
-                    const ud = await db.collection('users').doc(userId).get();
-                    if (ud.exists) {
-                        const d = ud.data();
-                        denyName = `${d.firstName || ''} ${d.lastName || ''}`.trim() || userId;
-                    }
-                } catch (_) { }
-                await logGroupActivity(groupId, 'join_denied', `${getActorDisplayName()} declined ${denyName}'s request to join the group.`, { targetUid: userId });
-
                 container.innerHTML = '<div style="color: var(--danger); text-align: center; width: 100%;">Denied</div>';
                 setTimeout(() => container.remove(), 1000);
                 forceRefreshCurrentPage();
@@ -13336,8 +13293,6 @@
                     await db.collection('groups').doc(groupId).update({
                         members: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
                     });
-
-                    await logGroupActivity(groupId, 'member_left', `${getActorDisplayName()} left the group.`);
 
                     showToast('Success', 'Left group successfully');
                     forceRefreshCurrentPage();
@@ -13486,8 +13441,6 @@
 
                 const groupRef = await db.collection('groups').add(groupData);
                 const groupId = groupRef.id;
-
-                await logGroupActivity(groupId, 'group_created', `${getActorDisplayName()} created the group "${name}".`);
 
                 // Send Invitations
                 const batch = db.batch();
@@ -14253,8 +14206,6 @@
                         members: firebase.firestore.FieldValue.arrayUnion(existingUser.id)
                     });
 
-                    await logGroupActivity(groupId, 'member_added', `${getActorDisplayName()} added ${userDisplayName} to the group.`, { addedUid: existingUser.id, addedName: userDisplayName });
-
                     showToast('Success', `Added ${userDisplayName} to group!`, 'success');
 
                     // Refresh view
@@ -14277,7 +14228,6 @@
                         status: 'pending',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
-                    await logGroupActivity(groupId, 'invite_sent', `${getActorDisplayName()} sent an email invitation to ${searchVal}.`, { email: searchVal });
                     showToast('Success', `Email invitation sent to ${searchVal}!`, 'success');
 
                 } else if (inviteType === 'phone' || inviteType === 'guest_phone') {
@@ -14288,8 +14238,6 @@
                     await db.collection('groups').doc(groupId).update({
                         guestMembers: firebase.firestore.FieldValue.arrayUnion(guestValue)
                     });
-
-                    await logGroupActivity(groupId, 'guest_added', `${getActorDisplayName()} added guest "${guestValue}" to the group.`, { guestValue });
 
                     // If it was just a raw phone number, might want to display it nicer?
                     // But "Name|Phone" is already handled by viewGroupDetails for display.
@@ -14310,7 +14258,6 @@
                     await db.collection('groups').doc(groupId).update({
                         guestMembers: firebase.firestore.FieldValue.arrayUnion(inputVal)
                     });
-                    await logGroupActivity(groupId, 'guest_added', `${getActorDisplayName()} added guest "${inputVal}" to the group.`, { guestValue: inputVal });
                     showToast('Success', `Added ${inputVal} as guest member!`, 'success');
 
                     // Refresh view
@@ -14372,8 +14319,6 @@
                     pendingRequests: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
                 });
 
-                await logGroupActivity(groupDoc.id, 'join_requested', `${getActorDisplayName()} requested to join the group.`);
-
                 document.querySelector('.modal-overlay').remove();
                 showToast(t('success'), t('joinRequestSent'));
             } catch (error) {
@@ -14381,96 +14326,6 @@
                 btn.disabled = false;
                 btn.innerHTML = `<i class="fas fa-sign-in-alt"></i> ${t('joinGroup')}`;
             }
-        }
-
-        function getActorDisplayName() {
-            if (!currentUser) return 'Unknown';
-            const fn = currentUser.firstName || '';
-            const ln = currentUser.lastName || '';
-            const n = `${fn} ${ln}`.trim();
-            return n || currentUser.email || 'Unknown';
-        }
-
-        async function logGroupActivity(groupId, activityType, message, meta = {}) {
-            if (!groupId || !currentUser || !db) return;
-            try {
-                await db.collection('group_activities').add({
-                    groupId,
-                    activityType: activityType || 'unknown',
-                    message: message || '',
-                    actorUid: currentUser.uid,
-                    actorName: getActorDisplayName(),
-                    meta: meta && typeof meta === 'object' ? meta : {},
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            } catch (e) {
-                console.warn('logGroupActivity failed:', e);
-            }
-        }
-
-        async function fetchGroupActivityEntries(groupId, limitCount = 200) {
-            if (!groupId || !db) return [];
-            try {
-                const snap = await db.collection('group_activities')
-                    .where('groupId', '==', groupId)
-                    .orderBy('createdAt', 'desc')
-                    .limit(limitCount)
-                    .get();
-                return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            } catch (e) {
-                try {
-                    const snap = await db.collection('group_activities')
-                        .where('groupId', '==', groupId)
-                        .limit(500)
-                        .get();
-                    const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    rows.sort((a, b) => safeDateMillis(b.createdAt) - safeDateMillis(a.createdAt));
-                    return rows.slice(0, limitCount);
-                } catch (e2) {
-                    return [];
-                }
-            }
-        }
-
-        function buildGroupActivitySectionHtml(activityEntries) {
-            const title = escapeHTML(t('activity') || 'Activity');
-            const hint = escapeHTML(t('activityLogHint') || '');
-            const emptyMsg = escapeHTML(t('noActivityYet') || 'No activity recorded yet.');
-            if (!activityEntries.length) {
-                return `
-                                    <div class="group-activity-section" style="margin-top: 2rem; padding: 1rem; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border);">
-                                        <h5 style="margin: 0 0 0.35rem 0; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-                                            <i class="fas fa-stream"></i> ${title}
-                                        </h5>
-                                        <p style="margin: 0 0 1rem 0; font-size: 0.8rem; color: var(--text-gray);">${hint}</p>
-                                        <div class="text-secondary" style="font-size: 0.9rem;">${emptyMsg}</div>
-                                    </div>`;
-            }
-            const rows = activityEntries.map(entry => {
-                let when = '—';
-                try {
-                    when = entry.createdAt && entry.createdAt.toDate ? entry.createdAt.toDate().toLocaleString() : '—';
-                } catch (_) { }
-                const who = escapeHTML(entry.actorName || 'Unknown');
-                const msg = escapeHTML(entry.message || entry.activityType || '');
-                return `
-                                        <div style="padding: 10px 12px; background: var(--bg-card); border-radius: 8px; border-left: 3px solid var(--primary);">
-                                            <div style="font-size: 0.72rem; color: var(--text-gray); margin-bottom: 6px;">${escapeHTML(when)}</div>
-                                            <div style="font-size: 0.9rem; color: var(--text-dark); line-height: 1.35;">
-                                                <strong style="color: var(--text-dark);">${who}</strong><span class="text-secondary"> — </span><span>${msg}</span>
-                                            </div>
-                                        </div>`;
-            }).join('');
-            return `
-                                    <div class="group-activity-section" style="margin-top: 2rem; padding: 1rem; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border);">
-                                        <h5 style="margin: 0 0 0.35rem 0; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-                                            <i class="fas fa-stream"></i> ${title}
-                                        </h5>
-                                        <p style="margin: 0 0 1rem 0; font-size: 0.8rem; color: var(--text-gray);">${hint}</p>
-                                        <div class="group-activity-log" style="max-height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
-                                            ${rows}
-                                        </div>
-                                    </div>`;
         }
 
         let currentGroupMembers = []; // Global to hold current view members
@@ -14572,9 +14427,6 @@
                 // IMPORTANT CHANGE: Show ALL expenses to every group member
                 // ────────────────────────────────────────────────
                 const displayExpenses = expenses;
-
-                const activityEntries = await fetchGroupActivityEntries(groupId);
-                const activitySectionHtml = buildGroupActivitySectionHtml(activityEntries);
 
                 // Classify active / settled per current user
                 const activeExpenses = [];
@@ -14983,7 +14835,6 @@
                                             </div>
                                         </div>
                                     `}
-                                    ${activitySectionHtml}
                                 </div>
 
                                 <div class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem;">
@@ -15269,7 +15120,6 @@
                                         </div>
                                     </div>
                                 `}
-                            ${activitySectionHtml}
                             </div>
 
                             <div class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem;">
@@ -15422,12 +15272,6 @@
                     }
                     const expense = expenseDoc.data();
                     const currentSettlements = expense.settlements || [];
-                    const removedSettlement = currentSettlements.find(s => {
-                        if (s.id === settlementId) return true;
-                        if (s.settlementId === settlementId) return true;
-                        const compositeKey = s.fromUser + '_' + s.toUser + '_' + s.amount + '_' + (s.date?.toMillis?.() || s.date);
-                        return compositeKey === settlementId;
-                    });
                     // Remove the specific settlement - try multiple identification methods
                     const updatedSettlements = currentSettlements.filter(s => {
                         if (s.id === settlementId) return false;
@@ -15442,9 +15286,6 @@
                         settlements: updatedSettlements,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
-                    if (removedSettlement) {
-                        await logGroupActivity(groupId, 'settlement_deleted', `${getActorDisplayName()} removed a settlement of ${formatCurrency(parseFloat(removedSettlement.amount) || 0)}.`, { expenseId, fromUser: removedSettlement.fromUser, toUser: removedSettlement.toUser });
-                    }
                     showToast('Success', 'Settlement deleted successfully!');
 
                     // Defer data reload to avoid immediate flicker
@@ -15489,7 +15330,6 @@
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
                     await expenseRef.update(updateData);
-                    await logGroupActivity(groupId, 'split_entry_deleted', `${getActorDisplayName()} removed a member from the expense split for "${expense.description || 'expense'}".`, { expenseId, memberId });
                     showToast('Success', 'Balance entry deleted successfully!');
 
                     // Refresh data directly for immediate update
@@ -15651,7 +15491,6 @@
                     settlements: updatedSettlements,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                await logGroupActivity(groupId, 'settlement_edited', `${getActorDisplayName()} updated a settlement to ${formatCurrency(amount)}.`, { expenseId });
                 showToast('Success', 'Settlement updated successfully!');
 
                 // Close the specific modal and refresh data
@@ -15812,7 +15651,6 @@
                     splitDetails: updatedSplitDetails,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                await logGroupActivity(groupId, 'split_entry_edited', `${getActorDisplayName()} updated an individual split entry on "${expense.description || 'expense'}".`, { expenseId, memberId });
                 showToast('Success', 'Balance updated successfully!');
 
                 // Close the specific modal and refresh data
@@ -15869,7 +15707,6 @@
                         updatedAt: timestamp
                     });
                     await batch.commit();
-                    await logGroupActivity(groupId, 'amount_settled', `${getActorDisplayName()} recorded a settlement of ${formatCurrency(amount)}${expense.description ? ` on "${expense.description}"` : ''}.`, { expenseId, fromUser, toUser, amount });
                     showToast('Success', 'Balance settled successfully!');
                     // Real-time DOM updates for individual balance
                     var individualBalanceElement = document.getElementById(`individual-balance-${expenseId}-${memberId}`);
@@ -15911,7 +15748,6 @@
         async function toggleGroupSimplify(groupId, simplify) {
             try {
                 await db.collection('groups').doc(groupId).update({ simplify: simplify });
-                await logGroupActivity(groupId, 'group_settings', `${getActorDisplayName()} ${simplify ? 'enabled' : 'disabled'} simplified balances for the group.`, { simplify });
                 // Refresh the group details view immediately
                 viewGroupDetails(groupId);
             } catch (error) {
@@ -15971,7 +15807,6 @@
                         }
                     });
                     await batch.commit();
-                    await logGroupActivity(groupId, 'amount_settled', `${getActorDisplayName()} recorded a settlement of ${formatCurrency(amountVal)} (between members).`, { fromUid, toUid, amount: amountVal });
                     showToast('Success', 'Settlement recorded and balances updated!');
                     // Real-time DOM updates for total balance debt card
                     var totalBalanceDebtCard = document.getElementById(`debt-card-${groupId}-${fromUid}-${toUid}`);
@@ -16576,12 +16411,10 @@
                 expenseData.attachments = attachments;
                 if (editId) {
                     await db.collection('group_expenses').doc(editId).update(expenseData);
-                    await logGroupActivity(groupId, 'expense_edited', `${getActorDisplayName()} edited expense "${expenseData.description}" (${formatCurrency(amount)}).`, { expenseId: editId });
                     showToast('Success', 'Expense updated!');
                 } else {
                     expenseData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                    const newRef = await db.collection('group_expenses').add(expenseData);
-                    await logGroupActivity(groupId, 'expense_added', `${getActorDisplayName()} added expense "${expenseData.description}" (${formatCurrency(amount)}).`, { expenseId: newRef.id });
+                    await db.collection('group_expenses').add(expenseData);
                     showToast('Success', 'Expense added!');
                 }
                 // Only remove the functional modal, keep Group Details open
@@ -17440,10 +17273,7 @@
         async function confirmDeleteGroupExpense(expenseId, groupId, btn) {
             showLoading();
             try {
-                const expSnap = await db.collection('group_expenses').doc(expenseId).get();
-                const desc = expSnap.exists ? (expSnap.data().description || 'Expense') : 'Expense';
                 await db.collection('group_expenses').doc(expenseId).delete();
-                await logGroupActivity(groupId, 'expense_deleted', `${getActorDisplayName()} deleted expense "${desc}".`, { expenseId });
                 // Close only the confirmation modal, not the parent Group Details
                 const confirmModal = btn.closest('.modal-overlay');
                 if (confirmModal) confirmModal.remove();
@@ -17504,14 +17334,6 @@
                     batch.delete(doc.ref);
                 });
                 await batch.commit();
-
-                const actSnap = await db.collection('group_activities').where('groupId', '==', groupId).get();
-                for (let i = 0; i < actSnap.docs.length; i += 400) {
-                    const b = db.batch();
-                    actSnap.docs.slice(i, i + 400).forEach(d => b.delete(d.ref));
-                    await b.commit();
-                }
-
                 // Delete group
                 await db.collection('groups').doc(groupId).delete();
                 document.querySelector('.modal-overlay')?.remove();
