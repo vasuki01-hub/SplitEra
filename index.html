@@ -13295,6 +13295,15 @@
                     });
 
                     showToast('Success', 'Left group successfully');
+                    // Log activity for member leaving
+                    try {
+                        await logGroupActivity(groupId, 'member_left', {
+                            targetId: currentUser.uid,
+                            targetName: `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim()
+                        });
+                    } catch (e) {
+                        console.error('Failed to log member_left activity', e);
+                    }
                     forceRefreshCurrentPage();
                 } catch (error) {
                     showToast('Error', error.message, 'error');
@@ -13303,6 +13312,22 @@
                 }
             });
         }
+
+        // Switch between "Expenses" and "Activity" sections in the Group Details modal
+        window.switchGroupDetailsTab = function (tab, groupId) {
+            const expensesSection = document.getElementById(`group-expenses-section-${groupId}`);
+            const activitySection = document.getElementById(`group-activity-section-${groupId}`);
+            if (!expensesSection || !activitySection) return;
+
+            expensesSection.style.display = tab === 'expenses' ? '' : 'none';
+            activitySection.style.display = tab === 'activity' ? '' : 'none';
+
+            document.querySelectorAll(`.group-tab-${groupId}`).forEach(btn => {
+                const isActive = btn.getAttribute('data-tab') === tab;
+                btn.classList.toggle('active', isActive);
+                btn.style.borderBottom = isActive ? '2px solid var(--primary)' : '2px solid transparent';
+            });
+        };
 
 
         function openCreateGroupModal() {
@@ -14331,8 +14356,40 @@
         let currentGroupMembers = []; // Global to hold current view members
 
         /**
-         * Displays detailed information about a group, including members, expenses, debts, and balances.
-         * Fetches data from Firestore, processes expenses, calculates debts and breakdowns, and renders a modal.
+         * Logs a single activity event for a group.
+         * Used for Activity tab in Group Details.
+         * @param {string} groupId
+         * @param {string} type - e.g. 'member_added', 'expense_added'
+         * @param {Object} details - extra fields for description rendering
+         */
+        async function logGroupActivity(groupId, type, details = {}) {
+            try {
+                if (!currentUser || !db || !firebase) return;
+
+                const performedByName =
+                    `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() ||
+                    currentUser.displayName ||
+                    currentUser.email ||
+                    'Unknown user';
+
+                const activity = {
+                    groupId,
+                    type,
+                    performedBy: currentUser.uid,
+                    performedByName,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    ...details
+                };
+
+                await db.collection('group_activities').add(activity);
+            } catch (err) {
+                console.error('Failed to log group activity', type, err);
+            }
+        }
+
+        /**
+         * Displays detailed information about a group, including members, expenses, debts, balances,
+         * and the activity log.
          * @param {string} groupId - The ID of the group to view.
          */
         async function viewGroupDetails(groupId) {
@@ -14388,6 +14445,20 @@
                 const expensesSnapshot = await db.collection('group_expenses')
                     .where('groupId', '==', groupId)
                     .get();
+
+                // Fetch activity log entries for this group
+                let activities = [];
+                try {
+                    const activitiesSnapshot = await db.collection('group_activities')
+                        .where('groupId', '==', groupId)
+                        .orderBy('createdAt', 'desc')
+                        .limit(200)
+                        .get();
+                    activities = activitiesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                } catch (e) {
+                    console.error('Failed to load group activities', e);
+                    activities = [];
+                }
 
                 const fromDate = document.getElementById('groupFromDateFilter')?.value || '';
                 const toDate = document.getElementById('groupToDateFilter')?.value || '';
@@ -14686,76 +14757,96 @@
                         modalBody.innerHTML = `
                             <div class="row" style="margin: 0;">
                                 <div class="col-md-9" style="padding: 1.5rem;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                                        <h4 style="margin:0;">${t('expenses')}</h4>
-                                        <div style="display: flex; gap: 10px;">
-                                            <button class="btn btn-secondary btn-sm" onclick="exportGroupPDF('${groupId}')">
-                                                <i class="fas fa-file-pdf"></i> ${t('pdfReport')}
-                                            </button>
-                                            <button class="btn btn-success btn-sm" onclick="exportGroupExcel('${groupId}')">
-                                                <i class="fas fa-file-excel"></i> ${t('exportExcel')}
-                                            </button>
-                                            <button class="btn btn-primary btn-sm" onclick="openAddGroupExpenseModal('${groupId}', '${group.name}')">
-                                                <i class="fas fa-plus"></i> ${t('addExpense')}
-                                            </button>
-                                        </div>
+                                    <!-- Tabs -->
+                                    <div class="group-details-tabs" style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem;">
+                                        <button
+                                            class="btn btn-sm btn-light group-tab group-tab-${groupId} active"
+                                            data-tab="expenses"
+                                            onclick="switchGroupDetailsTab('expenses', '${groupId}')"
+                                            style="border-bottom: 2px solid var(--primary);">
+                                            ${t('expenses')}
+                                        </button>
+                                        <button
+                                            class="btn btn-sm btn-light group-tab group-tab-${groupId}"
+                                            data-tab="activity"
+                                            onclick="switchGroupDetailsTab('activity', '${groupId}')"
+                                            style="border-bottom: 2px solid transparent;">
+                                            ${t('activity') || 'Activity'}
+                                        </button>
                                     </div>
 
-                                    ${displayExpenses.length === 0 ? `
-                                        <div class="empty-state">
-                                            <div class="empty-icon"><i class="fas fa-receipt"></i></div>
-                                            <div class="empty-title">${t('noExpensesFound')}</div>
-                                            <div class="empty-message">${t('addPersonalPrompt')}</div>
-                                        </div>
-                                    ` : `
-                                        <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
-                                            <table class="table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>${t('date')}</th>
-                                                        <th>${t('description')}</th>
-                                                        <th>${t('paidBy')}</th>
-                                                        <th>${t('amount')}</th>
-                                                        <th>${t('yourShare') || 'Your Share'}</th>
-                                                        <th>${t('split')}</th>
-                                                        <th>${t('remarks') || 'Remarks'}</th>
-                                                        <th>${t('status')}</th>
-                                                        <th>${t('actions')}</th>
-                                                    </tr>
-                                                </thead>
-                                                ${activeExpenses.map(e => renderExpenseRow(e, false)).join('')}
-                                                ${settledExpenses.length > 0 ? `
-                                                    <tbody>
-                                                        <tr style="background: var(--bg-light); cursor: pointer;"
-                                                            onclick="this.closest('table').querySelectorAll('.settled-expense-row-${groupId}').forEach(el => el.classList.toggle('hidden'))">
-                                                            <td colspan="10" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
-                                                                <i class="fas fa-history"></i> Show ${settledExpenses.length} Settled Expense${settledExpenses.length > 1 ? 's' : ''}
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                    ${settledExpenses.map(e => renderExpenseRow(e, true)).join('')}
-                                                ` : ''}
-                                            </table>
+                                    <!-- Expenses section -->
+                                    <div id="group-expenses-section-${groupId}">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                            <h4 style="margin:0;">${t('expenses')}</h4>
+                                            <div style="display: flex; gap: 10px;">
+                                                <button class="btn btn-secondary btn-sm" onclick="exportGroupPDF('${groupId}')">
+                                                    <i class="fas fa-file-pdf"></i> ${t('pdfReport')}
+                                                </button>
+                                                <button class="btn btn-success btn-sm" onclick="exportGroupExcel('${groupId}')">
+                                                    <i class="fas fa-file-excel"></i> ${t('exportExcel')}
+                                                </button>
+                                                <button class="btn btn-primary btn-sm" onclick="openAddGroupExpenseModal('${groupId}', '${group.name}')">
+                                                    <i class="fas fa-plus"></i> ${t('addExpense')}
+                                                </button>
+                                            </div>
                                         </div>
 
-                                        <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border);">
-                                            <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('expenseSummary')}</h5>
-                                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                                <span class="text-secondary">${t('totalExpenses')}:</span>
-                                                <strong style="color: var(--danger); font-size: 1.1rem;">${formatCurrency(displayExpenses.reduce((sum, exp) => {
+                                        ${displayExpenses.length === 0 ? `
+                                            <div class="empty-state">
+                                                <div class="empty-icon"><i class="fas fa-receipt"></i></div>
+                                                <div class="empty-title">${t('noExpensesFound')}</div>
+                                                <div class="empty-message">${t('addPersonalPrompt')}</div>
+                                            </div>
+                                        ` : `
+                                            <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+                                                <table class="table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>${t('date')}</th>
+                                                            <th>${t('description')}</th>
+                                                            <th>${t('paidBy')}</th>
+                                                            <th>${t('amount')}</th>
+                                                            <th>${t('yourShare') || 'Your Share'}</th>
+                                                            <th>${t('split')}</th>
+                                                            <th>${t('remarks') || 'Remarks'}</th>
+                                                            <th>${t('status')}</th>
+                                                            <th>${t('actions')}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    ${activeExpenses.map(e => renderExpenseRow(e, false)).join('')}
+                                                    ${settledExpenses.length > 0 ? `
+                                                        <tbody>
+                                                            <tr style="background: var(--bg-light); cursor: pointer;"
+                                                                onclick="this.closest('table').querySelectorAll('.settled-expense-row-${groupId}').forEach(el => el.classList.toggle('hidden'))">
+                                                                <td colspan="10" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
+                                                                    <i class="fas fa-history"></i> Show ${settledExpenses.length} Settled Expense${settledExpenses.length > 1 ? 's' : ''}
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                        ${settledExpenses.map(e => renderExpenseRow(e, true)).join('')}
+                                                    ` : ''}
+                                                </table>
+                                            </div>
+
+                                            <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border);">
+                                                <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('expenseSummary')}</h5>
+                                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                                    <span class="text-secondary">${t('totalExpenses')}:</span>
+                                                    <strong style="color: var(--danger); font-size: 1.1rem;">${formatCurrency(displayExpenses.reduce((sum, exp) => {
                             if (exp.category === 'Settlement' || exp.isSettlement) return sum;
                             return sum + (parseFloat(exp.amount) || 0);
                         }, 0))}</strong>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                                <span class="text-secondary">${t('receivable')}:</span>
-                                                <strong style="color: var(--success);">${formatCurrency(Math.max(0, displayExpenses.reduce((sum, e) => {
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                                    <span class="text-secondary">${t('receivable')}:</span>
+                                                    <strong style="color: var(--success);">${formatCurrency(Math.max(0, displayExpenses.reduce((sum, e) => {
                             const payerId = e.paidBy || e.userId;
                             if (payerId !== currentUser.uid) return sum;
                             const breakdown = breakdowns[e.id];
                             const settlements = e.settlements || [];
                             const totalReceived = settlements.reduce((s, settlement) => {
-                                return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
+                            return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
                             }, 0);
                             const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
                             return sum + (parseFloat(e.amount) - myShare - totalReceived);
@@ -14765,19 +14856,19 @@
                             const breakdown = breakdowns[e.id];
                             const settlements = e.settlements || [];
                             const totalPaid = settlements.reduce((s, settlement) => {
-                                return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
+                            return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
                             }, 0);
                             let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
                             if (myShare === 0) {
-                                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                                myShare = breakdown?.contributions?.[guestKey] || 0;
+                            const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                            myShare = breakdown?.contributions?.[guestKey] || 0;
                             }
                             return sum + Math.max(0, myShare - totalPaid);
                         }, 0)))}</strong>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                                <span class="text-secondary">${t('totalYourShare') || 'Total Your Share'}:</span>
-                                                <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                                    <span class="text-secondary">${t('totalYourShare') || 'Total Your Share'}:</span>
+                                                    <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
                             const breakdown = breakdowns[e.id];
                             let s = breakdown?.contributions?.[currentUser.uid] || 0;
                             if (s === 0) {
@@ -14786,8 +14877,8 @@
                             }
                             return sum + s;
                         }, 0))}</strong>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
     <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
     <strong style="color: var(--danger);">${(() => {
                                 const totalYourShare = displayExpenses.reduce((sum, e) => {
@@ -14835,6 +14926,81 @@
                                             </div>
                                         </div>
                                     `}
+
+                                    <!-- Activity section -->
+                                    <div id="group-activity-section-${groupId}" style="display:none; margin-top: 0.5rem;">
+                                        <h4 style="margin-bottom: 1rem;">${t('activityLog') || (t('activity') ? t('activity') + ' Log' : 'Activity Log')}</h4>
+
+                                        ${activities.length === 0 ? `
+                                            <div class="empty-state">
+                                                <div class="empty-icon"><i class="fas fa-stream"></i></div>
+                                                <div class="empty-title">${t('noActivityYet') || 'No activity recorded yet'}</div>
+                                            </div>
+                                        ` : `
+                                            <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+                                                <table class="table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>${t('date')}</th>
+                                                            <th>${t('time') || 'Time'}</th>
+                                                            <th>${t('activity') || 'Activity'}</th>
+                                                            <th>${t('performedBy') || 'Performed By'}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        ${activities.map(a => {
+                            const date = a.createdAt?.toDate ? a.createdAt.toDate() : new Date();
+                            const dt = date.toLocaleDateString();
+                            const tm = date.toLocaleTimeString();
+                            const actor = a.performedByName || 'Unknown';
+                            let description = '';
+
+                            switch (a.type) {
+                                case 'member_added':
+                                    description = `${actor} added ${a.targetName || a.targetId || 'a member'} to the group`;
+                                    break;
+                                case 'member_removed':
+                                    description = `${actor} removed ${a.targetName || a.targetId || 'a member'} from the group`;
+                                    break;
+                                case 'member_joined':
+                                    description = `${actor} joined the group`;
+                                    break;
+                                case 'member_left':
+                                    description = `${actor} left the group`;
+                                    break;
+                                case 'expense_added':
+                                    description = `${actor} added an expense: ${a.expenseDescription || ''}`;
+                                    break;
+                                case 'expense_edited':
+                                    description = `${actor} edited an expense: ${a.expenseDescription || ''}`;
+                                    break;
+                                case 'expense_deleted':
+                                    description = `${actor} deleted an expense: ${a.expenseDescription || ''}`;
+                                    break;
+                                case 'settlement_added':
+                                    description = `${actor} settled ${formatCurrency(a.amount || 0)} between ${a.fromName || a.fromUser || ''} and ${a.toName || a.toUser || ''}`;
+                                    break;
+                                case 'settlement_deleted':
+                                    description = `${actor} deleted a settlement of ${formatCurrency(a.amount || 0)} between ${a.fromName || a.fromUser || ''} and ${a.toName || a.toUser || ''}`;
+                                    break;
+                                default:
+                                    description = a.description || (t('otherUpdateActivity') || 'Group updated');
+                            }
+
+                            return `
+                                                            <tr>
+                                                                <td>${dt}</td>
+                                                                <td>${tm}</td>
+                                                                <td>${escapeHTML(description)}</td>
+                                                                <td>${escapeHTML(actor)}</td>
+                                                            </tr>
+                                                        `;
+                        }).join('')}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        `}
+                                    </div>
                                 </div>
 
                                 <div class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem;">
@@ -15286,6 +15452,17 @@
                         settlements: updatedSettlements,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
+
+                    // Log activity: settlement deleted
+                    try {
+                        await logGroupActivity(groupId, 'settlement_deleted', {
+                            expenseId,
+                            // we don't know exact settlement details after filter, so just flag deletion
+                        });
+                    } catch (e) {
+                        console.error('Failed to log settlement_deleted activity', e);
+                    }
+
                     showToast('Success', 'Settlement deleted successfully!');
 
                     // Defer data reload to avoid immediate flicker
@@ -16412,10 +16589,32 @@
                 if (editId) {
                     await db.collection('group_expenses').doc(editId).update(expenseData);
                     showToast('Success', 'Expense updated!');
+
+                    // Log activity: expense edited
+                    try {
+                        await logGroupActivity(groupId, 'expense_edited', {
+                            expenseId: editId,
+                            amount: expenseData.amount,
+                            expenseDescription: expenseData.description || ''
+                        });
+                    } catch (e) {
+                        console.error('Failed to log expense_edited activity', e);
+                    }
                 } else {
                     expenseData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                    await db.collection('group_expenses').add(expenseData);
+                    const addedRef = await db.collection('group_expenses').add(expenseData);
                     showToast('Success', 'Expense added!');
+
+                    // Log activity: expense added
+                    try {
+                        await logGroupActivity(groupId, 'expense_added', {
+                            expenseId: addedRef.id,
+                            amount: expenseData.amount,
+                            expenseDescription: expenseData.description || ''
+                        });
+                    } catch (e) {
+                        console.error('Failed to log expense_added activity', e);
+                    }
                 }
                 // Only remove the functional modal, keep Group Details open
                 const modalToAdd = document.getElementById('groupExpenseModal') || btn.closest('.modal-overlay');
@@ -17277,6 +17476,16 @@
                 // Close only the confirmation modal, not the parent Group Details
                 const confirmModal = btn.closest('.modal-overlay');
                 if (confirmModal) confirmModal.remove();
+
+                // Log activity: expense deleted
+                try {
+                    await logGroupActivity(groupId, 'expense_deleted', {
+                        expenseId
+                    });
+                } catch (e) {
+                    console.error('Failed to log expense_deleted activity', e);
+                }
+
                 await viewGroupDetails(groupId);
                 showToast('Success', 'Group expense deleted successfully!');
             } catch (error) {
