@@ -6728,9 +6728,14 @@
 
                 await db.collection('group_activities').add(activityData);
             } catch (error) {
-                console.error('Error logging activity:', error);
+                if (error.code === 'permission-denied') {
+                    console.error('Permission Denied logging activity. Please ensure you have added the group_activities collection to your Firestore Security Rules.', error);
+                } else {
+                    console.error('Error logging activity:', error);
+                }
             }
         }
+
 
         async function switchGroupTab(btn, tab, groupId) {
             const tabs = btn.parentElement.querySelectorAll('.tab-btn');
@@ -6779,6 +6784,42 @@
                     .orderBy('timestamp', 'desc')
                     .limit(50)
                     .get();
+            } catch (error) {
+                console.error('Failed to load group activity:', error);
+                if (error.code === 'permission-denied') {
+                    container.innerHTML = `
+                        <div style="padding: 2rem; text-align: center; background: var(--danger-light); border-radius: 8px; border: 1px solid var(--danger);">
+                            <i class="fas fa-lock" style="font-size: 2rem; color: var(--danger); margin-bottom: 1rem;"></i>
+                            <h4 style="color: var(--danger);">Permissions Required</h4>
+                            <p style="font-size: 0.9rem; margin-bottom: 1rem;">Firestore security rules are preventing access to the activity feed.</p>
+                            <div style="text-align: left; background: #fff; padding: 1rem; border-radius: 4px; font-family: monospace; font-size: 0.75rem; overflow-x: auto;">
+                                match /group_activities/{id} {<br>
+                                &nbsp;&nbsp;allow read, create: if request.auth != null;<br>
+                                }
+                            </div>
+                            <p style="font-size: 0.8rem; margin-top: 1rem; color: var(--text-gray);">Add these rules in your Firebase Console to enable this feature.</p>
+                        </div>`;
+                } else if (error.code === 'failed-precondition') {
+                    container.innerHTML = `
+                        <div style="padding: 2rem; text-align: center; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border);">
+                            <i class="fas fa-search-plus" style="font-size: 2rem; color: var(--primary); margin-bottom: 1rem;"></i>
+                            <h4>Indexing in Progress</h4>
+                            <p style="font-size: 0.9rem;">Firestore needs a composite index for this query. If you're the developer, check the browser console for a link to create it.</p>
+                            <p style="font-size: 0.8rem; margin-top: 1rem; color: var(--text-gray);">Collection: group_activities<br>Fields: groupId (asc), timestamp (desc)</p>
+                        </div>`;
+                } else {
+                    container.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--danger);"><i class="fas fa-exclamation-triangle"></i> Error loading activities: ${error.message}</div>`;
+                }
+                return;
+            }
+
+            try {
+                const snapshot = await db.collection('group_activities')
+                    .where('groupId', '==', groupId)
+                    .orderBy('timestamp', 'desc')
+                    .limit(50)
+                    .get();
+
 
                 if (snapshot.empty) {
                     container.innerHTML = `
