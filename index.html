@@ -2304,6 +2304,7 @@
                 buildWithTransparency: 'Build with transparency.',
                 hasToGive: 'has to give {amount} to <strong>{name}</strong>',
                 hasToReceive: 'has to receive {amount} from <strong>{name}</strong>',
+                recentActivity: 'Recent Activity',
             },
 
             gu: {
@@ -2670,6 +2671,7 @@
                 saveProfile: 'પ્રોફાઇલ સાચવો',
                 appSettings: 'એપ્લિકેશન સેટિંગ્સ',
                 country: 'દેશ',
+                recentActivity: 'તાજી પ્રવૃત્તિ',
                 darkMode: 'ડાર્ક મોડ',
                 exportAllDataHelp: 'તમારા બધા ડેટાને PDF અથવા JSON ફોર્મેટમાં નિકાસ કરો',
                 cancelEdit: 'સંપાદન રદ કરો',
@@ -2772,6 +2774,7 @@
                 category: 'श्रेणी',
                 source: 'स्रोत',
                 mode: 'मोड',
+                recentActivity: 'हाल की गतिविधि',
                 remarks: 'टिप्पणियाँ',
                 attachments: 'संलग्नक',
                 save: 'सहेजें',
@@ -3159,6 +3162,7 @@
                 exportPDF: 'PDF निर्यात करा',
                 search: 'शोधा...',
                 year: 'वर्ष',
+                recentActivity: 'अलीकडील क्रियाकलाप',
                 month: 'महिना',
                 allTime: 'सर्व काळ',
                 netBalance: 'निव्वळ शिल्लक',
@@ -3716,6 +3720,7 @@
                 success: 'வெற்றி',
                 error: 'பிழை',
                 loading: 'ஏற்றுகிறது...',
+                recentActivity: 'சமீபத்திய செயல்பாடு',
                 noData: 'தரவு எதுவும் இல்லை',
                 tryAgain: 'மீண்டும் முயற்சி செய்',
                 networkError: 'பிணைய பிழை',
@@ -4003,6 +4008,7 @@
                 delete: 'తొలగించు',
                 edit: 'సవరించు',
                 confirm: 'ధృవీకరించు',
+                recentActivity: 'ఇటీవలి చర్య',
                 welcome: 'SplitEraకి స్వాగతం',
                 smartExpenseManager: 'స్మార్ట్ వ్యక్తిగత & గ్రూప్ ఖర్చు నిర్వాహకుడు',
                 loginSubtitle: 'మీ ఖర్చులను నిర్వహించడానికి లాగిన్ చేయండి',
@@ -4469,6 +4475,7 @@
                 noCancel: 'न, निराकुरु',
                 groupName: 'समूहनाम',
                 groupDescription: 'समूहविवरणम्',
+                recentActivity: 'साम्प्रतिक क्रियाकलापः',
                 inviteMembers: 'सदस्यान् आह्वयतु',
                 members: 'सदस्याः',
                 pendingRequests: 'प्रतीक्षमाणाः प्रार्थनाः',
@@ -5014,6 +5021,7 @@
                 dashboardReport: 'ਡੈਸ਼ਬੋਰਡ ਰਿਪੋਰਟ',
                 summary: 'ਸੰਖੇਪ',
                 totalPersonalExpenses: 'ਕੁੱਲ ਨਿੱਜੀ ਖਰਚੇ',
+                recentActivity: 'ਤਾਜ਼ਾ ਸਰਗਰਮੀ',
                 totalGroupAmount: 'ਕੁੱਲ ਗਰੁੱਪ ਖਰਚੇ',
                 yourTotalGroupExpenses: 'ਤੁਹਾਡੇ ਕੁੱਲ ਗਰੁੱਪ ਖਰਚੇ',
                 totalExpense: 'ਕੁੱਲ ਖਰਚਾ',
@@ -5331,6 +5339,7 @@
                 bankTransfer: 'ব্যাঙ্ক ট্রান্সফার',
                 upi: 'UPI',
                 wallet: 'ওয়ালেট',
+                recentActivity: 'সাম্প্রতিক কার্যকলাপ',
                 january: 'জানুয়ারি',
                 february: 'ফেব্রুয়ারি',
                 march: 'মার্চ',
@@ -5694,6 +5703,7 @@
                 groupName: 'ಗುಂಪಿನ ಹೆಸರು',
                 groupDescription: 'ಗುಂಪು ವಿವರಣೆ',
                 inviteMembers: 'ಸದಸ್ಯರನ್ನು ಆಹ್ವಾನಿಸಿ',
+                recentActivity: 'ಇತ್ತೀಚಿನ ಚಟುವಟಿಕೆ',
                 members: 'ಸದಸ್ಯರು',
                 pendingRequests: 'ಬಾಕಿ ಇರುವ ವಿನಂತಿಗಳು',
                 settleUp: 'ಸೆಟಲ್ ಅಪ್',
@@ -6390,6 +6400,7 @@
                 buildWithTransparency: 'സുതാര്യതയോടെ നിർമ്മിച്ചത്.',
                 hasToGive: '<strong>{name}</strong>-ന് {amount} നൽകണം',
                 hasToReceive: '<strong>{name}</strong>-ൽ നിന്ന് {amount} ലഭിക്കണം',
+                recentActivity: 'സമീപകാല പ്രവർത്തനം',
             },
         };
 
@@ -17364,6 +17375,7 @@
                         monthYourShareTotal += myShare;
                         return [
                             safeDate(ex.date).toLocaleDateString(),
+                            ex.expenseName || ex.description,
                             ex.description,
                             memberMap[ex.paidBy || ex.userId]?.firstName || t('unknown'),
                             t(ex.splitType?.toLowerCase() || 'equal'),
@@ -17373,20 +17385,20 @@
                     });
                     // Add Total Row
                     rows.push([
-                        { content: t('monthTotal'), colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } },
+                        { content: t('monthTotal'), colSpan: 5, styles: { fontStyle: 'bold', halign: 'right' } },
                         { content: formatCurrency(monthTotal, true), styles: { fontStyle: 'bold', textColor: [41, 128, 185] } },
                         { content: formatCurrency(monthYourShareTotal, true), styles: { fontStyle: 'bold', textColor: [41, 128, 185] } }
                     ]);
                     doc.autoTable({
                         startY: finalY,
-                        head: [[t('date'), t('description'), t('paidBy'), t('split'), t('amount'), t('totalYourShare')]],
+                        head: [[t('date'), t('expenseName') || 'Name', t('description'), t('paidBy'), t('split'), t('amount'), t('totalYourShare')]],
                         body: rows,
                         theme: 'grid',
                         headStyles: { fillColor: [100, 100, 100] },
                         styles: { lineWidth: 0.1, lineColor: [200, 200, 200] },
                         columnStyles: {
-                            4: { fontStyle: 'bold', halign: 'right' },
-                            5: { fontStyle: 'bold', halign: 'right' }
+                            5: { fontStyle: 'bold', halign: 'right' },
+                            6: { fontStyle: 'bold', halign: 'right' }
                         }
                     });
                     finalY = doc.lastAutoTable.finalY + 15;
@@ -17452,6 +17464,7 @@
                     return {
                         _date: safeDate(ex.date),
                         [t('date')]: safeDate(ex.date).toLocaleDateString(),
+                        [t('expenseName') || 'Name']: ex.expenseName || ex.description,
                         [t('description')]: ex.description,
                         [t('category')]: ex.category || '',
                         [t('paidBy')]: `${payer.firstName} ${payer.lastName || ''}`,
