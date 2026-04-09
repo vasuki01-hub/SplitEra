@@ -6771,7 +6771,24 @@
             btn.style.fontWeight = '600';
 
             window.currentGroupTab = tab;
-            viewGroupDetails(groupId);
+
+            const mainCol = document.getElementById('groupMainColumn');
+            const sidebar = document.getElementById('groupSidebar');
+            const content = document.getElementById('groupTabContent');
+
+            if (tab === 'activity') {
+                if (mainCol) mainCol.className = 'col-md-12';
+                if (sidebar) sidebar.style.display = 'none';
+                // Only render if container is empty or we change groups
+                if (content && (!content.innerHTML || content.querySelector('.empty-state') || !window.lastActivityGroupId || window.lastActivityGroupId !== groupId)) {
+                    renderRecentActivity(groupId, content);
+                }
+            } else {
+                if (mainCol) mainCol.className = 'col-md-9';
+                if (sidebar) sidebar.style.display = 'block';
+                // Pass true for isSilent to avoid full modal reload
+                viewGroupDetails(groupId, true);
+            }
         }
 
         function getRelativeTimeString(date) {
@@ -6807,7 +6824,12 @@
                 window.activityUnsubscribe();
             }
 
-            container.innerHTML = `<div style="text-align:center;padding:2rem;"><div class="loading-spinner"></div><p>${t('loading')}...</p></div>`;
+            window.lastActivityGroupId = groupId;
+
+            // Only show spinner if container is empty
+            if (!container.innerHTML || container.innerHTML.includes('loading-spinner')) {
+                container.innerHTML = `<div style="text-align:center;padding:2rem;"><div class="loading-spinner"></div><p>${t('loading')}...</p></div>`;
+            }
 
             window.activityUnsubscribe = db.collection('group_activities')
                 .where('groupId', '==', groupId)
@@ -14589,30 +14611,82 @@
         }
 
         let currentGroupMembers = []; // Global to hold current view members
+        window.groupDataCache = new Map();
+        window.groupMembersCache = new Map();
+
+        /**
+         * Renders the basic shell of the group modal to provide instant feedback.
+         */
+        function renderGroupModalShell(group) {
+            let existingModal = document.querySelector('.modal-overlay.show .modal-large');
+            if (existingModal) return; // Already exists
+
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay show';
+            modal.innerHTML = `
+                <div class="modal modal-large">
+                    <div class="modal-header">
+                        <div>
+                            <h3 class="modal-title">${escapeHTML(group.name)}</h3>
+                            <p class="text-secondary" style="margin: 0; font-size: 0.85rem;">
+                                Loading members...
+                            </p>
+                        </div>
+                        <button class="modal-close" onclick="closeGroupModal(this)">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body" style="padding: 0;">
+                        <div style="text-align:center;padding:5rem;">
+                            <div class="loading-spinner"></div>
+                            <p>${t('loading')}...</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
 
         /**
          * Displays detailed information about a group, including members, expenses, debts, and balances.
          * Fetches data from Firestore, processes expenses, calculates debts and breakdowns, and renders a modal.
          * @param {string} groupId - The ID of the group to view.
+         * @param {boolean} isSilent - If true, updates without showing main loading overlay.
          */
-        async function viewGroupDetails(groupId) {
+        async function viewGroupDetails(groupId, isSilent = false) {
             // Check if modal is already open
             let existingModal = document.querySelector('.modal-overlay.show .modal-large');
-            const isUpdating = !!existingModal;
+            const isUpdating = !!existingModal || isSilent;
 
+            // If not silent and no existing modal, or if we want a fresh modal for a different group
             if (!isUpdating) {
                 showLoading();
             }
 
-            try {
-                const groupDoc = await db.collection('groups').doc(groupId).get();
-                const group = { id: groupDoc.id, ...groupDoc.data() };
+            // Immediately show cached shell if available to feel "instant"
+            const cachedGroup = window.groupDataCache.get(groupId);
+            if (!isUpdating && cachedGroup) {
+                renderGroupModalShell(cachedGroup);
+            }
 
-                // Fetch members
-                const memberDocs = await Promise.all(
-                    group.members.map(uid => db.collection('users').doc(uid).get())
-                );
-                const members = memberDocs.map(d => ({ id: d.id, ...d.data() }));
+            try {
+                // Fetch group and expenses in parallel
+                const groupPromise = db.collection('groups').doc(groupId).get();
+                const expensesPromise = db.collection('group_expenses')
+                    .where('groupId', '==', groupId)
+                    .get();
+
+                const [groupSnap, expensesSnap] = await Promise.all([groupPromise, expensesPromise]);
+                const group = { id: groupSnap.id, ...groupSnap.data() };
+                window.groupDataCache.set(groupId, group);
+
+                // If no shell shown yet, show it now
+                if (!isUpdating && !cachedGroup) {
+                    renderGroupModalShell(group);
+                }
+
+                // Fetch members using batched approach for performance
+                const members = await fetchUsersBatched(group.members);
 
                 // Add guest members
                 const guests = (group.guestMembers || []).map(guestEntry => {
@@ -14648,9 +14722,7 @@
                 if (!window.currentGroupTab) window.currentGroupTab = 'expenses';
 
 
-                const expensesSnapshot = await db.collection('group_expenses')
-                    .where('groupId', '==', groupId)
-                    .get();
+                const expensesSnapshot = expensesSnap;
 
                 const fromDate = document.getElementById('groupFromDateFilter')?.value || '';
                 const toDate = document.getElementById('groupToDateFilter')?.value || '';
@@ -14941,31 +15013,48 @@
 
                 if (isUpdating) {
                     // Update only the inner content to prevent flicker
-                    const modalTitle = existingModal.querySelector('.modal-title');
-                    const modalSubtitle = existingModal.querySelector('.text-secondary');
-                    const modalBody = existingModal.querySelector('.modal-body');
+                    let modalToUpdate = existingModal || document.querySelector('.modal-overlay.show .modal-large');
+                    const modalTitle = modalToUpdate?.querySelector('.modal-title');
+                    const modalSubtitle = modalToUpdate?.querySelector('.text-secondary');
+                    const modalBody = modalToUpdate?.querySelector('.modal-body');
 
                     if (modalTitle) modalTitle.innerHTML = escapeHTML(group.name);
                     if (modalSubtitle) modalSubtitle.innerHTML = `${(group.members?.length || 0) + (group.guestMembers?.length || 0)} ${t('membersCount')} • ${t('groupCode')}: ${group.code}`;
 
                     if (modalBody) {
-                        modalBody.innerHTML = `
-                            <div class="row" style="margin: 0;">
-                                <div class="col-md-${window.currentGroupTab === 'activity' ? '12' : '9'}" style="padding: 0; display: flex; flex-direction: column;">
-                                    <!-- Tabs -->
-                                    <div style="display: flex; gap: 2rem; padding: 0 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg-card);">
-                                        <button class="tab-btn" onclick="switchGroupTab(this, 'expenses', '${groupId}')" 
-                                                style="padding: 1rem 0; border: none; background: none; border-bottom: 2px solid ${window.currentGroupTab === 'expenses' ? 'var(--primary)' : 'transparent'}; color: ${window.currentGroupTab === 'expenses' ? 'var(--primary)' : 'var(--text-gray)'}; font-weight: ${window.currentGroupTab === 'expenses' ? '600' : '500'}; cursor: pointer;">
-                                            <i class="fas fa-receipt" style="margin-right: 8px;"></i>${t('expenses')}
-                                        </button>
-                                        <button class="tab-btn" onclick="switchGroupTab(this, 'activity', '${groupId}')" 
-                                                style="padding: 1rem 0; border: none; background: none; border-bottom: 2px solid ${window.currentGroupTab === 'activity' ? 'var(--primary)' : 'transparent'}; color: ${window.currentGroupTab === 'activity' ? 'var(--primary)' : 'var(--text-gray)'}; font-weight: ${window.currentGroupTab === 'activity' ? '600' : '500'}; cursor: pointer;">
-                                            <i class="fas fa-history" style="margin-right: 8px;"></i>${t('recentActivity') || 'Recent Activity'}
-                                        </button>
-                                    </div>
+                        // Check if we already have the structure
+                        let tabContent = modalBody.querySelector('#groupTabContent');
+                        if (tabContent && window.currentGroupTab === 'activity') {
+                            // If activity tab is active, we don't want to wipe the whole body
+                            // Just update the sidebar and tabs if needed
+                            const sidebar = modalBody.querySelector('#groupSidebar');
+                            if (sidebar) {
+                                sidebar.style.display = 'none';
+                                sidebar.innerHTML = ''; // Will be updated by the sidebar rendering logic anyway
+                            }
+                            const mainCol = modalBody.querySelector('#groupMainColumn');
+                            if (mainCol) mainCol.className = 'col-md-12';
 
-                                    <div id="groupTabContent" style="padding: 1.5rem; flex: 1; overflow-y: auto;">
-                                        ${window.currentGroupTab === 'activity' ? '' : `
+                            // We still need to update the tabs themselves to reflect correct state
+                            // (Though usually they are already correct)
+                        } else {
+                            modalBody.innerHTML = `
+                                <div class="row" style="margin: 0;">
+                                    <div id="groupMainColumn" class="col-md-${window.currentGroupTab === 'activity' ? '12' : '9'}" style="padding: 0; display: flex; flex-direction: column;">
+                                        <!-- Tabs -->
+                                        <div style="display: flex; gap: 2rem; padding: 0 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg-card);">
+                                            <button class="tab-btn" onclick="switchGroupTab(this, 'expenses', '${groupId}')" 
+                                                    style="padding: 1rem 0; border: none; background: none; border-bottom: 2px solid ${window.currentGroupTab === 'expenses' ? 'var(--primary)' : 'transparent'}; color: ${window.currentGroupTab === 'expenses' ? 'var(--primary)' : 'var(--text-gray)'}; font-weight: ${window.currentGroupTab === 'expenses' ? '600' : '500'}; cursor: pointer;">
+                                                <i class="fas fa-receipt" style="margin-right: 8px;"></i>${t('expenses')}
+                                            </button>
+                                            <button class="tab-btn" onclick="switchGroupTab(this, 'activity', '${groupId}')" 
+                                                    style="padding: 1rem 0; border: none; background: none; border-bottom: 2px solid ${window.currentGroupTab === 'activity' ? 'var(--primary)' : 'transparent'}; color: ${window.currentGroupTab === 'activity' ? 'var(--primary)' : 'var(--text-gray)'}; font-weight: ${window.currentGroupTab === 'activity' ? '600' : '500'}; cursor: pointer;">
+                                                <i class="fas fa-history" style="margin-right: 8px;"></i>${t('recentActivity') || 'Recent Activity'}
+                                            </button>
+                                        </div>
+
+                                        <div id="groupTabContent" style="padding: 1.5rem; flex: 1; overflow-y: auto;">
+                                            ${window.currentGroupTab === 'activity' ? (tabContent ? tabContent.innerHTML : '') : `
                                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                                 <h4 style="margin:0;">${t('expenses')}</h4>
 
@@ -15025,91 +15114,91 @@
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('totalExpenses')}:</span>
                                                 <strong style="color: var(--danger); font-size: 1.1rem;">${formatCurrency(displayExpenses.reduce((sum, exp) => {
-                            if (exp.category === 'Settlement' || exp.isSettlement) return sum;
-                            return sum + (parseFloat(exp.amount) || 0);
-                        }, 0))}</strong>
+                                if (exp.category === 'Settlement' || exp.isSettlement) return sum;
+                                return sum + (parseFloat(exp.amount) || 0);
+                            }, 0))}</strong>
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('receivable')}:</span>
                                                 <strong style="color: var(--success);">${formatCurrency(Math.max(0, displayExpenses.reduce((sum, e) => {
-                            const payerId = e.paidBy || e.userId;
-                            if (payerId !== currentUser.uid) return sum;
-                            const breakdown = breakdowns[e.id];
-                            const settlements = e.settlements || [];
-                            const totalReceived = settlements.reduce((s, settlement) => {
-                                return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
-                            }, 0);
-                            const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                            return sum + (parseFloat(e.amount) - myShare - totalReceived);
-                        }, 0) - displayExpenses.reduce((sum, e) => {
-                            const payerId = e.paidBy || e.userId;
-                            if (payerId === currentUser.uid) return sum;
-                            const breakdown = breakdowns[e.id];
-                            const settlements = e.settlements || [];
-                            const totalPaid = settlements.reduce((s, settlement) => {
-                                return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
-                            }, 0);
-                            let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                            if (myShare === 0) {
-                                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                                myShare = breakdown?.contributions?.[guestKey] || 0;
-                            }
-                            return sum + Math.max(0, myShare - totalPaid);
-                        }, 0)))}</strong>
+                                const payerId = e.paidBy || e.userId;
+                                if (payerId !== currentUser.uid) return sum;
+                                const breakdown = breakdowns[e.id];
+                                const settlements = e.settlements || [];
+                                const totalReceived = settlements.reduce((s, settlement) => {
+                                    return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
+                                }, 0);
+                                const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                                return sum + (parseFloat(e.amount) - myShare - totalReceived);
+                            }, 0) - displayExpenses.reduce((sum, e) => {
+                                const payerId = e.paidBy || e.userId;
+                                if (payerId === currentUser.uid) return sum;
+                                const breakdown = breakdowns[e.id];
+                                const settlements = e.settlements || [];
+                                const totalPaid = settlements.reduce((s, settlement) => {
+                                    return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
+                                }, 0);
+                                let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                                if (myShare === 0) {
+                                    const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                                    myShare = breakdown?.contributions?.[guestKey] || 0;
+                                }
+                                return sum + Math.max(0, myShare - totalPaid);
+                            }, 0)))}</strong>
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('totalYourShare') || 'Total Your Share'}:</span>
                                                 <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
-                            const breakdown = breakdowns[e.id];
-                            let s = breakdown?.contributions?.[currentUser.uid] || 0;
-                            if (s === 0) {
-                                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                                s = breakdown?.contributions?.[guestKey] || 0;
-                            }
-                            return sum + s;
-                        }, 0))}</strong>
+                                const breakdown = breakdowns[e.id];
+                                let s = breakdown?.contributions?.[currentUser.uid] || 0;
+                                if (s === 0) {
+                                    const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                                    s = breakdown?.contributions?.[guestKey] || 0;
+                                }
+                                return sum + s;
+                            }, 0))}</strong>
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
     <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
     <strong style="color: var(--danger);">${(() => {
-                                    const totalYourShare = displayExpenses.reduce((sum, e) => {
-                                        const breakdown = breakdowns[e.id];
-                                        let s = breakdown?.contributions?.[currentUser.uid] || 0;
-                                        if (s === 0) {
-                                            const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                                            s = breakdown?.contributions?.[guestKey] || 0;
-                                        }
-                                        return sum + s;
-                                    }, 0);
+                                        const totalYourShare = displayExpenses.reduce((sum, e) => {
+                                            const breakdown = breakdowns[e.id];
+                                            let s = breakdown?.contributions?.[currentUser.uid] || 0;
+                                            if (s === 0) {
+                                                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                                                s = breakdown?.contributions?.[guestKey] || 0;
+                                            }
+                                            return sum + s;
+                                        }, 0);
 
-                                    const netOwed = displayExpenses.reduce((sum, e) => {
-                                        const payerId = e.paidBy || e.userId;
-                                        const breakdown = breakdowns[e.id];
-                                        const settlements = e.settlements || [];
+                                        const netOwed = displayExpenses.reduce((sum, e) => {
+                                            const payerId = e.paidBy || e.userId;
+                                            const breakdown = breakdowns[e.id];
+                                            const settlements = e.settlements || [];
 
-                                        let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                                        if (myShare === 0) {
-                                            const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                                            myShare = breakdown?.contributions?.[guestKey] || 0;
-                                        }
+                                            let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
+                                            if (myShare === 0) {
+                                                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                                                myShare = breakdown?.contributions?.[guestKey] || 0;
+                                            }
 
-                                        if (payerId === currentUser.uid) {
-                                            const totalReceived = settlements.reduce((s, settlement) => {
-                                                return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) || 0 : 0);
-                                            }, 0);
-                                            const receivableThisExpense = parseFloat(e.amount) - myShare - totalReceived;
-                                            return sum - Math.max(0, receivableThisExpense);
-                                        } else {
-                                            const totalPaidByMe = settlements.reduce((s, settlement) => {
-                                                return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) || 0 : 0);
-                                            }, 0);
-                                            const stillOweThisExpense = myShare - totalPaidByMe;
-                                            return sum + Math.max(0, stillOweThisExpense);
-                                        }
-                                    }, 0);
+                                            if (payerId === currentUser.uid) {
+                                                const totalReceived = settlements.reduce((s, settlement) => {
+                                                    return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) || 0 : 0);
+                                                }, 0);
+                                                const receivableThisExpense = parseFloat(e.amount) - myShare - totalReceived;
+                                                return sum - Math.max(0, receivableThisExpense);
+                                            } else {
+                                                const totalPaidByMe = settlements.reduce((s, settlement) => {
+                                                    return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) || 0 : 0);
+                                                }, 0);
+                                                const stillOweThisExpense = myShare - totalPaidByMe;
+                                                return sum + Math.max(0, stillOweThisExpense);
+                                            }
+                                        }, 0);
 
-                                    return formatCurrency(Math.max(0, netOwed));
-                                })()}</strong>
+                                        return formatCurrency(Math.max(0, netOwed));
+                                    })()}</strong>
 </div>
                                         </div>
                                     ` } `}
@@ -15119,35 +15208,35 @@
 
 
 
-                                <div class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem; ${window.currentGroupTab === 'activity' ? 'display: none;' : ''}">
+                                <div id="groupSidebar" class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem; ${window.currentGroupTab === 'activity' ? 'display: none;' : ''}">
                                     <div style="margin-bottom: 2rem;">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                             <h5 style="margin-bottom: 0; color: var(--text-primary);">${t('members')}</h5>
                                         </div>
                                         <div style="display: flex; flex-direction: column; gap: 10px;">
                                             ${currentGroupMembers.map(m => {
-                                    // Collect settlement lines FROM this member's perspective
-                                    const giveLines = debts
-                                        .filter(d => d.from === m.id && d.amount > 0.01)
-                                        .map(d => {
-                                            const toMember = memberMap[d.to] || { firstName: d.to.startsWith('guest:') ? d.to.split(':')[1] : d.to };
-                                            return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--danger);font-weight:500;">
+                                        // Collect settlement lines FROM this member's perspective
+                                        const giveLines = debts
+                                            .filter(d => d.from === m.id && d.amount > 0.01)
+                                            .map(d => {
+                                                const toMember = memberMap[d.to] || { firstName: d.to.startsWith('guest:') ? d.to.split(':')[1] : d.to };
+                                                return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--danger);font-weight:500;">
                                         <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i>
                                         <span>${(t('hasToGive') || 'has to give {amount} to <strong>{name}</strong>').replace('{amount}', formatCurrency(d.amount)).replace('{name}', escapeHTML(toMember.firstName))}</span>
                                     </div>`;
-                                        });
-                                    const receiveLines = debts
-                                        .filter(d => d.to === m.id && d.amount > 0.01)
-                                        .map(d => {
-                                            const fromMember = memberMap[d.from] || { firstName: d.from.startsWith('guest:') ? d.from.split(':')[1] : d.from };
-                                            return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--success);font-weight:500;">
+                                            });
+                                        const receiveLines = debts
+                                            .filter(d => d.to === m.id && d.amount > 0.01)
+                                            .map(d => {
+                                                const fromMember = memberMap[d.from] || { firstName: d.from.startsWith('guest:') ? d.from.split(':')[1] : d.from };
+                                                return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--success);font-weight:500;">
                                         <i class="fas fa-arrow-left" style="font-size:0.65rem;"></i>
                                         <span>${(t('hasToReceive') || 'has to receive {amount} from <strong>{name}</strong>').replace('{amount}', formatCurrency(d.amount)).replace('{name}', escapeHTML(fromMember.firstName))}</span>
                                     </div>`;
-                                        });
-                                    const allLines = [...giveLines, ...receiveLines];
-                                    const isSettled = allLines.length === 0;
-                                    return `
+                                            });
+                                        const allLines = [...giveLines, ...receiveLines];
+                                        const isSettled = allLines.length === 0;
+                                        return `
                                                 <div style="background:var(--bg-card);border-radius:8px;padding:8px 10px;border:1px solid var(--border);${!isSettled ? (giveLines.length > 0 && receiveLines.length === 0 ? 'border-left:3px solid var(--danger);' : receiveLines.length > 0 && giveLines.length === 0 ? 'border-left:3px solid var(--success);' : 'border-left:3px solid var(--primary);') : 'border-left:3px solid var(--success);'}">
                                                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:${isSettled ? '0' : '6px'};">
                                                         <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(m.firstName) + '+' + encodeURIComponent(m.lastName || '')}" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;">
@@ -15158,7 +15247,7 @@
                                                     </div>
                                                     ${allLines.length > 0 ? `<div style="display:flex;flex-direction:column;gap:3px;padding-left:36px;">${allLines.join('')}</div>` : ''}
                                                 </div>`;
-                                }).join('')}
+                                    }).join('')}
                                         </div>
                                     </div>
 
@@ -15172,16 +15261,16 @@
                                     ` : `
                                         <div class="debts-list">
                                             ${debts.map(debt => {
-                                    const from = memberMap[debt.from] || { firstName: 'Unknown' };
-                                    const to = memberMap[debt.to] || { firstName: 'Unknown' };
-                                    const isDebtor = debt.from === currentUser.uid;
-                                    const isCreditor = debt.to === currentUser.uid;
-                                    let actionIcons = '';
-                                    let statusText = '';
-                                    let cardClass = 'debt-card';
+                                        const from = memberMap[debt.from] || { firstName: 'Unknown' };
+                                        const to = memberMap[debt.to] || { firstName: 'Unknown' };
+                                        const isDebtor = debt.from === currentUser.uid;
+                                        const isCreditor = debt.to === currentUser.uid;
+                                        let actionIcons = '';
+                                        let statusText = '';
+                                        let cardClass = 'debt-card';
 
-                                    if (isDebtor) {
-                                        actionIcons = `
+                                        if (isDebtor) {
+                                            actionIcons = `
                                                         <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
                                                             <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
                                                                 <i class="fas fa-check"></i>
@@ -15191,10 +15280,10 @@
                                                             </button>
                                                         </div>
                                                     `;
-                                        statusText = `<span style="color: var(--danger); font-size: 0.8rem;">${t('youOwe')}</span>`;
-                                        cardClass = 'debt-card debtor';
-                                    } else if (isCreditor) {
-                                        actionIcons = `
+                                            statusText = `<span style="color: var(--danger); font-size: 0.8rem;">${t('youOwe')}</span>`;
+                                            cardClass = 'debt-card debtor';
+                                        } else if (isCreditor) {
+                                            actionIcons = `
                                                         <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
                                                             <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
                                                                 <i class="fas fa-check"></i>
@@ -15204,13 +15293,13 @@
                                                             </button>
                                                         </div>
                                                     `;
-                                        statusText = `<span style="color: var(--success); font-size: 0.8rem;">${t('owesYou')}</span>`;
-                                        cardClass = 'debt-card creditor';
-                                    } else {
-                                        statusText = `<span class="text-secondary" style="font-size: 0.8rem;">${t('pending')}</span>`;
-                                    }
+                                            statusText = `<span style="color: var(--success); font-size: 0.8rem;">${t('owesYou')}</span>`;
+                                            cardClass = 'debt-card creditor';
+                                        } else {
+                                            statusText = `<span class="text-secondary" style="font-size: 0.8rem;">${t('pending')}</span>`;
+                                        }
 
-                                    return `
+                                        return `
                                             <div class="${cardClass}" id="debt-card-${groupId}-${debt.from}-${debt.to}" style="background: var(--bg-card); padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border); font-size: 0.9rem; ${isDebtor ? 'border-left: 4px solid var(--danger);' : isCreditor ? 'border-left: 4px solid var(--success);' : ''}">
                                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                                     <div style="flex: 1;">
@@ -15226,15 +15315,16 @@
                                                 </div>
                                             </div>
                                         `;
-                                }).join('')}
+                                    }).join('')}
                                 </div>
                                 `}
                             </div>
                         </div>
-                    `;
-                    }
-
-                } else {
+                        `;
+                        } // End else
+                    } // End if (modalBody)
+                } // End if (isUpdating)
+                else {
                     // Create NEW modal from scratch
                     const modal = document.createElement('div');
                     modal.className = 'modal-overlay show';
@@ -15253,7 +15343,7 @@
                     </div>
                     <div class="modal-body" style="padding: 0;">
                         <div class="row" style="margin: 0;">
-                            <div class="${window.currentGroupTab === 'activity' ? 'col-md-12' : 'col-md-9'}" style="padding: 0; display: flex; flex-direction: column;">
+                            <div id="groupMainColumn" class="${window.currentGroupTab === 'activity' ? 'col-md-12' : 'col-md-9'}" style="padding: 0; display: flex; flex-direction: column;">
                                 <!-- Tabs -->
                                 <div style="display: flex; gap: 2rem; padding: 0 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg-card);">
                                     <button class="tab-btn" onclick="switchGroupTab(this, 'expenses', '${groupId}')" 
@@ -15421,7 +15511,7 @@
 
 
 
-                            <div class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem; ${window.currentGroupTab === 'activity' ? 'display: none;' : ''}">
+                            <div id="groupSidebar" class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem; ${window.currentGroupTab === 'activity' ? 'display: none;' : ''}">
                                 <div style="margin-bottom: 2rem;">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                         <h5 style="margin-bottom: 0; color: var(--text-primary);">${t('members')}</h5>
@@ -21922,8 +22012,69 @@
                 console.error('Error checking invites:', e);
             }
         }
+
+        // Global cache for user profiles to optimize group loading
+        window.userCache = {};
+
+        /**
+         * Fetches user profiles in batches of 30 to optimize performance and handle Firestore limits.
+         * @param {Array} uids - Array of user UIDs to fetch.
+         * @returns {Promise<Array>} - Array of user objects.
+         */
+        async function fetchUsersBatched(uids) {
+            const result = [];
+            const toFetch = [];
+
+            // Check cache first
+            uids.forEach(uid => {
+                if (window.userCache[uid]) {
+                    result.push(window.userCache[uid]);
+                } else {
+                    toFetch.push(uid);
+                }
+            });
+
+            if (toFetch.length === 0) return result;
+
+            // Batch fetch remaining users (max 30 per 'in' query)
+            const batches = [];
+            for (let i = 0; i < toFetch.length; i += 30) {
+                batches.push(toFetch.slice(i, i + 30));
+            }
+
+            try {
+                const fetchPromises = batches.map(batch =>
+                    db.collection('users').where(firebase.firestore.FieldPath.documentId(), 'in', batch).get()
+                );
+
+                const snapshots = await Promise.all(fetchPromises);
+                snapshots.forEach(snapshot => {
+                    snapshot.forEach(doc => {
+                        const userData = { id: doc.id, ...doc.data() };
+                        window.userCache[doc.id] = userData;
+                        result.push(userData);
+                    });
+                });
+            } catch (error) {
+                console.error('Error in batched fetch:', error);
+                // Fallback to individual fetches if 'in' query fails
+                const individualPromises = toFetch.map(uid =>
+                    db.collection('users').doc(uid).get().then(doc => {
+                        if (doc.exists) {
+                            const userData = { id: doc.id, ...doc.data() };
+                            window.userCache[doc.id] = userData;
+                            return userData;
+                        }
+                        return null;
+                    })
+                );
+                const results = await Promise.all(individualPromises);
+                result.push(...results.filter(u => u !== null));
+            }
+
+            return result;
+        }
     </script>
 </body>
-
 
 </html>
