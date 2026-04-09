@@ -6771,12 +6771,7 @@
             btn.style.fontWeight = '600';
 
             window.currentGroupTab = tab;
-            if (tab === 'activity') {
-                const container = document.getElementById('groupTabContent');
-                renderRecentActivity(groupId, container);
-            } else {
-                viewGroupDetails(groupId);
-            }
+            viewGroupDetails(groupId);
         }
 
         function getRelativeTimeString(date) {
@@ -14956,7 +14951,7 @@
                     if (modalBody) {
                         modalBody.innerHTML = `
                             <div class="row" style="margin: 0;">
-                                <div class="col-md-9" style="padding: 0; display: flex; flex-direction: column;">
+                                <div class="col-md-${window.currentGroupTab === 'activity' ? '12' : '9'}" style="padding: 0; display: flex; flex-direction: column;">
                                     <!-- Tabs -->
                                     <div style="display: flex; gap: 2rem; padding: 0 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg-card);">
                                         <button class="tab-btn" onclick="switchGroupTab(this, 'expenses', '${groupId}')" 
@@ -15124,7 +15119,7 @@
 
 
 
-                                <div class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem;">
+                                <div class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem; ${window.currentGroupTab === 'activity' ? 'display: none;' : ''}">
                                     <div style="margin-bottom: 2rem;">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                                             <h5 style="margin-bottom: 0; color: var(--text-primary);">${t('members')}</h5>
@@ -15301,6 +15296,7 @@
                                             <thead>
                                                 <tr>
                                                     <th>${t('date')}</th>
+                                                    <th>${t('expenseName') || 'Name'}</th>
                                                     <th>${t('description')}</th>
                                                     <th>${t('paidBy')}</th>
                                                     <th>${t('amount')}</th>
@@ -15316,7 +15312,7 @@
                                                 <tbody>
                                                     <tr style="background: var(--bg-light); cursor: pointer;"
                                                         onclick="this.closest('table').querySelectorAll('.settled-expense-row-${groupId}').forEach(el => el.classList.toggle('hidden'))">
-                                                        <td colspan="10" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
+                                                        <td colspan="11" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
                                                             <i class="fas fa-history"></i> Show ${settledExpenses.length} Settled Expense${settledExpenses.length > 1 ? 's' : ''}
                                                         </td>
                                                     </tr>
@@ -15421,7 +15417,125 @@
                                     ` } `}
 
                                 </div>
-                            </div>            `;
+                            </div>
+
+
+
+                            <div class="col-md-3" style="border-left: 1px solid var(--border); background: var(--bg-hover); padding: 1.5rem; ${window.currentGroupTab === 'activity' ? 'display: none;' : ''}">
+                                <div style="margin-bottom: 2rem;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                        <h5 style="margin-bottom: 0; color: var(--text-primary);">${t('members')}</h5>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                                        ${currentGroupMembers.map(m => {
+                                // Collect settlement lines FROM this member's perspective
+                                const giveLines = debts
+                                    .filter(d => d.from === m.id && d.amount > 0.01)
+                                    .map(d => {
+                                        const toMember = memberMap[d.to] || { firstName: d.to.startsWith('guest:') ? d.to.split(':')[1] : d.to };
+                                        return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--danger);font-weight:500;">
+                                    <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i>
+                                    <span>${(t('hasToGive') || 'has to give {amount} to <strong>{name}</strong>').replace('{amount}', formatCurrency(d.amount)).replace('{name}', escapeHTML(toMember.firstName))}</span>
+                                </div>`;
+                                    });
+                                const receiveLines = debts
+                                    .filter(d => d.to === m.id && d.amount > 0.01)
+                                    .map(d => {
+                                        const fromMember = memberMap[d.from] || { firstName: d.from.startsWith('guest:') ? d.from.split(':')[1] : d.from };
+                                        return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--success);font-weight:500;">
+                                    <i class="fas fa-arrow-left" style="font-size:0.65rem;"></i>
+                                    <span>${(t('hasToReceive') || 'has to receive {amount} from <strong>{name}</strong>').replace('{amount}', formatCurrency(d.amount)).replace('{name}', escapeHTML(fromMember.firstName))}</span>
+                                </div>`;
+                                    });
+                                const allLines = [...giveLines, ...receiveLines];
+                                const isSettled = allLines.length === 0;
+                                return `
+                                            <div style="background:var(--bg-card);border-radius:8px;padding:8px 10px;border:1px solid var(--border);${!isSettled ? (giveLines.length > 0 && receiveLines.length === 0 ? 'border-left:3px solid var(--danger);' : receiveLines.length > 0 && giveLines.length === 0 ? 'border-left:3px solid var(--success);' : 'border-left:3px solid var(--primary);') : 'border-left:3px solid var(--success);'}">
+                                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:${isSettled ? '0' : '6px'};">
+                                                    <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(m.firstName) + '+' + encodeURIComponent(m.lastName || '')}" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;">
+                                                    <span style="font-size:0.88rem;font-weight:600;color:var(--text-dark);flex:1;">${escapeHTML(m.firstName)} ${escapeHTML(m.lastName || '')}</span>
+                                                    ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size:0.75rem;"></i>' : ''}
+                                                    ${m.id === currentUser.uid ? '<span style="font-size:0.65rem;background:var(--primary);color:#fff;border-radius:4px;padding:1px 5px;">You</span>' : ''}
+                                                    ${isSettled ? '<span style="font-size:0.68rem;color:var(--success);font-weight:600;margin-left:auto;">✓ Settled</span>' : ''}
+                                                </div>
+                                                ${allLines.length > 0 ? `<div style="display:flex;flex-direction:column;gap:3px;padding-left:36px;">${allLines.join('')}</div>` : ''}
+                                            </div>`;
+                            }).join('')}
+                                    </div>
+                                </div>
+
+                                <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('totalBalance')}</h5>
+
+                                ${debts.length === 0 ? `
+                                    <div style="text-align: center; color: var(--success); padding: 1rem;">
+                                        <i class="fas fa-check-circle" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                                        <p>${t('allSettledUp')}</p>
+                                    </div>
+                                ` : `
+                                    <div class="debts-list">
+                                        ${debts.map(debt => {
+                                const from = memberMap[debt.from] || { firstName: 'Unknown' };
+                                const to = memberMap[debt.to] || { firstName: 'Unknown' };
+                                const isDebtor = debt.from === currentUser.uid;
+                                const isCreditor = debt.to === currentUser.uid;
+                                let actionIcons = '';
+                                let statusText = '';
+                                let cardClass = 'debt-card';
+
+                                if (isDebtor) {
+                                    actionIcons = `
+                                                    <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
+                                                        <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                            <i class="fas fa-check"></i>
+                                                        </button>
+                                                        <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsPaid')}" style="padding: 4px 8px; border-radius: 4px; background: var(--success); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                            <i class="fas fa-check-circle"></i>
+                                                        </button>
+                                                    </div>
+                                                `;
+                                    statusText = `<span style="color: var(--danger); font-size: 0.8rem;">${t('youOwe')}</span>`;
+                                    cardClass = 'debt-card debtor';
+                                } else if (isCreditor) {
+                                    actionIcons = `
+                                                    <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
+                                                        <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                            <i class="fas fa-check"></i>
+                                                        </button>
+                                                        <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsReceived')}" style="padding: 4px 8px; border-radius: 4px; background: var(--success); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
+                                                            <i class="fas fa-hand-holding-usd"></i>
+                                                        </button>
+                                                    </div>
+                                                `;
+                                    statusText = `<span style="color: var(--success); font-size: 0.8rem;">${t('owesYou')}</span>`;
+                                    cardClass = 'debt-card creditor';
+                                } else {
+                                    statusText = `<span class="text-secondary" style="font-size: 0.8rem;">${t('pending')}</span>`;
+                                }
+
+                                return `
+                                        <div class="${cardClass}" id="debt-card-${groupId}-${debt.from}-${debt.to}" style="background: var(--bg-card); padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border); font-size: 0.9rem; ${isDebtor ? 'border-left: 4px solid var(--danger);' : isCreditor ? 'border-left: 4px solid var(--success);' : ''}">
+                                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                <div style="flex: 1;">
+                                                    <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 2px;">
+                                                        <strong style="color: var(--text-dark);">${from.firstName}</strong>
+                                                        <span class="text-secondary" style="font-size: 0.8rem;">→</span>
+                                                        <strong style="color: var(--text-dark);">${to.firstName}</strong>
+                                                    </div>
+                                                    ${statusText}
+                                                    <div style="font-weight: 700; font-size: 1.1rem; color: var(--primary); margin-top: 4px;">${formatCurrency(Math.abs(debt.amount))}</div>
+                                                </div>
+                                                ${actionIcons}
+                                            </div>
+                                        </div>
+                                    `;
+                            }).join('')}
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
 
                     // Remove any existing group detail modals to prevent overlap
                     document.querySelectorAll('.modal-overlay.show').forEach(m => {
