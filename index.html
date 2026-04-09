@@ -6771,12 +6771,8 @@
             btn.style.fontWeight = '600';
 
             window.currentGroupTab = tab;
-            if (tab === 'activity') {
-                const container = document.getElementById('groupTabContent');
-                renderRecentActivity(groupId, container);
-            } else {
-                viewGroupDetails(groupId);
-            }
+            // Always call viewGroupDetails to ensure layout (sidebar, column widths) updates correctly
+            viewGroupDetails(groupId);
         }
 
         function getRelativeTimeString(date) {
