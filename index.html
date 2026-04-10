@@ -1604,41 +1604,6 @@
             /* space for scrollbar */
         }
 
-        .pull-to-refresh-indicator {
-            position: fixed;
-            top: -60px;
-            left: 0;
-            right: 0;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(5px);
-            z-index: 2000;
-            transition: transform 0.2s ease;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .pull-to-refresh-indicator.visible {
-            transform: translateY(60px);
-        }
-
-        .pull-to-refresh-indicator .spinner {
-            width: 24px;
-            height: 24px;
-            border: 3px solid var(--primary);
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: pull-spinner 0.6s linear infinite;
-        }
-
-        @keyframes pull-spinner {
-            to {
-                transform: rotate(360deg);
-            }
-        }
 
         /* Empty State */
         .empty-state {
@@ -9750,7 +9715,7 @@
                     
                     <div style="margin-top: 2rem;">
                         <h3 class="card-title">${t('expenseByCategory')}</h3>
-                        <canvas id="expenseCategoryChart" style="max-height: 300px; margin-top: 1rem;"></canvas>
+                        <canvas id="expenseCategoryChart" style="max-height: 300px; margin-top: 1rem; overflow: auto;"></canvas>
                     </div>
 
                     <div style="margin-top: 2rem;">
@@ -21551,61 +21516,23 @@
             return result;
         }
 
-        // Mobile Navigation: Pull-to-Refresh & Swipe Gestures
+        // Mobile Navigation: Swipe Gestures
         function initMobileNavigation() {
             let touchStartX = 0;
             let touchStartY = 0;
             let touchEndX = 0;
             let touchEndY = 0;
-            let pullDistance = 0;
-            let isPulling = false;
-
-            const refreshIndicator = document.createElement('div');
-            refreshIndicator.className = 'pull-to-refresh-indicator';
-            refreshIndicator.innerHTML = '<div class="spinner"></div>';
-            document.body.appendChild(refreshIndicator);
 
             const pages = ['dashboard', 'credits', 'personal', 'groups', 'calendar', 'details', 'settings'];
 
             document.addEventListener('touchstart', (e) => {
                 touchStartX = e.changedTouches[0].screenX;
                 touchStartY = e.changedTouches[0].screenY;
-                // Only allow pull-to-refresh if we are at the very top of the page
-                isPulling = (window.scrollY <= 0);
-            }, { passive: true });
-
-            document.addEventListener('touchmove', (e) => {
-                const currentY = e.changedTouches[0].screenY;
-                pullDistance = currentY - touchStartY;
-
-                if (isPulling && pullDistance > 0 && window.scrollY <= 0) {
-                    const visualPull = Math.min(pullDistance, 120);
-                    refreshIndicator.style.transform = `translateY(${visualPull}px)`;
-                    refreshIndicator.style.opacity = Math.min(pullDistance / 100, 1);
-                    if (pullDistance > 20) refreshIndicator.classList.add('visible');
-
-                    // Prevent page scroll if we are pulling significantly
-                    if (pullDistance > 30 && e.cancelable) {
-                        // e.preventDefault(); // Passive listener cant prevent default
-                    }
-                }
             }, { passive: true });
 
             document.addEventListener('touchend', (e) => {
                 touchEndX = e.changedTouches[0].screenX;
                 touchEndY = e.changedTouches[0].screenY;
-                const finalPullDistance = touchEndY - touchStartY;
-
-                // Handle Pull-to-Refresh
-                if (isPulling && finalPullDistance > 100) {
-                    triggerRefresh();
-                }
-
-                // Reset indicator
-                refreshIndicator.classList.remove('visible');
-                refreshIndicator.style.transform = '';
-                refreshIndicator.style.opacity = '';
-                isPulling = false;
 
                 // Handle Swipe Navigation
                 handleSwipeGesture();
@@ -21635,20 +21562,6 @@
                             navigate(pages[currentIndex - 1]);
                         }
                     }
-                }
-            }
-
-            function triggerRefresh() {
-                const groupModal = document.querySelector('.modal-overlay.show .modal-large');
-                if (groupModal && window.currentGroupId) {
-                    // Refresh group data if modal is open
-                    viewGroupDetails(window.currentGroupId, true);
-                    return;
-                }
-
-                // Generic page refresh
-                if (typeof navigate === 'function') {
-                    navigate(currentPage);
                 }
             }
         }
