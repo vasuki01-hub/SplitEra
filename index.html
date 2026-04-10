@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 
 <head>
@@ -15218,6 +15218,10 @@
                                         <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border);">
                                             <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('expenseSummary')}</h5>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                                <span class="text-secondary">${t('numberOfExpenses') || 'Number of Expenses'}:</span>
+                                                <strong style="color: var(--text-dark);">${displayExpenses.filter(e => e.category !== 'Settlement' && !e.isSettlement).length}</strong>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('totalExpenses')}:</span>
                                                 <strong style="color: var(--danger); font-size: 1.1rem;">${formatCurrency(displayExpenses.reduce((sum, exp) => {
                                 if (exp.category === 'Settlement' || exp.isSettlement) return sum;
@@ -15520,6 +15524,10 @@
 
                                     <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border);">
                                         <h5 style="margin-bottom: 1rem; color: var(--text-primary);">${t('expenseSummary')}</h5>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                            <span class="text-secondary">${t('numberOfExpenses') || 'Number of Expenses'}:</span>
+                                            <strong style="color: var(--text-dark);">${displayExpenses.filter(e => e.category !== 'Settlement' && !e.isSettlement).length}</strong>
+                                        </div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                             <span class="text-secondary">${t('totalExpenses')}:</span>
                                             <strong style="color: var(--danger); font-size: 1.1rem;">${formatCurrency(displayExpenses.reduce((sum, exp) => {
