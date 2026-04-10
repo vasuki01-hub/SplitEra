@@ -10964,8 +10964,25 @@
             </div>
         </div>
         
-        <div id="calendarContainer" class="calendar-all-time">
-            <!-- Calendar months will be rendered here -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">${t('financialCalendar')}</h2>
+            </div>
+
+            <div class="filters">
+                <div class="filter-group" style="display:flex; flex-direction:column; gap:0.2rem">
+                    <label style="font-size: 0.75rem">From Date</label>
+                    <input type="date" class="form-input" id="calendarFromDate" onchange="loadCalendarData()">
+                </div>
+                <div class="filter-group" style="display:flex; flex-direction:column; gap:0.2rem">
+                    <label style="font-size: 0.75rem">To Date</label>
+                    <input type="date" class="form-input" id="calendarToDate" onchange="loadCalendarData()">
+                </div>
+            </div>
+
+            <div id="calendarContainer" class="calendar-all-time">
+                <!-- Calendar months will be rendered here -->
+            </div>
         </div>
     `;
 
@@ -10984,10 +11001,19 @@
             hideLoading();
 
             try {
-                const credits = [...dataState.credits];
-                const personal = [...dataState.personalExpenses];
-                const groupExpenses = [...dataState.groupExpenses];
+                const fromDate = document.getElementById('calendarFromDate')?.value || '';
+                const toDate = document.getElementById('calendarToDate')?.value || '';
+
+                let credits = [...dataState.credits];
+                let personal = [...dataState.personalExpenses];
+                let groupExpenses = [...dataState.groupExpenses];
                 const groups = dataState.groups;
+
+                if (fromDate || toDate) {
+                    credits = filterByDateRange(credits, fromDate, toDate);
+                    personal = filterByDateRange(personal, fromDate, toDate);
+                    groupExpenses = filterByDateRange(groupExpenses, fromDate, toDate);
+                }
 
                 // Group by date
                 const dateMap = {};
