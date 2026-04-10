@@ -1924,8 +1924,9 @@
             }
         }
 
-        window.addEventListener("load", initFirebase);
-
+        // 🔥 Call immediately! Waiting for window 'load' causes race conditions 
+        // if large assets/images delay the event but the UI is interactive.
+        initFirebase();
 
 
         // Translations
@@ -11119,7 +11120,6 @@
 
                 // Store date map for day details
                 window.calendarDateMap = dateMap;
-                window.calendarGroupsSnapshot = groupsSnapshot;
 
             } catch (error) {
                 showToast('Error', error.message, 'error');
@@ -11230,27 +11230,33 @@
                     <div class="card-header">
                         <h2 class="card-title">${t('allTransactions')}</h2>
                         <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn btn-secondary btn-sm" onclick="exportDetailsPDF()">
-                                <i class="fas fa-file-pdf"></i>
-                                ${t('exportPDF')}
+                            <button class="btn btn-primary btn-sm" onclick="exportDetailsPDF()" style="background: #4949f0;">
+                                <i class="fas fa-file-pdf"></i> ${t('exportPDF')}
                             </button>
                             <button class="btn btn-success btn-sm" onclick="exportDetailsExcel()">
-                                <i class="fas fa-file-excel"></i>
-                                ${t('exportExcel')}
+                                <i class="fas fa-file-excel"></i> ${t('exportExcel')}
                             </button>
                         </div>
                     </div>
                     
                     <div class="filters">
-                        <div class="filter-group">
-                            <input type="text" class="form-input" placeholder="${t('search')}" id="detailsSearch" oninput="debouncedLoadDetailsData()">
+                        <div class="filter-group" style="flex: 2;">
+                            <input type="text" class="form-input" placeholder="${t('search')}" id="detailsSearch" oninput="loadDetails()">
+                        </div>
+                        <div class="filter-group" style="display:flex; flex-direction:column; gap:0.2rem">
+                            <label style="font-size: 0.75rem">From Date</label>
+                            <input type="date" class="form-input" id="detailsFromDate" onchange="loadDetails()">
+                        </div>
+                        <div class="filter-group" style="display:flex; flex-direction:column; gap:0.2rem">
+                            <label style="font-size: 0.75rem">To Date</label>
+                            <input type="date" class="form-input" id="detailsToDate" onchange="loadDetails()">
                         </div>
                         <div class="filter-group">
-                            <select class="form-select" id="detailsSection" onchange="loadDetailsData()">
-                                <option value="all">${t('allTransactions')}</option>
-                                <option value="credits">${t('creditBalance')}</option>
-                                <option value="personal">${t('personal')}</option>
-                                <option value="groups">${t('groups')}</option>
+                            <select class="form-select" id="detailsType" onchange="loadDetails()">
+                                <option value="all">All Types</option>
+                                <option value="credit">Credits</option>
+                                <option value="personal">Personal</option>
+                                <option value="group">Group</option>
                             </select>
                         </div>
                     </div>
@@ -11259,8 +11265,9 @@
                 </div>
             `;
 
-            await loadDetailsData();
+            await loadDetails();
         }
+
 
         async function loadDetailsData() {
             if (!dataState.isLoaded.credits || !dataState.isLoaded.personalExpenses || !dataState.isLoaded.groups) {
@@ -13595,6 +13602,17 @@
                     pendingRequests: firebase.firestore.FieldValue.arrayRemove(userId)
                 });
 
+                // Log activity: fetch accepted user's name for description
+                try {
+                    const acceptedUserDoc = await db.collection('users').doc(userId).get();
+                    const acceptedName = acceptedUserDoc.exists
+                        ? `${acceptedUserDoc.data().firstName || ''} ${acceptedUserDoc.data().lastName || ''}`.trim()
+                        : userId;
+                    await logGroupActivity(groupId, 'MEMBER_ADDED', `${acceptedName} joined the group`);
+                } catch (actErr) {
+                    console.error('Error logging join activity:', actErr);
+                }
+
                 container.innerHTML = '<div style="color: var(--success); text-align: center; width: 100%;">Accepted</div>';
                 setTimeout(() => container.remove(), 1000);
 
@@ -13624,6 +13642,10 @@
             showConfirmation('Leave Group', 'Are you sure you want to leave this group?', async () => {
                 showLoading();
                 try {
+                    // Log activity BEFORE removing member (so user still has permission)
+                    const userName = currentUser ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : 'Unknown';
+                    await logGroupActivity(groupId, 'MEMBER_REMOVED', `${userName} left the group`);
+
                     await db.collection('groups').doc(groupId).update({
                         members: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
                     });
@@ -15916,6 +15938,186 @@
             }
         }
 
+        async function loadDetails() {
+            const container = document.getElementById('detailsTableContainer');
+            if (!container) return;
+
+            try {
+                const searchTerm = document.getElementById('detailsSearch')?.value || '';
+                const fromDate = document.getElementById('detailsFromDate')?.value || '';
+                const toDate = document.getElementById('detailsToDate')?.value || '';
+                const typeFilter = document.getElementById('detailsType')?.value || 'all';
+
+                let allData = [];
+
+                // 1. Process local credits
+                if (typeFilter === 'all' || typeFilter === 'credit') {
+                    allData = allData.concat(dataState.credits.map(doc => ({
+                        ...doc,
+                        section: 'Credit',
+                        sectionType: 'credit',
+                        canEdit: true
+                    })));
+                }
+
+                // 2. Process local personal expenses
+                if (typeFilter === 'all' || typeFilter === 'personal') {
+                    allData = allData.concat(dataState.personalExpenses.map(doc => ({
+                        ...doc,
+                        section: 'Personal',
+                        sectionType: 'personal',
+                        canEdit: true
+                    })));
+                }
+
+                // 3. Process local group expenses
+                if (typeFilter === 'all' || typeFilter === 'group') {
+                    const groupsDataMap = {};
+                    dataState.groups.forEach(g => groupsDataMap[g.id] = g);
+
+                    const groupEntries = dataState.groupExpenses.map(expense => {
+                        if (expense.category === 'Settlement' || expense.isSettlement) return null;
+                        const group = groupsDataMap[expense.groupId];
+                        if (!group) return null;
+
+                        const allMembers = [...(group.members || []), ...(group.guestMembers || []).map(name => `guest:${name}`)];
+                        const memberMap = allMembers.reduce((acc, m) => {
+                            acc[m] = m.startsWith('guest:') ? { firstName: m.split(':')[1], isGuest: true } : { firstName: m };
+                            return acc;
+                        }, {});
+
+                        const breakdowns = calculateExpenseBreakdown([expense], allMembers, memberMap);
+                        const breakdown = breakdowns[expense.id];
+                        let userShare = breakdown?.contributions?.[currentUser.uid] || 0;
+
+                        if (userShare === 0 && (!expense.splits || Object.keys(expense.splits).length === 0) && group.members.includes(currentUser.uid)) {
+                            userShare = parseFloat(expense.amount) / allMembers.length;
+                        }
+
+                        if (userShare === 0) {
+                            const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                            userShare = breakdown?.contributions?.[guestKey] || 0;
+                        }
+
+                        if (userShare <= 0) return null;
+
+                        return {
+                            ...expense,
+                            section: 'Group',
+                            sectionType: 'group',
+                            canEdit: false,
+                            amount: userShare,
+                            mode: 'Group Split',
+                            groupName: group.name
+                        };
+                    }).filter(e => e !== null);
+
+                    allData = allData.concat(groupEntries);
+                }
+
+                // Apply Filters
+                if (searchTerm) {
+                    allData = filterBySearch(allData, searchTerm, ['description', 'mode', 'remarks', 'amount', 'section']);
+                }
+
+                if (fromDate || toDate) {
+                    allData = filterByDateRange(allData, fromDate, toDate);
+                }
+
+                // Sort by date descending
+                allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+
+                if (allData.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-search-minus" style="font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.3;"></i>
+                            <p>${t('noTransactionsFound')}</p>
+                        </div>
+                    `;
+                } else {
+                    // Group data by month for display
+                    const grouped = groupByMonth(allData);
+                    let html = '';
+                    Object.keys(grouped).sort().reverse().forEach(month => {
+                        const [year, monthNum] = month.split('-');
+                        const monthName = getMonthName(parseInt(monthNum) - 1);
+                        const monthTotal = grouped[month].reduce((sum, item) => {
+                            return item.sectionType === 'credit' ? sum + item.amount : sum - item.amount;
+                        }, 0);
+
+                        html += `
+                            <div class="month-group">
+                                <div class="month-header">
+                                    <span>${monthName} ${year}</span>
+                                    <span style="font-size: 0.9rem; color: ${monthTotal >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                                        Net: ${monthTotal >= 0 ? '+' : ''}${formatCurrency(monthTotal)}
+                                    </span>
+                                </div>
+                                <div class="table-wrapper">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>${t('date')}</th>
+                                                <th>${t('section')}</th>
+                                                <th>${t('description')}</th>
+                                                <th>${t('mode')}</th>
+                                                <th>${t('remarks')}</th>
+                                                <th>${t('attachments')}</th>
+                                                <th>${t('amount')}</th>
+                                                <th>${t('actions')}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${grouped[month].map(item => `
+                                                <tr id="details-row-${item.sectionType}-${item.id}">
+                                                    <td>${safeDate(item.date).toLocaleDateString()}</td>
+                                                    <td><span class="badge badge-${item.sectionType === 'credit' ? 'success' : item.sectionType === 'personal' ? 'warning' : 'info'}">${item.section}</span></td>
+                                                    <td>${escapeHTML(item.description)}</td>
+                                                    <td><span class="badge badge-secondary">${item.mode}</span></td>
+                                                    <td>${escapeHTML(item.remarks) || '-'}</td>
+                                                    <td>
+                                                        ${item.attachments?.length > 0 ? `
+                                                            <div class="attachments">
+                                                                ${item.attachments.map((url, idx) => `
+                                                                    <div class="attachment" onclick="viewAttachment('${url}')">
+                                                                        <img src="${url}" alt="Attachment ${idx + 1}">
+                                                                    </div>
+                                                                `).join('')}
+                                                            </div>
+                                                        ` : '-'}
+                                                    </td>
+                                                    <td style="color: ${item.sectionType === 'credit' ? 'var(--success)' : 'var(--danger)'}; font-weight: 600;">
+                                                        ${item.sectionType === 'credit' ? '+' : '-'}${formatCurrency(item.amount)}
+                                                    </td>
+                                                    <td>
+                                                        <div class="actions">
+                                                            ${item.canEdit ? `
+                                                                <button class="action-btn" onclick="editDetailsRow('${item.sectionType}', '${item.id}')">
+                                                                    <i class="fas fa-edit"></i>
+                                                                </button>
+                                                            ` : ''}
+                                                            <button class="action-btn danger" onclick="deleteDetailsRow('${item.sectionType}', '${item.id}')">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                }
+                container.classList.remove('loading-state');
+            } catch (error) {
+                console.error("Details Load Error:", error);
+                container.innerHTML = `<div class="error-msg">${error.message}</div>`;
+            }
+        }
+
         /**
          * Saves the edited settlement back to the expense and refreshes the group view.
          */
@@ -17868,472 +18070,15 @@
         }
 
 
-        // Calendar Page
-        async function renderCalendar() {
-            const content = document.getElementById('mainContent');
-
-            // ───────────────────────────────────────────────
-            //   1. Collect all years that actually exist in data
-            // ───────────────────────────────────────────────
-            const years = new Set();
-
-            try {
-                showLoading();
-
-                // Get user's groups
-                const groupsSnap = await db.collection('groups')
-                    .where('members', 'array-contains', currentUser.uid)
-                    .get();
-                const groupIds = groupsSnap.docs.map(d => d.id);
-
-                const promises = [
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                ];
-
-                if (groupIds.length > 0) {
-                    // Note: still has in-query limit → may need chunking in future
-                    promises.push(
-                        db.collection('group_expenses')
-                            .where('groupId', 'in', groupIds.slice(0, 10))
-                            .get()
-                    );
-                }
-
-                const [creditsSnap, personalSnap, groupSnap] = await Promise.all(promises);
-
-                // Extract years
-                [...creditsSnap.docs, ...personalSnap.docs, ...(groupSnap?.docs || [])]
-                    .forEach(doc => {
-                        const data = doc.data();
-                        if (data.date && typeof data.date.toDate === 'function') {
-                            const y = data.date.toDate().getFullYear();
-                            years.add(y);
-                        }
-                    });
-
-            } catch (err) {
-                console.error("Could not load years for filter", err);
-            } finally {
-                hideLoading();
-            }
-
-            // Sort descending
-            const sortedYears = [...years].sort((a, b) => b - a);
-
-            // Build options
-            const yearOptions = [`<option value="all">${t('allTime')}</option>`];
-            sortedYears.forEach(y => {
-                yearOptions.push(`<option value="${y}">${y}</option>`);
-            });
-
-            // If no data → at least show current year
-            if (sortedYears.length === 0) {
-                const cy = new Date().getFullYear();
-                yearOptions.push(`<option value="${cy}">${cy}</option>`);
-            }
-
-            // Month options stay the same
-            const currentMonth = new Date().getMonth();
-            const monthOptions = [`<option value="all">${t('allTime')}</option>`];
-            for (let i = 0; i < 12; i++) {
-                monthOptions.push(`<option value="${i}" ${i === currentMonth ? 'selected' : ''}>${getMonthName(i)}</option>`);
-            }
-
-            content.innerHTML = `
-        <div class="page-header">
-            <div>
-                <h1 class="page-title">${t('calendar')}</h1>
-                <p class="page-subtitle">${t('viewFinancialActivitiesByDate')}</p>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title">${t('financialCalendar')}</h2>
-            </div>
-
-            <div class="filters">
-                <div class="filter-group">
-                            <label class="form-label">From Date</label>
-                            <input type="date" class="form-input" id="calendarFromDate" onchange="loadCalendar()">
-                        </div>
-                        <div class="filter-group">
-                            <label class="form-label">To Date</label>
-                            <input type="date" class="form-input" id="calendarToDate" onchange="loadCalendar()">
-                        </div>
-            </div>
-
-            <div id="calendarContainer"></div>
-        </div>
-    `;
-
-            // Auto-select newest year if exists
-            if (sortedYears.length > 0) {
-                // Auto-select removed for date range
-            }
-
-            await loadCalendar();
-        }
-
-        async function loadCalendar() {
-            showLoading();
-            try {
-                const fromDate = document.getElementById('calendarFromDate')?.value || '';
-                const toDate = document.getElementById('calendarToDate')?.value || '';
-                const yearFilter = document.getElementById('detailsYear')?.value || 'all';
-                const monthFilter = document.getElementById('detailsMonth')?.value || 'all';
-
-                // Load all data
-                // Load all data
-                // 1. Load user's groups to get Group IDs
-                const groupsSnapshot = await db.collection('groups').where('members', 'array-contains', currentUser.uid).get();
-                const groupIds = groupsSnapshot.docs.map(doc => doc.id);
-
-                // 2. Load data
-                const promises = [
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get()
-                ];
-
-                // Only fetch group expenses if user is in groups
-                if (groupIds.length > 0) {
-                    // Limit to 10 groups for 'in' query limitation
-                    promises.push(
-                        db.collection('group_expenses')
-                            .where('groupId', 'in', groupIds.slice(0, 10))
-                            .get()
-                    );
-                } else {
-                    promises.push(Promise.resolve({ docs: [] }));
-                }
-
-                const [creditsSnapshot, personalSnapshot, groupsExpSnapshot] = await Promise.all(promises);
-
-                let credits = creditsSnapshot.docs.map(doc => ({ id: doc.id, type: 'credit', ...doc.data() }));
-                let personal = personalSnapshot.docs.map(doc => ({ id: doc.id, type: 'personal', ...doc.data() }));
-
-                // Process Group Expenses with Share Calculation
-                let groupsData = [];
-                if (groupsExpSnapshot && !groupsExpSnapshot.empty) {
-                    // Create Map of Group Metadata
-                    const groupsMap = {};
-                    groupsSnapshot.docs.forEach(doc => groupsMap[doc.id] = doc.data());
-
-                    for (const doc of groupsExpSnapshot.docs) {
-                        const expense = { id: doc.id, ...doc.data() };
-                        const group = groupsMap[expense.groupId];
-
-                        if (group) {
-                            // Calculate Share
-                            const allMembers = [...(group.members || []), ...(group.guestMembers || []).map(name => `guest:${name}`)];
-                            const memberMap = allMembers.reduce((acc, m) => {
-                                acc[m] = m.startsWith('guest:') ? { firstName: m.split(':')[1], isGuest: true } : { firstName: m };
-                                return acc;
-                            }, {});
-
-                            const breakdowns = calculateExpenseBreakdown([expense], allMembers, memberMap);
-                            const breakdown = breakdowns[expense.id];
-                            let userShare = breakdown?.contributions?.[currentUser.uid] || 0;
-
-                            // Fallback for missing splits/legacy data
-                            if (userShare === 0 && (!expense.splits || Object.keys(expense.splits).length === 0) && group.members.includes(currentUser.uid)) {
-                                userShare = parseFloat(expense.amount) / allMembers.length;
-                            }
-
-                            // DOUBLE CHECK: If userShare is still 0, check for Guest Alias!
-                            if (userShare === 0) {
-                                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                                userShare = breakdown?.contributions?.[guestKey] || 0;
-                            }
-
-                            groupsData.push({
-                                ...expense,
-                                type: 'Group',
-                                userShare: userShare
-                            });
-                        }
-                    }
-                }
-
-                const allData = [...credits, ...personal, ...groupsData];
-                // Add this loop right after to ensure all dates are valid:
-                allData.forEach(item => {
-                    if (item.date && !item.date.toDate) {
-                        // Convert invalid dates to Firestore Timestamp
-                        item.date = firebase.firestore.Timestamp.fromDate(safeDate(item.date));
-                    }
-                });
-                const container = document.getElementById('calendarContainer');
-
-                // Apply filters correctly - combine year and month
-                let filteredData = allData;
-
-                if (yearFilter !== 'all') {
-                    const year = parseInt(yearFilter);
-                    filteredData = filteredData.filter(item => {
-                        const date = item.date.toDate();
-                        return date.getFullYear() === year;
-                    });
-                }
-
-                if (monthFilter !== 'all') {
-                    const month = parseInt(monthFilter);
-                    filteredData = filteredData.filter(item => {
-                        const date = item.date.toDate();
-                        return date.getMonth() === month;
-                    });
-                }
-
-                // Group by year and month for display
-                const groupedByYearMonth = {};
-                filteredData.forEach(item => {
-                    const date = item.date.toDate();
-                    const year = date.getFullYear();
-                    const month = date.getMonth();
-                    const key = `${year}-${month}`;
-                    if (!groupedByYearMonth[key]) {
-                        groupedByYearMonth[key] = { year, month, data: [] };
-                    }
-                    groupedByYearMonth[key].data.push(item);
-                });
-
-                let html = '<div class="calendar-all-time">';
-                Object.keys(groupedByYearMonth).sort().reverse().forEach(key => {
-                    const { year, month, data } = groupedByYearMonth[key];
-                    html += renderMonthCalendar(year, month, data);
-                });
-                html += '</div>';
-                container.innerHTML = html;
-            } catch (error) {
-                showToast('Error', error.message, 'error');
-            } finally {
-                hideLoading();
-            }
-        }
-
-        function renderMonthCalendar(year, month, data) {
-            const monthName = getMonthName(month);
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-            // Group data by day
-            const dayData = {};
-            data.forEach(item => {
-                const day = item.date.toDate().getDate();
-                if (!dayData[day]) {
-                    dayData[day] = { credits: 0, expenses: 0, groupShare: 0, count: 0, items: [] };
-                }
-                dayData[day].items.push(item);
-                dayData[day].count++;
-
-                if (item.type === 'credit') {
-                    dayData[day].credits += parseFloat(item.amount);
-                } else if (item.type === 'Group') {
-                    // Use calculated userShare
-                    dayData[day].groupShare += parseFloat(item.userShare || 0);
-                } else {
-                    // Personal Expenses
-                    dayData[day].expenses += parseFloat(item.amount);
-                }
-            });
-
-            let html = `
-                <div class="calendar-month">
-                    <h3 class="calendar-month-title">${monthName} ${year}</h3>
-                    <div class="calendar-grid">
-                        <div class="calendar-header">${t('sunday')}</div>
-                        <div class="calendar-header">${t('monday')}</div>
-                        <div class="calendar-header">${t('tuesday')}</div>
-                        <div class="calendar-header">${t('wednesday')}</div>
-                        <div class="calendar-header">${t('thursday')}</div>
-                        <div class="calendar-header">${t('friday')}</div>
-                        <div class="calendar-header">${t('saturday')}</div>
-            `;
-
-            // Empty cells before first day
-            for (let i = 0; i < firstDay; i++) {
-                html += '<div class="calendar-day empty"></div>';
-            }
-
-            // Days of month
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dayInfo = dayData[day];
-                // Calculate Total: Credits - Personal - GroupShare
-                const total = dayInfo ? (dayInfo.credits - dayInfo.expenses - dayInfo.groupShare) : 0;
-                const hasData = dayInfo && dayInfo.count > 0;
-
-                html += `
-                    <div class="calendar-day ${hasData ? 'has-data' : ''}" ${hasData ? `onclick="openDayDetails(${year}, ${month}, ${day})"` : ''}>
-                        <div class="calendar-day-number">${day}</div>
-                        ${hasData ? `
-                            <div class="calendar-day-info">
-                                <div class="calendar-day-amount" style="color: ${total >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                                    ${formatCurrency(Math.abs(total))}
-                                </div>
-                                <div class="calendar-day-count">
-                                    <i class="fas fa-receipt"></i> ${dayInfo.count}
-                                </div>
-                                <i class="fas fa-info-circle calendar-day-icon"></i>
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            }
-
-            html += `
-                    </div>
-                </div>
-            `;
-
-            return html;
-        }
-
-        async function openDayDetails(year, month, day) {
-            showLoading();
-            try {
-                const date = new Date(year, month, day);
-                const nextDate = new Date(year, month, day + 1);
-
-                // 1. Fetch User's Groups first to get Group IDs
-                const groupsListSnapshot = await db.collection('groups').where('members', 'array-contains', currentUser.uid).get();
-                const groupIds = groupsListSnapshot.docs.map(doc => doc.id);
-                const groupsMap = {};
-                groupsListSnapshot.docs.forEach(doc => groupsMap[doc.id] = doc.data());
-
-                // 2. Fetch Data
-                const promises = [
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get()
-                ];
-
-                if (groupIds.length > 0) {
-                    promises.push(db.collection('group_expenses').where('groupId', 'in', groupIds.slice(0, 10)).get());
-                } else {
-                    promises.push(Promise.resolve({ docs: [] }));
-                }
-
-                const [creditsSnapshot, personalSnapshot, groupExpensesSnapshot] = await Promise.all(promises);
-
-
-                const credits = creditsSnapshot.docs
-                    .map(doc => ({ id: doc.id, type: 'Credit', ...doc.data() }))
-                    .filter(item => {
-                        const itemDate = safeDate(item.date); // Use safeDate helper
-                        return itemDate >= date && itemDate < nextDate;
-                    });
-
-                const personal = personalSnapshot.docs
-                    .map(doc => ({ id: doc.id, type: 'Personal', ...doc.data() }))
-                    .filter(item => {
-                        const itemDate = safeDate(item.date); // Use safeDate helper
-                        return itemDate >= date && itemDate < nextDate;
-                    });
-
-                let groups = [];
-                if (groupExpensesSnapshot && !groupExpensesSnapshot.empty) {
-                    groups = groupExpensesSnapshot.docs
-                        .map(doc => ({ id: doc.id, ...doc.data() }))
-                        .filter(expense => {
-                            const itemDate = safeDate(expense.date);
-                            return itemDate >= date && itemDate < nextDate;
-                        });
-
-                    // Rewrite groups array to include userShare and type 'Group'
-                    groups = groups.map(expense => {
-                        const group = groupsMap[expense.groupId];
-                        let userShare = 0;
-                        if (group) {
-                            const allMembers = [...(group.members || []), ...(group.guestMembers || []).map(name => `guest:${name}`)];
-                            const memberMap = allMembers.reduce((acc, m) => {
-                                acc[m] = m.startsWith('guest:') ? { firstName: m.split(':')[1], isGuest: true } : { firstName: m };
-                                return acc;
-                            }, {});
-
-                            const breakdowns = calculateExpenseBreakdown([expense], allMembers, memberMap);
-                            const breakdown = breakdowns[expense.id];
-                            userShare = breakdown?.contributions?.[currentUser.uid] || 0;
-
-                            if (userShare === 0 && (!expense.splits || Object.keys(expense.splits).length === 0) && group.members.includes(currentUser.uid)) {
-                                userShare = parseFloat(expense.amount) / allMembers.length;
-                            }
-
-                            // Guest Alias Check for Day Details too
-                            if (userShare === 0) {
-                                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                                userShare = breakdown?.contributions?.[guestKey] || 0;
-                            }
-                        }
-                        return {
-                            ...expense,
-                            type: 'Group', // Ensure type is Group
-                            userShare: userShare
-                        };
-                    });
-                }
-
-                // Group expenses by groupId (not strictly needed for calculation anymore but maybe for grouping in UI?)
-                // The original code did grouping. I'll pass simple list but prepared.
-                // Calculate total group share from pre-calculated items
-                let totalGroupShare = groups.reduce((sum, item) => {
-                    if (item.category === 'Settlement' || item.isSettlement) return sum;
-                    return sum + (item.userShare || 0);
-                }, 0);
-
-                const allItems = [...credits, ...personal, ...groups];
-
-                const totalCredits = credits.reduce((sum, c) => sum + c.amount, 0);
-                const totalPersonal = personal.reduce((sum, p) => sum + p.amount, 0);
-                const totalGroup = totalGroupShare; // User's share instead of total
-                const dailyTotal = totalCredits - totalPersonal - totalGroup;
-
-                const modal = document.createElement('div');
-                modal.className = 'modal-overlay show';
-                modal.innerHTML = `
-                    <div class="modal modal-large">
-                        <div class="modal-header">
-                            <h3 class="modal-title">${t('transactions')} - ${date.toLocaleDateString()}</h3>
-                            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="day-summary">
-                                <div class="day-summary-item">
-                                    <span>${t('totalCredits')}:</span>
-                                    <span style="color: var(--success); font-weight: 600;">+${formatCurrency(totalCredits)}</span>
-                                </div>
-                                <div class="day-summary-item">
-                                    <span>${t('totalExpenses')}:</span>
-                                    <span style="color: var(--danger); font-weight: 600;">-${formatCurrency(totalPersonal)}</span>
-                                </div>
-                                <div class="day-summary-item">
-                                    <span>${t('totalGroupExpenses')}:</span>
-                                    <span style="color: var(--danger); font-weight: 600;">-${formatCurrency(totalGroup)}</span>
-                                </div>
-                                <div class="day-summary-item" style="border-top: 2px solid var(--border); padding-top: 0.5rem; margin-top: 0.5rem;">
-                                    <span style="font-weight: 600;">${t('dailyTotal')}:</span>
-                                    <span style="color: ${dailyTotal >= 0 ? 'var(--success)' : 'var(--danger)'}; font-weight: 600; font-size: 1.25rem;">
-                                        ${dailyTotal >= 0 ? '+' : ''}${formatCurrency(Math.abs(dailyTotal))}
-                                    </span>
-                                </div>
-                            </div>
-
-                        </div>
-                        <div class="modal-footer">
-                            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(modal);
-            } catch (error) {
-                showToast('Error', error.message, 'error');
-            } finally {
-                hideLoading();
-            }
-        }
+        // Calendar Page — duplicate slow version removed; fast cached version at line ~10955 is used
+        // (renderCalendar, loadCalendar, renderMonthCalendar, openDayDetails removed)
+        // The fast renderCalendar uses loadCalendarData() which reads from dataState cache
+
+        // Placeholder: ensure loadCalendar resolves to loadCalendarData for any stale HTML references
+        function loadCalendar() { return loadCalendarData(); }
+
+        /* --- removed duplicate slow calendar functions --- */
+        /* exportDetailsExcel is kept below */
 
 
         async function exportDetailsExcel() {
@@ -18443,354 +18188,6 @@
             }
         }
 
-        async function renderDetails() {
-            const content = document.getElementById('mainContent');
-
-            // ───────────────────────────────────────────────
-            //   Collect real years from data
-            // ───────────────────────────────────────────────
-            const years = new Set();
-
-            try {
-                showLoading();
-
-                const [creditsSnap, personalSnap, groupsSnap] = await Promise.all([
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
-                ]);
-
-                const groupIds = groupsSnap.docs.map(d => d.id);
-                let groupExpensesSnap = { docs: [] };
-
-                if (groupIds.length > 0) {
-                    const queries = groupIds.map(id =>
-                        db.collection('group_expenses').where('groupId', '==', id).get()
-                    );
-                    const results = await Promise.all(queries);
-                    groupExpensesSnap = { docs: results.flatMap(r => r.docs) };
-                }
-
-                [...creditsSnap.docs, ...personalSnap.docs, ...groupExpensesSnap.docs]
-                    .forEach(doc => {
-                        const ts = doc.data()?.date;
-                        if (ts && typeof ts.toDate === 'function') {
-                            years.add(ts.toDate().getFullYear());
-                        }
-                    });
-
-            } catch (err) {
-                console.warn("Failed to collect years for details filter", err);
-            } finally {
-                hideLoading();
-            }
-
-            const sortedYears = [...years].sort((a, b) => b - a);
-
-            const yearOptions = [`<option value="all">${t('allTime')}</option>`];
-            sortedYears.forEach(y => yearOptions.push(`<option value="${y}">${y}</option>`));
-
-            // Fallback
-            if (sortedYears.length === 0) {
-                const cy = new Date().getFullYear();
-                yearOptions.push(`<option value="${cy}">${cy}</option>`);
-            }
-
-            const monthOptions = [`<option value="all">${t('allTime')}</option>`];
-            for (let i = 0; i < 12; i++) {
-                monthOptions.push(`<option value="${i}">${getMonthName(i)}</option>`);
-            }
-
-            content.innerHTML = `
-        <div class="page-header">
-            <div>
-                <h1 class="page-title">${t('details')}</h1>
-                <p class="page-subtitle">${t('combinedView')}</p>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title">${t('allTransactions')}</h2>
-                <div style="display: flex; gap: 0.5rem;">
-                    <button class="btn btn-primary btn-sm" onclick="exportDetailsPDF()" style="background: #4949f0;">
-                        <i class="fas fa-file-pdf"></i> ${t('exportPDF')}
-                    </button>
-                    <button class="btn btn-success btn-sm" onclick="exportDetailsExcel()">
-                        <i class="fas fa-file-excel"></i> ${t('exportExcel')}
-                    </button>
-                </div>
-            </div>
-
-            <div class="filters">
-                <div class="filter-group" style="flex: 2;">
-                    <input type="text" class="form-input" placeholder="${t('search')}" id="detailsSearch" oninput="loadDetails()">
-                </div>
-                <div class="filter-group" style="display:flex; flex-direction:column; gap:0.2rem">
-                            <label style="font-size: 0.75rem">From Date</label>
-                            <input type="date" class="form-input" id="detailsFromDate" onchange="loadDetails()">
-                        </div>
-                        <div class="filter-group" style="display:flex; flex-direction:column; gap:0.2rem">
-                            <label style="font-size: 0.75rem">To Date</label>
-                            <input type="date" class="form-input" id="detailsToDate" onchange="loadDetails()">
-                        </div>
-                <div class="filter-group">
-                    <select class="form-select" id="detailsType" onchange="loadDetails()">
-                        <option value="all">All Types</option>
-                        <option value="credit">Credits</option>
-                        <option value="personal">Personal</option>
-                        <option value="group">Group</option>
-                    </select>
-                </div>
-            </div>
-
-            <div id="detailsTableContainer"></div>
-        </div>
-    `;
-
-            // Auto select latest year
-            if (sortedYears.length > 0) {
-                const detailsYearElem = document.getElementById('detailsYear');
-                if (detailsYearElem && sortedYears.length > 0) {
-                    detailsYearElem.value = sortedYears[0];
-                }
-            }
-
-            await loadDetails();
-        }
-
-        async function loadDetails() {
-            showLoading();
-            try {
-                const searchTerm = document.getElementById('detailsSearch')?.value || '';
-                const fromDate = document.getElementById('detailsFromDate')?.value || '';
-                const toDate = document.getElementById('detailsToDate')?.value || '';
-                const typeFilter = document.getElementById('detailsType')?.value || 'all';
-
-                // Load core user data: credits, personal expenses, and the list of groups the user is in
-                const [creditsSnapshot, personalSnapshot, groupsListSnapshot] = await Promise.all([
-                    db.collection('credits').where('userId', '==', currentUser.uid).get(),
-                    db.collection('personal_expenses').where('userId', '==', currentUser.uid).get(),
-                    db.collection('groups').where('members', 'array-contains', currentUser.uid).get()
-                ]);
-
-                // Extract group IDs for the groups the current user is a member of
-                const groupIds = groupsListSnapshot.docs.map(doc => doc.id);
-
-                // Fetch all group expenses for the groups the user is in (this fixes the issue where only expenses added by the current user were fetched)
-                // We query per groupId to avoid Firestore 'in' query limits (which cap at 10 items)
-                let groupExpenses = [];
-                if (groupIds.length > 0) {
-                    const expenseQueries = groupIds.map(id => db.collection('group_expenses').where('groupId', '==', id).get());
-                    const expenseSnapshots = await Promise.all(expenseQueries);
-                    groupExpenses = expenseSnapshots.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-                }
-
-
-                // Create a map of group IDs to group names for quick lookup
-                const groupsMap = {};
-                groupsListSnapshot.docs.forEach(doc => {
-                    groupsMap[doc.id] = doc.data().name;
-                });
-
-                // Create a detailed map of group data (including members) for calculations
-                const groupsDataMap = {};
-                groupsListSnapshot.docs.forEach(doc => {
-                    groupsDataMap[doc.id] = { id: doc.id, ...doc.data() };
-                });
-
-
-                let allData = [];
-
-                // Process credits if filter allows
-                if (typeFilter === 'all' || typeFilter === 'credit') {
-                    const credits = creditsSnapshot.docs.map(doc => ({
-                        id: doc.id,
-                        section: 'Credit',
-                        sectionType: 'credit',
-                        canEdit: true,
-                        ...doc.data()
-                    }));
-                    allData = allData.concat(credits);
-                }
-
-                // Process personal expenses if filter allows
-                if (typeFilter === 'all' || typeFilter === 'personal') {
-                    const personal = personalSnapshot.docs.map(doc => ({
-                        id: doc.id,
-                        section: 'Personal',
-                        sectionType: 'personal',
-                        canEdit: true,
-                        ...doc.data()
-                    }));
-                    allData = allData.concat(personal);
-                }
-
-                // Process group expenses if filter allows
-                if (typeFilter === 'all' || typeFilter === 'group') {
-
-                    // Process each group expense to calculate the current user's share
-                    const groupEntries = groupExpenses.map(expense => {
-                        // Skip settlement entries as they are not regular expenses
-                        if (expense.category === 'Settlement' || (expense.description && expense.description.includes('Settlement')) || expense.isSettlement) {
-                            return null;
-                        }
-                        const groupId = expense.groupId;
-                        const group = groupsDataMap[groupId];
-
-                        // Skip if group data is missing (edge case)
-                        if (!group) return null;
-
-                        // Create a list of all members (including guests) for split calculations
-                        const allMembers = [...(group.members || []), ...(group.guestMembers || []).map(name => `guest:${name}`)];
-                        const memberMap = allMembers.reduce((acc, m) => {
-                            acc[m] = m.startsWith('guest:') ? { firstName: m.split(':')[1], isGuest: true } : { firstName: m };
-                            return acc;
-                        }, {});
-
-                        // Calculate the breakdown of the expense (assumes calculateExpenseBreakdown function exists elsewhere)
-                        const breakdowns = calculateExpenseBreakdown([expense], allMembers, memberMap);
-                        const breakdown = breakdowns[expense.id];
-                        let userShare = breakdown?.contributions?.[currentUser.uid] || 0;
-
-                        // Fallback for legacy equal splits if no specific splits are defined
-                        if (userShare === 0 && (!expense.splits || Object.keys(expense.splits).length === 0) && group.members.includes(currentUser.uid)) {
-                            userShare = parseFloat(expense.amount) / allMembers.length;
-                        }
-
-                        // Fallback for guest aliases if the user is matched as a guest
-                        if (userShare === 0) {
-                            const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                            userShare = breakdown?.contributions?.[guestKey] || 0;
-                        }
-
-                        // Only include the expense if the user's share is positive (meaning they owe something for this expense)
-                        // This ensures the expense is relevant to the current user
-                        if (userShare <= 0) return null;
-
-                        // Return the entry formatted for display, with amount as the user's share
-                        return {
-                            id: expense.id,
-                            section: 'Group',
-                            sectionType: 'group',
-                            canEdit: false, // Group expenses are edited in the Group View
-                            description: expense.description,
-                            amount: userShare,
-                            date: expense.date, // Firestore Timestamp
-                            mode: 'Group Split',
-                            remarks: expense.remarks || '-',
-                            attachments: expense.attachments || [],
-                            groupId: groupId,
-                            groupName: group.name
-                        };
-                    }).filter(e => e !== null);
-
-                    allData = allData.concat(groupEntries);
-                }
-
-                // Apply search filter across relevant fields
-                allData = filterBySearch(allData, searchTerm, ['description', 'mode', 'remarks', 'amount', 'section']);
-                // Apply year/month filters
-                allData = filterByDateRange(allData, fromDate, toDate);
-                // Sort by date descending
-                allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
-
-                const container = document.getElementById('detailsTableContainer');
-                if (allData.length === 0) {
-                    container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon"><i class="fas fa-file-alt"></i></div>
-                    <div class="empty-title">No transactions found</div>
-                    <div class="empty-message">Try adjusting your filters</div>
-                </div>
-            `;
-                } else {
-                    // Group data by month for display
-                    const grouped = groupByMonth(allData);
-
-                    let html = '';
-                    Object.keys(grouped).sort().reverse().forEach(month => {
-                        const [year, monthNum] = month.split('-');
-                        const monthName = getMonthName(parseInt(monthNum) - 1);
-
-                        // Calculate net total for the month (credits positive, expenses negative)
-                        const monthTotal = grouped[month].reduce((sum, item) => {
-                            return item.sectionType === 'credit' ? sum + item.amount : sum - item.amount;
-                        }, 0);
-
-                        html += `
-                    <div class="month-group">
-                        <div class="month-header" style="display: flex; justify-content: space-between; align-items: center;">
-                            <span>${monthName} ${year}</span>
-                            <span style="font-size: 0.9rem; color: ${monthTotal >= 0 ? 'var(--success)' : 'var(--danger)'};">
-                                Net: ${monthTotal >= 0 ? '+' : ''}${formatCurrency(monthTotal)}
-                            </span>
-                        </div>
-                        <div class="table-wrapper">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>${t('date')}</th>
-                                        <th>${t('section')}</th>
-                                        <th>${t('description')}</th>
-                                        <th>${t('mode')}</th>
-                                        <th>${t('remarks')}</th>
-                                        <th>${t('attachments')}</th>
-                                        <th>${t('amount')}</th>
-                                        <th>${t('actions')}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${grouped[month].map(item => `
-                                        <tr id="details-row-${item.sectionType}-${item.id}">
-                                            <td>${safeDate(item.date).toLocaleDateString()}</td>
-                                            <td><span class="badge badge-${item.sectionType === 'credit' ? 'success' : item.sectionType === 'personal' ? 'warning' : 'info'}">${item.section}</span></td>
-                                            <td>${escapeHTML(item.description)}</td>
-                                            <td><span class="badge badge-secondary">${item.mode}</span></td>
-                                            <td>${escapeHTML(item.remarks) || '-'}</td>
-                                            <td>
-                                                ${item.attachments && item.attachments.length > 0 ? `
-                                                    <div class="attachments">
-                                                        ${item.attachments.map((url, idx) => `
-                                                            <div class="attachment" onclick="viewAttachment('${url}')">
-                                                                <img src="${url}" alt="Attachment ${idx + 1}">
-                                                            </div>
-                                                        `).join('')}
-                                                    </div>
-                                                ` : '-'}
-                                            </td>
-                                            <td style="color: ${item.sectionType === 'credit' ? 'var(--success)' : 'var(--danger)'}; font-weight: 600;">
-                                                ${item.sectionType === 'credit' ? '+' : '-'}${formatCurrency(item.amount)}
-                                            </td>
-                                            <td>
-                                                <div class="actions">
-                                                    ${item.canEdit ? `
-                                                        <button class="action-btn" onclick="editDetailsRow('${item.sectionType}', '${item.id}')">
-                                                            <i class="fas fa-edit"></i>
-                                                        </button>
-                                                    ` : ''}
-                                                    <button class="action-btn danger" onclick="deleteDetailsRow('${item.sectionType}', '${item.id}')">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
-                    });
-
-                    container.innerHTML = html;
-                }
-            } catch (error) {
-                showToast('Error', error.message, 'error');
-            } finally {
-                hideLoading();
-            }
-        }
 
         async function editDetailsRow(sectionType, id) {
             showLoading();
@@ -21814,22 +21211,9 @@
                 document.body.prepend(warningDiv);
             }
 
-            // Handle Google auth redirect
-            if (detectMedian()) {
-                firebase.auth().getRedirectResult().then((result) => {
-                    if (result && result.user) {
-                        showToast('Success', 'Logged in successfully!');
-                    }
-                }).catch((error) => {
-                    if (error.code !== 'auth/redirect-cancelled-by-user') {
-                        console.error("Redirect login error:", error);
-                        showToast('Error', error.message, 'error');
-                    }
-                });
-            }
-
 
             document.querySelectorAll('.nav-link').forEach(link => {
+
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
                     const page = link.dataset.page;
