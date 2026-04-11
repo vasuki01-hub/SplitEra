@@ -10640,16 +10640,15 @@
                 try {
                     const base64DataUri = await blobToBase64(blob);
 
-                    // The official Median/GoNative workaround for locally generated files (jsPDF/Excel)
-                    // is to pass the Base64 Data URI to the native Share bridge. 
-                    // This pulls up the OS-level prompt where the user simply taps "Save to Files" or "Download".
-                    if (window.median && window.median.share && typeof window.median.share.sharePage === 'function') {
-                        window.median.share.sharePage({ url: base64DataUri });
+                    // The official Median "Download" plugin workaround for base64 generated logic.
+                    // This directly triggers the native download manager without the share menu.
+                    if (window.median && window.median.download && typeof window.median.download.downloadFile === 'function') {
+                        window.median.download.downloadFile({ url: base64DataUri });
                         return true;
                     }
 
-                    // Fallback to custom URL scheme if JS bridge is busy/unavailable
-                    window.location.href = 'median://share/sharePage?url=' + encodeURIComponent(base64DataUri);
+                    // Fallback url scheme for the download plugin. Important: Must use url schema.
+                    window.location.href = 'median://download/downloadFile?url=' + encodeURIComponent(base64DataUri);
 
                     await new Promise(r => setTimeout(r, 500)); // Briefly pause to let the intent fire
                     return true;
