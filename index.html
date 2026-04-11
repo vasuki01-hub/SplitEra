@@ -8616,19 +8616,18 @@
                     prompt: 'select_account'
                 });
 
-                // For ALL mobile environments (WebViews and Mobile Browsers), use Redirect for Google Auth
-                // This prevents "Popup blocked" and "External browser opening" issues in WebViews
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                const isWebViewEnv = typeof isWebView === 'function' ? isWebView() : false;
+                const isMobileBrowser = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-                if (isAppEnvironment() || isMobile) {
-
+                // Use Popup for Desktop AND WebViews (App Wrappers).
+                // Use Redirect ONLY for standard Mobile Browsers to bypass strict popup blockers.
+                if (!isWebViewEnv && isMobileBrowser) {
                     await auth.signInWithRedirect(provider);
                     return;
                 }
 
-                // Browser environment: Default to signInWithPopup
+                // Browser & App environment: Default to signInWithPopup
                 try {
-
                     const result = await auth.signInWithPopup(provider);
                     if (result.user) {
                         await handleGoogleAuthSuccess(result.user);
@@ -8643,8 +8642,8 @@
                         popupError.code === 'auth/popup-closed-by-user' ||
                         popupError.code === 'auth/operation-not-supported-in-this-environment';
 
-                    if (shouldTryRedirect) {
-
+                    // Never fallback to redirect inside a WebView (App) to prevent boundary breaking
+                    if (shouldTryRedirect && !isWebViewEnv) {
                         await auth.signInWithRedirect(provider);
                     } else {
                         throw popupError;
@@ -8775,7 +8774,7 @@
                     photoUrl: photoUrl,
                     phone: '',
                     userId: userId,
-                    countryCode: '+91',
+                    countryCode: '+1',
                     currency: 'USD',
                     country: 'US',
                     language: 'en',
@@ -20752,29 +20751,33 @@
 
         // Utility Functions
         // Robust environment detection for WebViews (Median, GoNative, Custom WebView, etc.)
-        function isAppEnvironment() {
+        function isWebView() {
             const ua = window.navigator.userAgent || window.navigator.vendor || window.opera;
             const isAndroid = /Android/i.test(ua);
             const isIos = /iPhone|iPad|iPod/i.test(ua);
 
-            // Check for known web-to-app converters
+            // 1. Explicit Strings from Converters
             const isMedian = ua.includes('Median') || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.median);
+            const isGoNative = ua.includes('gonative');
 
-            // Generic WebView detection for Android (looking for "wv" or "Version/X.X Chrome/X.X")
+            // 2. Generic WebView Detection (Android)
             const isAndroidWebView = isAndroid && (ua.includes('; wv)') || (ua.includes('Version/') && ua.includes('Chrome/')));
 
-            // Generic WebView detection for iOS (Safari is missing in most WebViews)
+            // 3. Generic WebView Detection (iOS)
             const isIosWebView = isIos && !ua.includes('Safari/');
 
-            // Robust mobile detection (important for auth flow fallback)
-            const isMobileBrowser = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+            return isMedian || isGoNative || isAndroidWebView || isIosWebView;
+        }
 
-            return isMedian || isAndroidWebView || isIosWebView || isMobileBrowser;
+        function isAppEnvironment() {
+            const ua = window.navigator.userAgent || window.navigator.vendor || window.opera;
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+            return isMobile || isWebView();
         }
 
         // Keep for backward compatibility
         function detectMedian() {
-            return isAppEnvironment();
+            return isWebView();
         }
 
         function getMonthName(monthIndex) {
@@ -21571,12 +21574,7 @@
             initMobileNavigation();
         }
 
-        function isAppEnvironment() {
-            const ua = window.navigator.userAgent || window.navigator.vendor || window.opera;
-            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) ||
-                ua.includes('Median') ||
-                (window.webkit && window.webkit.messageHandlers);
-        }
+        // Environment initialization logic follows above definitions
 
     </script>
 
