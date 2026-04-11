@@ -10631,22 +10631,26 @@
                 });
             }
 
-            // 1. Median JS Bridge
+            // 1. Median App Native Local Download (No Firebase required)
             const isMedianApp = (typeof window.median !== 'undefined') ||
                 ua.includes('Median') ||
                 (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.median);
 
             if (isMedianApp) {
                 try {
-                    const base64 = await blobToBase64(blob);
-                    if (window.median && window.median.share && typeof window.median.share.shareFile === 'function') {
-                        window.median.share.shareFile({ url: base64, filename: fileName });
+                    const base64DataUri = await blobToBase64(blob);
+
+                    // Use Median's official download module for base64 data URIs
+                    if (window.median && window.median.download && typeof window.median.download.downloadFile === 'function') {
+                        window.median.download.downloadFile({ url: base64DataUri, filename: fileName });
                         return true;
                     }
-                    window.location.href = 'median://share/file?base64=' + encodeURIComponent(base64) + '&filename=' + encodeURIComponent(fileName) + '&mimetype=' + encodeURIComponent(mimeType);
+
+                    // Fallback to custom URL scheme if direct JS bridge is not fully bound
+                    window.location.href = 'median://download/downloadFile?url=' + encodeURIComponent(base64DataUri) + '&filename=' + encodeURIComponent(fileName);
                     return true;
                 } catch (err) {
-                    console.warn('Median bridge failed:', err);
+                    console.warn('Median local download failed:', err);
                 }
             }
 
