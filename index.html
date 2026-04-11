@@ -11506,10 +11506,10 @@
                     credits = filterBySearch(credits, searchTerm, ['description', 'source', 'mode', 'remarks', 'amount']);
                 }
 
-                const filterYear = document.getElementById('creditsYear')?.value || 'all';
-                const filterMonth = document.getElementById('creditsMonth')?.value || 'all';
+                const fromDate = document.getElementById('creditsFromDate')?.value || '';
+                const toDate = document.getElementById('creditsToDate')?.value || '';
 
-                credits = filterByYearMonth(credits, filterYear, filterMonth);
+                credits = filterByDateRange(credits, fromDate, toDate);
                 credits.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 // Calculate totals
