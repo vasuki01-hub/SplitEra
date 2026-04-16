@@ -6417,6 +6417,8 @@
             },
         };
 
+
+
         // App State
         let currentUser = null;
         let currentLang = localStorage.getItem('lang') || 'en';
@@ -10862,7 +10864,7 @@
                 // XLSX.writeFile(workbook, `${fileName}.xlsx`);
                 const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
                 const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                await saveFileSafely(blob, `${fileName}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                const isSaved = await saveFileSafely(blob, `${fileName}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             }
             return workbook;
         }
@@ -11028,7 +11030,7 @@
                 // Write file — use saveFileSafely so download works on Android WebView too
                 const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
                 const excelBlob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                await saveFileSafely(excelBlob, `Dashboard_Report_${new Date().toISOString().split('T')[0]}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                const isSaved = await saveFileSafely(excelBlob, `Dashboard_Report_${new Date().toISOString().split('T')[0]}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
                 showToast('Success', 'Excel exported successfully!');
 
@@ -12304,7 +12306,7 @@
                 });
 
                 const pdfBlob = doc.output('blob');
-                await saveFileSafely(pdfBlob, `credits-report-${Date.now()}.pdf`, 'application/pdf');
+                const isSaved = await saveFileSafely(pdfBlob, `credits-report-${Date.now()}.pdf`, 'application/pdf');
 
                 showToast('Success', 'PDF exported successfully!');
             } catch (error) {
@@ -13076,7 +13078,7 @@
                 });
 
                 const pdfBlob = doc.output('blob');
-                await saveFileSafely(pdfBlob, `personal-expenses-${Date.now()}.pdf`, 'application/pdf');
+                const isSaved = await saveFileSafely(pdfBlob, `personal-expenses-${Date.now()}.pdf`, 'application/pdf');
 
                 showToast('Success', 'PDF exported successfully!');
             } catch (error) {
@@ -17868,7 +17870,7 @@
                     finalY = doc.lastAutoTable.finalY + 15;
                 }
                 const pdfBlob = doc.output('blob');
-                await saveFileSafely(pdfBlob, `${group.name.replace(/[^a-z0-9]/gi, '_')}_Report.pdf`, 'application/pdf');
+                const isSaved = await saveFileSafely(pdfBlob, `${group.name.replace(/[^a-z0-9]/gi, '_')}_Report.pdf`, 'application/pdf');
 
                 showToast(t('success'), t('pdfExportSuccess'));
             } catch (error) {
@@ -18846,7 +18848,7 @@
 
                 // Save the PDF with a timestamped filename
                 const pdfBlob = doc.output('blob');
-                await saveFileSafely(pdfBlob, `all-transactions-${Date.now()}.pdf`, 'application/pdf');
+                const isSaved = await saveFileSafely(pdfBlob, `all-transactions-${Date.now()}.pdf`, 'application/pdf');
 
                 showToast(t('success'), t('pdfExportSuccess'));
             } catch (error) {
@@ -20060,7 +20062,7 @@
                 doc.text(`${t('totalCreditCardExpenses')}: ${formatCurrency(totalCreditCardExpenses, true)}`, 14, yPos);
 
                 const pdfBlob = doc.output('blob');
-                await saveFileSafely(pdfBlob, `splitera-complete-data-${Date.now()}.pdf`, 'application/pdf');
+                const isSaved = await saveFileSafely(pdfBlob, `splitera-complete-data-${Date.now()}.pdf`, 'application/pdf');
 
                 showToast(t('success'), t('pdfExportSuccess'));
             } catch (error) {
@@ -20141,7 +20143,7 @@
 
                 const dataStr = JSON.stringify(exportData, null, 2);
                 const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                await saveFileSafely(dataBlob, `splitera-complete-data-${Date.now()}.json`, 'application/json');
+                const isSaved = await saveFileSafely(dataBlob, `splitera-complete-data-${Date.now()}.json`, 'application/json');
 
 
                 showToast(t('success'), t('jsonExportSuccess'));
@@ -20319,7 +20321,7 @@
 
                 const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
                 const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                await saveFileSafely(blob, `splitera-complete-data-${Date.now()}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                const isSaved = await saveFileSafely(blob, `splitera-complete-data-${Date.now()}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
                 showToast(t('success'), 'Excel exported successfully!');
             } catch (error) {
