@@ -78,17 +78,17 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(332deg, #e2d9ad 0% 24%, #ff9d35 100%);
+            background: linear-gradient(332deg, #000000 0% 30%, #ff8605 100%);
             padding: 1.5rem;
         }
 
         .auth-card {
             background: var(--bg-white);
-            border-radius: 1rem;
+            border-radius: 4rem;
             box-shadow: var(--shadow-lg);
             width: 100%;
             max-width: 28rem;
-            overflow: hidden;
+            overflow: auto;
         }
 
         .auth-header {
@@ -120,6 +120,9 @@
         }
 
         .auth-tab {
+            border-radius: 2rem;
+            margin: 1rem;
+            background: #deb8871c;
             flex: 1;
             padding: 1rem;
             background: none;
@@ -129,7 +132,7 @@
             font-weight: 600;
             cursor: pointer;
             border-bottom: 2px solid transparent;
-            margin-bottom: -2px;
+            margin-bottom: 2px;
             transition: all 0.3s;
         }
 
@@ -7736,450 +7739,1126 @@
 
         function renderUserGuidePage() {
             const app = document.getElementById('app');
+            const slides = [
+                {
+                    id: 'welcome',
+                    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    accentColor: '#a78bfa',
+                    icon: '🚀',
+                    avatarType: 'welcome',
+                    title: t('guideHeroTitle') || 'Master Your Finances',
+                    subtitle: t('guideHeroSubtitle') || 'Learn how SplitEra helps you track personal spending and split group expenses effortlessly.',
+                    badge: 'Welcome',
+                    content: null
+                },
+                {
+                    id: 'dashboard',
+                    gradient: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
+                    accentColor: '#fb923c',
+                    icon: '📊',
+                    avatarType: 'analyst',
+                    title: t('dashboardTitle') || 'Powerful Dashboard',
+                    subtitle: t('dashboardDescription') || 'Get an instant pulse on your financial health.',
+                    badge: '01 · Dashboard',
+                    content: {
+                        insight: { icon: '💡', label: t('keyInsight') || 'Key Insight', text: t('netBalanceInsight') || '"Net Balance" shows exactly how much money you really have after considering all pending group debts and credit card bills.' },
+                        chips: ['Net Balance', 'Charts', 'Insights', 'Export']
+                    }
+                },
+                {
+                    id: 'credits',
+                    gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                    accentColor: '#10b981',
+                    icon: '💰',
+                    avatarType: 'banker',
+                    title: t('managingIncomeTitle') || 'Managing Income',
+                    subtitle: t('managingIncomeDescription') || 'Add your monthly salary, freelancing income, or cash gifts.',
+                    badge: '02 · Credits',
+                    content: {
+                        chips: [t('salaryRecurring') || 'Salary: Recurring', t('ccAdjustment') || 'CC Adjustment', 'Business', 'Gifts']
+                    }
+                },
+                {
+                    id: 'expenses',
+                    gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+                    accentColor: '#ef4444',
+                    icon: '🛒',
+                    avatarType: 'shopper',
+                    title: t('expenses') || 'Track Expenses',
+                    subtitle: t('trackingExpensesDescription') || 'Never lose track of where your money goes. Log groceries, rent, travel, and more.',
+                    badge: '03 · Expenses',
+                    content: {
+                        tip: { icon: '✨', label: t('proTip') || 'Pro Tip', text: t('autoCategorizeTip') || 'Use "Keywords" in descriptions to auto-categorize repetitive expenses like "Starbucks" or "Netflix".' },
+                        chips: ['Food', 'Transport', 'Shopping', 'Bills', 'Health']
+                    }
+                },
+                {
+                    id: 'groups',
+                    gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                    accentColor: '#3b82f6',
+                    icon: '👥',
+                    avatarType: 'friends',
+                    title: t('groups') || 'Split with Groups',
+                    subtitle: t('splitDinnerBill') || '"Let\'s split the dinner bill..."',
+                    badge: '04 · Groups',
+                    content: {
+                        steps: [
+                            { num: '1', title: t('addExpenseStepTitle') || 'Add Expense', desc: t('addExpenseStepDescription') || 'You pay $120 for a group of 4 people.' },
+                            { num: '2', title: t('automaticSplitStepTitle') || 'Auto Split', desc: t('automaticSplitStepDescription') || 'Each person owes $30. Your dashboard updates instantly.' },
+                            { num: '3', title: t('settleUpStepTitle') || 'Settle Up', desc: t('automaticSettleUpStepDescription') || 'When a friend pays back, click "Settle". Balances update in real-time.' }
+                        ]
+                    }
+                },
+                {
+                    id: 'casestudy',
+                    gradient: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
+                    accentColor: '#8b5cf6',
+                    icon: '🗺️',
+                    avatarType: 'traveler',
+                    title: t('weekendRoadTripCaseStudy') || 'A Weekend Road Trip',
+                    subtitle: t('caseStudyDescription') || 'See how SplitEra manages a complex weekend with multiple expenses and different payers.',
+                    badge: 'Case Study',
+                    content: {
+                        items: [
+                            { label: t('petrolPaidByJohnLine') || 'Petrol: Paid by John', amount: '$80.00' },
+                            { label: t('airbnbPaidByYouLine') || 'Airbnb: Paid by you', amount: '$450.00' },
+                            { label: t('snacksPaidBySarahLine') || 'Snacks: Paid by Sarah', amount: '$45.00' }
+                        ],
+                        result: t('caseStudyResultDescription') || 'SplitEra finds the minimum transactions. Sarah pays you $165, and John receives $10 from Sarah. Simple!'
+                    }
+                },
+                {
+                    id: 'calendar',
+                    gradient: 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+                    accentColor: '#8b5cf6',
+                    icon: '📅',
+                    avatarType: 'planner',
+                    title: t('calendar') || 'Calendar View',
+                    subtitle: t('calendarDescription') || 'Visualize your money over time.',
+                    badge: '05 · Calendar',
+                    content: {
+                        tip: { icon: '📌', label: t('viewByDate') || 'View by Date', text: t('viewByDateDescription') || 'Click any day to see the exact transactions that happened then.' },
+                        chips: ['Monthly View', 'Daily Totals', 'Income Dots', 'Expense Dots']
+                    }
+                },
+                {
+                    id: 'export',
+                    gradient: 'linear-gradient(135deg, #0ba360 0%, #3cba92 100%)',
+                    accentColor: '#10b981',
+                    icon: '📤',
+                    avatarType: 'exporter',
+                    title: t('exportReports') || 'Export Reports',
+                    subtitle: t('exportReportsDescription') || 'Need your data for taxes or accounting? Export all your transactions.',
+                    badge: '06 · Export',
+                    content: {
+                        chips: ['PDF Report', 'Excel Export', 'JSON Data', 'Full History'],
+                        formats: [{ label: 'PDF', color: '#ef4444', bg: '#fee2e2' }, { label: 'EXCEL', color: '#16a34a', bg: '#dcfce7' }, { label: 'JSON', color: '#2563eb', bg: '#dbeafe' }]
+                    }
+                },
+                {
+                    id: 'details',
+                    gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                    accentColor: '#ec4899',
+                    icon: '🔍',
+                    avatarType: 'detective',
+                    title: t('details') || 'Transaction Details',
+                    subtitle: t('detailsDescription') || 'Dive deep into your records. Search for specific transactions, filter by type or category.',
+                    badge: '07 · Details',
+                    content: {
+                        tip: { icon: '⚡', label: t('smartSearch') || 'Smart Search', text: t('smartSearchDescription') || 'Just start typing. Our filters work instantly to find what you\'re looking for.' },
+                        chips: ['Search', 'Filter', 'Sort', 'Categories']
+                    }
+                },
+                {
+                    id: 'getstarted',
+                    gradient: 'linear-gradient(135deg, #667eea 0%, #f093fb 100%)',
+                    accentColor: '#a78bfa',
+                    icon: '🎉',
+                    avatarType: 'celebrate',
+                    title: t('readyToStartSplitting') || 'Ready to start splitting?',
+                    subtitle: 'Join thousands of users who have mastered their finances with SplitEra.',
+                    badge: 'Get Started',
+                    content: null
+                }
+            ];
 
             app.innerHTML = `
                 <style>
-                    .guide-grid {
-                        display: grid;
-                        grid-template-columns: 1fr 1fr;
-                        gap: 4rem;
+                    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+                    .ug-root {
+                        min-height: 100vh;
+                        font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+                        overflow: hidden;
+                        position: relative;
+                        background: #0f0c29;
+                    }
+
+                    /* ---- Animated BG Orbs ---- */
+                    .ug-orb {
+                        position: fixed;
+                        border-radius: 50%;
+                        filter: blur(80px);
+                        opacity: 0.18;
+                        animation: ug-float 8s ease-in-out infinite alternate;
+                        pointer-events: none;
+                        z-index: 0;
+                    }
+                    .ug-orb-1 { width: 500px; height: 500px; background: #7c3aed; top: -150px; left: -150px; animation-delay: 0s; }
+                    .ug-orb-2 { width: 400px; height: 400px; background: #06b6d4; bottom: -100px; right: -100px; animation-delay: -3s; }
+                    .ug-orb-3 { width: 300px; height: 300px; background: #f59e0b; top: 40%; left: 40%; animation-delay: -6s; }
+                    @keyframes ug-float { 0%{transform:translate(0,0) scale(1);} 100%{transform:translate(30px,20px) scale(1.08);} }
+
+                    /* ---- Header ---- */
+                    .ug-header {
+                        position: fixed;
+                        top: 0; left: 0; right: 0;
+                        z-index: 100;
+                        display: flex;
                         align-items: center;
+                        justify-content: space-between;
+                        padding: 0.8rem 1.5rem;
+                        background: rgba(15, 12, 41, 0.7);
+                        backdrop-filter: blur(20px);
+                        -webkit-backdrop-filter: blur(20px);
+                        border-bottom: 1px solid rgba(255,255,255,0.08);
                     }
-                    .guide-hero-title {
-                        font-size: 3.5rem;
+                    .ug-header-logo {
+                        display: flex;
+                        align-items: center;
+                        gap: 0.6rem;
                     }
-                    .guide-section {
-                        margin-bottom: 6rem;
-                    }
-                    .guide-header-btn {
+                    .ug-header-logo img { height: 32px; width: auto; border-radius: 8px; }
+                    .ug-header-logo span { font-weight: 800; font-size: 1.1rem; color: #fff; letter-spacing: -0.02em; }
+                    .ug-header-right { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+                    .ug-lang-select {
+                        background: rgba(255,255,255,0.1);
+                        border: 1px solid rgba(255,255,255,0.2);
+                        color: #fff;
                         border-radius: 2rem;
-                        padding: 0.5rem 1.5rem;
+                        padding: 0.35rem 0.9rem;
+                        font-size: 0.78rem;
+                        font-family: inherit;
+                        cursor: pointer;
+                        outline: none;
+                        transition: background 0.2s;
                     }
-                    .step-grid {
-                        display: grid;
-                        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                    .ug-lang-select:hover { background: rgba(255,255,255,0.18); }
+                    .ug-lang-select option { background: #1e1b4b; color: #fff; }
+                    .ug-btn-login {
+                        background: linear-gradient(135deg, #7c3aed, #06b6d4);
+                        border: none;
+                        color: #fff;
+                        border-radius: 2rem;
+                        padding: 0.4rem 1.2rem;
+                        font-size: 0.82rem;
+                        font-weight: 700;
+                        font-family: inherit;
+                        cursor: pointer;
+                        transition: opacity 0.2s, transform 0.2s;
+                        white-space: nowrap;
+                    }
+                    .ug-btn-login:hover { opacity: 0.88; transform: translateY(-1px); }
+
+                    /* ---- Slide Wrapper ---- */
+                    .ug-stage {
+                        position: relative;
+                        z-index: 1;
+                        min-height: 100vh;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 90px 1rem 100px;
+                        overflow: hidden;
+                    }
+
+                    .ug-slide {
+                        display: none;
+                        width: 100%;
+                        max-width: 960px;
+                        margin: 0 auto;
+                        animation: ug-slide-in 0.5s cubic-bezier(.4,0,.2,1);
+                    }
+                    .ug-slide.active { display: flex; flex-direction: column; align-items: center; }
+                    @keyframes ug-slide-in { from { opacity:0; transform:translateY(28px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+
+                    .ug-slide-inner {
+                        width: 100%;
+                        border-radius: 2rem;
+                        overflow: hidden;
+                        box-shadow: 0 30px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07);
+                        position: relative;
+                    }
+
+                    /* ---- Slide Card ---- */
+                    .ug-card-top {
+                        padding: 2.5rem 2.5rem 2rem;
+                        position: relative;
+                        overflow: hidden;
+                        min-height: 220px;
+                        display: flex;
+                        align-items: flex-start;
                         gap: 2rem;
                     }
-                    .case-study-grid {
-                        display: grid;
-                        grid-template-columns: 1fr 1.5fr;
-                        gap: 4rem;
-                        align-items: center;
+                    .ug-card-top::before {
+                        content: '';
+                        position: absolute;
+                        inset: 0;
+                        background: var(--slide-gradient);
+                        z-index: 0;
+                    }
+                    .ug-card-top > * { position: relative; z-index: 1; }
+
+                    .ug-badge {
+                        display: inline-block;
+                        background: rgba(255,255,255,0.2);
+                        backdrop-filter: blur(10px);
+                        color: #fff;
+                        border-radius: 2rem;
+                        padding: 0.25rem 0.9rem;
+                        font-size: 0.72rem;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        letter-spacing: 0.08em;
+                        margin-bottom: 0.8rem;
+                        border: 1px solid rgba(255,255,255,0.25);
+                    }
+                    .ug-card-text { flex: 1; min-width: 0; }
+                    .ug-card-title {
+                        font-size: clamp(1.6rem, 4vw, 2.6rem);
+                        font-weight: 900;
+                        color: #fff;
+                        line-height: 1.1;
+                        margin-bottom: 0.8rem;
+                        text-shadow: 0 2px 12px rgba(0,0,0,0.2);
+                    }
+                    .ug-card-subtitle {
+                        font-size: clamp(0.9rem, 2vw, 1.05rem);
+                        color: rgba(255,255,255,0.85);
+                        line-height: 1.6;
+                        max-width: 500px;
                     }
 
-                    @media (max-width: 768px) {
-                        .guide-grid, .case-study-grid {
-                            grid-template-columns: 1fr !important;
-                            gap: 2rem !important;
-                        }
-                        .guide-hero-title {
-                            font-size: 2.2rem !important;
-                        }
-                        .guide-content {
-                            padding: 2rem 1rem !important;
-                        }
-                        .guide-section {
-                            margin-bottom: 4rem !important;
-                        }
-                        .guide-grid > div:nth-child(2) {
-                            order: -1 !important;
-                        }
-                        .credits-section > div:nth-child(2) {
-                            order: -1 !important;
-                        }
-                        .step-grid {
-                            grid-template-columns: 1fr !important;
-                        }
-                        .header-content {
-                            padding: 0.5rem 1rem !important;
-                            justify-content: space-between !important;
-                            gap: 0.5rem !important;
-                            flex-wrap: wrap !important;
-                        }
-                        .language-selector-guide {
-                            padding: 0.3rem 0.6rem !important;
-                            order: 1;
-                        }
-                        .guide-header-btn {
-                            width: auto !important;
-                            padding: 0.4rem 1rem !important;
-                            font-size: 0.85rem !important;
-                            order: 2;
-                        }
-                        .guide-illustrations svg {
-                            max-width: 100%;
-                            height: auto;
-                        }
+                    /* ---- 3D Avatar ---- */
+                    .ug-avatar-wrap {
+                        flex-shrink: 0;
+                        width: 140px;
+                        height: 140px;
+                        position: relative;
+                    }
+                    .ug-avatar-wrap svg { width: 100%; height: 100%; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.35)); }
+                    @keyframes ug-avatar-bob { 0%,100%{transform:translateY(0) rotate(-1deg);} 50%{transform:translateY(-8px) rotate(1deg);} }
+                    .ug-avatar-wrap { animation: ug-avatar-bob 3.5s ease-in-out infinite; }
+
+                    /* ---- Card Body ---- */
+                    .ug-card-body {
+                        background: #fff;
+                        padding: 2rem 2.5rem;
+                    }
+                    body.dark-mode .ug-card-body { background: #1e1b4b; }
+
+                    .ug-chips {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 0.5rem;
+                        margin-top: 1rem;
+                    }
+                    .ug-chip {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 0.35rem;
+                        background: var(--chip-bg, #f1f5f9);
+                        color: var(--chip-color, #334155);
+                        border-radius: 2rem;
+                        padding: 0.3rem 0.9rem;
+                        font-size: 0.78rem;
+                        font-weight: 600;
+                        border: 1px solid var(--chip-border, #e2e8f0);
+                        transition: transform 0.15s, box-shadow 0.15s;
+                    }
+                    .ug-chip:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+                    body.dark-mode .ug-chip { background: rgba(255,255,255,0.08); color: #e2e8f0; border-color: rgba(255,255,255,0.12); }
+
+                    .ug-insight {
+                        display: flex;
+                        gap: 1rem;
+                        align-items: flex-start;
+                        background: linear-gradient(135deg, #fef3c7, #fff7ed);
+                        border: 1px solid #fcd34d;
+                        border-radius: 1rem;
+                        padding: 1.25rem;
+                        margin-top: 1rem;
+                    }
+                    body.dark-mode .ug-insight { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.3); }
+                    .ug-insight-icon { font-size: 1.5rem; flex-shrink: 0; }
+                    .ug-insight-label { font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #b45309; margin-bottom: 0.3rem; }
+                    body.dark-mode .ug-insight-label { color: #fbbf24; }
+                    .ug-insight-text { font-size: 0.9rem; color: #78350f; line-height: 1.5; }
+                    body.dark-mode .ug-insight-text { color: #fef3c7; }
+
+                    .ug-tip {
+                        display: flex;
+                        gap: 1rem;
+                        align-items: flex-start;
+                        background: linear-gradient(135deg, #ede9fe, #f5f3ff);
+                        border: 1px solid #c4b5fd;
+                        border-radius: 1rem;
+                        padding: 1.25rem;
+                        margin-top: 1rem;
+                    }
+                    body.dark-mode .ug-tip { background: rgba(139,92,246,0.12); border-color: rgba(139,92,246,0.3); }
+                    .ug-tip-icon { font-size: 1.5rem; flex-shrink: 0; }
+                    .ug-tip-label { font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #6d28d9; margin-bottom: 0.3rem; }
+                    body.dark-mode .ug-tip-label { color: #a78bfa; }
+                    .ug-tip-text { font-size: 0.9rem; color: #4c1d95; line-height: 1.5; }
+                    body.dark-mode .ug-tip-text { color: #ddd6fe; }
+
+                    /* Steps */
+                    .ug-steps {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                        gap: 1rem;
+                        margin-top: 0.5rem;
+                    }
+                    .ug-step {
+                        background: #f8fafc;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 1rem;
+                        padding: 1.25rem;
+                        position: relative;
+                        transition: transform 0.2s, box-shadow 0.2s;
+                    }
+                    .ug-step:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+                    body.dark-mode .ug-step { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+                    .ug-step-num {
+                        width: 28px; height: 28px;
+                        background: var(--slide-accent, #7c3aed);
+                        color: #fff;
+                        border-radius: 50%;
+                        display: flex; align-items: center; justify-content: center;
+                        font-weight: 800; font-size: 0.8rem;
+                        margin-bottom: 0.75rem;
+                    }
+                    .ug-step-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #1e293b; }
+                    body.dark-mode .ug-step-title { color: #f1f5f9; }
+                    .ug-step-desc { font-size: 0.82rem; color: #64748b; line-height: 1.5; }
+                    body.dark-mode .ug-step-desc { color: #94a3b8; }
+
+                    /* Case Study */
+                    .ug-case-items { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem; }
+                    .ug-case-item {
+                        display: flex; justify-content: space-between; align-items: center;
+                        background: #f8fafc; border: 1px solid #e2e8f0;
+                        border-radius: 0.75rem; padding: 0.9rem 1.25rem;
+                        transition: transform 0.2s;
+                    }
+                    .ug-case-item:hover { transform: translateX(4px); }
+                    body.dark-mode .ug-case-item { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+                    .ug-case-label { font-size: 0.9rem; color: #374151; font-weight: 500; }
+                    body.dark-mode .ug-case-label { color: #e2e8f0; }
+                    .ug-case-amount { font-weight: 800; font-size: 1rem; color: #7c3aed; }
+                    .ug-case-result {
+                        margin-top: 1rem; padding: 1rem 1.25rem;
+                        background: linear-gradient(135deg, #ede9fe, #fce7f3);
+                        border: 2px dashed #a78bfa;
+                        border-radius: 0.75rem; text-align: center;
+                        font-size: 0.88rem; color: #4c1d95; line-height: 1.5; font-weight: 500;
+                    }
+                    body.dark-mode .ug-case-result { background: rgba(139,92,246,0.15); color: #ddd6fe; }
+
+                    /* Export formats */
+                    .ug-formats { display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
+                    .ug-format-badge {
+                        padding: 0.5rem 1.25rem; border-radius: 0.5rem;
+                        font-weight: 800; font-size: 0.9rem;
+                        transition: transform 0.15s, box-shadow 0.15s;
+                        cursor: default;
+                    }
+                    .ug-format-badge:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
+
+                    /* Welcome & CTA slides */
+                    .ug-welcome-body {
+                        background: #fff; padding: 2.5rem;
+                        text-align: center;
+                        display: flex; flex-direction: column; align-items: center; gap: 1.25rem;
+                    }
+                    body.dark-mode .ug-welcome-body { background: #1e1b4b; }
+                    .ug-welcome-feat-grid {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                        gap: 0.75rem; width: 100%;
+                    }
+                    .ug-feat-card {
+                        background: #f8fafc; border: 1px solid #e2e8f0;
+                        border-radius: 1rem; padding: 1rem 0.5rem;
+                        text-align: center; transition: transform 0.2s, box-shadow 0.2s;
+                        cursor: default;
+                    }
+                    .ug-feat-card:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0,0,0,0.07); }
+                    body.dark-mode .ug-feat-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+                    .ug-feat-icon { font-size: 1.75rem; margin-bottom: 0.4rem; }
+                    .ug-feat-label { font-size: 0.75rem; font-weight: 700; color: #475569; }
+                    body.dark-mode .ug-feat-label { color: #94a3b8; }
+
+                    .ug-cta-body {
+                        background: #fff; padding: 3rem 2.5rem;
+                        text-align: center;
+                        display: flex; flex-direction: column; align-items: center; gap: 1.5rem;
+                    }
+                    body.dark-mode .ug-cta-body { background: #1e1b4b; }
+                    .ug-cta-text { font-size: 1rem; color: #64748b; max-width: 400px; line-height: 1.6; }
+                    body.dark-mode .ug-cta-text { color: #94a3b8; }
+                    .ug-btn-cta {
+                        background: linear-gradient(135deg, #7c3aed, #06b6d4);
+                        border: none; color: #fff;
+                        border-radius: 2rem; padding: 1rem 2.5rem;
+                        font-size: 1.1rem; font-weight: 800;
+                        font-family: inherit; cursor: pointer;
+                        box-shadow: 0 8px 30px rgba(124,58,237,0.4);
+                        transition: opacity 0.2s, transform 0.2s;
+                        letter-spacing: -0.01em;
+                    }
+                    .ug-btn-cta:hover { opacity: 0.9; transform: translateY(-2px) scale(1.03); }
+
+                    /* ---- Progress Dots ---- */
+                    .ug-dots {
+                        display: flex; align-items: center; justify-content: center;
+                        gap: 0.45rem; margin-top: 1.5rem;
+                    }
+                    .ug-dot {
+                        width: 8px; height: 8px; border-radius: 50%;
+                        background: rgba(255,255,255,0.3);
+                        cursor: pointer;
+                        transition: background 0.3s, width 0.3s, border-radius 0.3s;
+                        border: none; outline: none; padding: 0; flex-shrink: 0;
+                    }
+                    .ug-dot.active { width: 24px; border-radius: 4px; background: #fff; }
+
+                    /* ---- Navigation ---- */
+                    .ug-nav {
+                        display: flex; align-items: center; justify-content: center;
+                        gap: 1rem; margin-top: 1.25rem;
+                    }
+                    .ug-nav-btn {
+                        display: flex; align-items: center; gap: 0.4rem;
+                        background: rgba(255,255,255,0.12);
+                        backdrop-filter: blur(10px);
+                        border: 1px solid rgba(255,255,255,0.2);
+                        color: #fff; border-radius: 2rem;
+                        padding: 0.6rem 1.4rem;
+                        font-size: 0.88rem; font-weight: 700;
+                        font-family: inherit; cursor: pointer;
+                        transition: background 0.2s, transform 0.15s;
+                        white-space: nowrap;
+                    }
+                    .ug-nav-btn:hover { background: rgba(255,255,255,0.22); transform: scale(1.04); }
+                    .ug-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+                    .ug-slide-counter {
+                        color: rgba(255,255,255,0.7); font-size: 0.82rem; font-weight: 600;
+                        min-width: 60px; text-align: center;
+                    }
+
+                    /* Progress bar */
+                    .ug-progress-bar {
+                        position: fixed; top: 0; left: 0; right: 0;
+                        height: 3px; z-index: 200;
+                        background: rgba(255,255,255,0.1);
+                    }
+                    .ug-progress-fill {
+                        height: 100%;
+                        background: linear-gradient(90deg, #7c3aed, #06b6d4, #f59e0b);
+                        transition: width 0.4s cubic-bezier(.4,0,.2,1);
+                    }
+
+                    /* Footer */
+                    .ug-footer {
+                        position: fixed; bottom: 0; left: 0; right: 0;
+                        z-index: 50; text-align: center;
+                        padding: 0.5rem 1rem;
+                        background: rgba(15,12,41,0.6);
+                        backdrop-filter: blur(12px);
+                        font-size: 0.72rem; color: rgba(255,255,255,0.4);
+                    }
+
+                    /* Responsive */
+                    @media (max-width: 640px) {
+                        .ug-card-top { flex-direction: column; gap: 1.25rem; min-height: auto; padding: 1.75rem 1.25rem 1.5rem; }
+                        .ug-avatar-wrap { width: 100px; height: 100px; align-self: center; }
+                        .ug-card-body { padding: 1.25rem; }
+                        .ug-welcome-body, .ug-cta-body { padding: 1.5rem 1.25rem; }
+                        .ug-header { padding: 0.6rem 1rem; }
+                        .ug-header-logo span { font-size: 0.95rem; }
+                        .ug-stage { padding: 80px 0.75rem 95px; }
+                    }
+                    @media (max-width: 400px) {
+                        .ug-btn-login { display: none; }
                     }
                 </style>
-                <div class="user-guide-container" style="background: var(--bg-light); padding: 2rem; min-height: 100vh; font-family: 'Inter', system-ui, sans-serif;">
-                    <main class="guide-content" style="max-width: 1000px; margin: 0 auto; padding: 3rem 1.5rem;">
-                        <!-- Hero Section -->
-                        <div style="text-align: center; margin-bottom: 5rem;">
-                            <img src="favicon.png" alt="SplitEra Logo" style="margin: auto;width: 100px;h;height: auto;t-fit: contain;border-radius: 1rem;">
-                            <img src="logo.png" alt="SplitEra Logo" style="width: 150px; height: auto; margin: 0 auto 1.5rem; display: block;">
-                            <h1 class="guide-hero-title" style="font-weight: 900; background: linear-gradient(135deg, var(--primary), #FFB17A); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 1.5rem; line-height: 1.1;">
-                                ${t('guideHeroTitle')}
-                            </h1>
-                             <p style="font-size: 1.25rem; color: var(--text-gray); max-width: 600px; margin: 0 auto 2rem; line-height: 1.6;">
-                                ${t('guideHeroSubtitle')}
-                            </p>
-                            <div style="display: flex; justify-content: center; margin-bottom: 2rem;">
-                                <div class="hero-language-selector" style="display: flex; align-items: center; gap: 1rem; background: var(--bg-white); padding: 0.8rem 1.5rem; border-radius: 3rem; border: 2px solid var(--primary); box-shadow: var(--shadow-lg);">
-                                    <i class="fas fa-language" style="color: var(--primary); font-size: 1.5rem;"></i>
-                                    <div style="display: flex; flex-direction: column;">
-                                        <label style="font-size: 0.75rem; text-align: left; color: var(--text-gray); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">${t('language')}</label>
-                                        <select onchange="changeGuideLanguage(this.value)" style="background: none; border: none; font-size: 0.7rem; color: var(--text-dark); cursor: pointer; outline: none; font-weight: 700; padding: 0;">
-                                            <option value="en" ${currentLang === 'en' ? 'selected' : ''}>English</option>
-                                            <option value="gu" ${currentLang === 'gu' ? 'selected' : ''}>ગુજરાતી (Gujarati)</option>
-                                            <option value="hi" ${currentLang === 'hi' ? 'selected' : ''}>हिन्दी (Hindi)</option>
-                                            <option value="ta" ${currentLang === 'ta' ? 'selected' : ''}>தமிழ் (Tamil)</option>
-                                            <option value="te" ${currentLang === 'te' ? 'selected' : ''}>తెలుగు (Telugu)</option>
-                                            <option value="sa" ${currentLang === 'sa' ? 'selected' : ''}>संस्कृत (Sanskrit)</option>
-                                            <option value="mr" ${currentLang === 'mr' ? 'selected' : ''}>मराठी (Marathi)</option>
-                                            <option value="pa" ${currentLang === 'pa' ? 'selected' : ''}>ਪੰਜਾਬੀ (Punjabi)</option>
-                                            <option value="bn" ${currentLang === 'bn' ? 'selected' : ''}>বাংলা (Bengali)</option>
-                                            <option value="kn" ${currentLang === 'kn' ? 'selected' : ''}>ಕನ್ನಡ (Kannada)</option>
-                                            <option value="ml" ${currentLang === 'ml' ? 'selected' : ''}>മലയാളം (Malayalam)</option>
-                                        </select>
+
+                <!-- Progress bar -->
+                <div class="ug-progress-bar" id="ugProgressBar">
+                    <div class="ug-progress-fill" id="ugProgressFill" style="width: ${(1 / slides.length * 100).toFixed(1)}%"></div>
+                </div>
+
+                <!-- BG orbs -->
+                <div class="ug-orb ug-orb-1"></div>
+                <div class="ug-orb ug-orb-2"></div>
+                <div class="ug-orb ug-orb-3"></div>
+
+                <!-- Header -->
+                <header class="ug-header">
+                    <div class="ug-header-logo">
+                        <img src="favicon.png" alt="SplitEra">
+                        <span>SplitEra</span>
+                    </div>
+                    <div class="ug-header-right">
+                        <select class="ug-lang-select" onchange="changeGuideLanguage(this.value)">
+                            <option value="en" ${currentLang === 'en' ? 'selected' : ''}>🇬🇧 English</option>
+                            <option value="gu" ${currentLang === 'gu' ? 'selected' : ''}>🇮🇳 Gujarati</option>
+                            <option value="hi" ${currentLang === 'hi' ? 'selected' : ''}>🇮🇳 Hindi</option>
+                            <option value="ta" ${currentLang === 'ta' ? 'selected' : ''}>🇮🇳 Tamil</option>
+                            <option value="te" ${currentLang === 'te' ? 'selected' : ''}>🇮🇳 Telugu</option>
+                            <option value="mr" ${currentLang === 'mr' ? 'selected' : ''}>🇮🇳 Marathi</option>
+                            <option value="pa" ${currentLang === 'pa' ? 'selected' : ''}>🇮🇳 Punjabi</option>
+                            <option value="bn" ${currentLang === 'bn' ? 'selected' : ''}>🇮🇳 Bengali</option>
+                            <option value="kn" ${currentLang === 'kn' ? 'selected' : ''}>🇮🇳 Kannada</option>
+                            <option value="ml" ${currentLang === 'ml' ? 'selected' : ''}>🇮🇳 Malayalam</option>
+                        </select>
+                        <button class="ug-btn-login" onclick="renderAuthPage()">
+                            ${t('login') || 'Login'} →
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Main Stage -->
+                <div class="ug-root" id="ugRoot">
+                    <main class="ug-stage" id="ugStage">
+                        <div id="ugSlidesContainer" style="width:100%;max-width:960px;">
+                            ${slides.map((slide, i) => `
+                            <div class="ug-slide ${i === 0 ? 'active' : ''}" id="ugSlide${i}" style="--slide-gradient:${slide.gradient};--slide-accent:${slide.accentColor};">
+                                <div class="ug-slide-inner">
+                                    <!-- Top gradient section -->
+                                    <div class="ug-card-top">
+                                        <div class="ug-card-text">
+                                            <div class="ug-badge">${slide.icon} ${slide.badge}</div>
+                                            <h1 class="ug-card-title">${slide.title}</h1>
+                                            <p class="ug-card-subtitle">${slide.subtitle}</p>
+                                        </div>
+                                        <div class="ug-avatar-wrap">
+                                            ${getAvatar3D(slide.avatarType, slide.accentColor)}
+                                        </div>
                                     </div>
+
+                                    <!-- Body -->
+                                    ${getSlideBody(slide)}
                                 </div>
                             </div>
+                            `).join('')}
                         </div>
 
-                        <!-- Section 1: Dashboard -->
-                        <section class="guide-section guide-grid" style="padding: 9px;border-radius: 25px;  box-shadow: var(--shadow-lg); border: 3px solid var(--border);">
-<div class="guide-illustrations"  style="order: 2;">
-                                <!-- SVG Illustration for Dashboard -->
-                                <svg viewBox="0 0 400 300" style="width: 100%; height: auto; border-radius: 1rem; box-shadow: 0 20px 40px rgba(0,0,0,0.1);">
-                                    <rect width="400" height="300" fill="#f8fafc" rx="16"/>
-                                    <rect x="20" y="20" width="360" height="260" fill="white" rx="12" stroke="#e2e8f0" stroke-width="1"/>
-                                    <!-- Doughnut Chart Mockup -->
-                                    <circle cx="120" cy="140" r="60" fill="none" stroke="#e2e8f0" stroke-width="20"/>
-                                    <circle cx="120" cy="140" r="60" fill="none" stroke="#FF8C42" stroke-width="20" stroke-dasharray="250 377" transform="rotate(-90 120 140)"/>
-                                    <circle cx="120" cy="140" r="60" fill="none" stroke="#10B981" stroke-width="20" stroke-dasharray="80 377" transform="rotate(150 120 140)"/>
-                                    <!-- Stat Cards -->
-                                    <rect x="220" y="60" width="140" height="60" fill="#fffaf0" rx="8" stroke="#FF8C42" stroke-width="1"/>
-                                    <text x="235" y="85" font-family="sans-serif" font-size="10" fill="#6B7280">${t('netBalance')}</text>
-                                    <text x="235" y="105" font-family="sans-serif" font-size="16" font-weight="bold" fill="#FF8C42">$2,450.00</text>
-                                    
-                                    <rect x="220" y="140" width="140" height="60" fill="#f0fff4" rx="8" stroke="#10B981" stroke-width="1"/>
-                                    <text x="235" y="165" font-family="sans-serif" font-size="10" fill="#6B7280">${t('totalCredits')}</text>
-                                    <text x="235" y="185" font-family="sans-serif" font-size="16" font-weight="bold" fill="#10B981">$3,100.00</text>
-                                </svg>
-                            </div>
+                        <!-- Dots -->
+                        <div class="ug-dots" id="ugDots">
+                            ${slides.map((_, i) => `<button class="ug-dot ${i === 0 ? 'active' : ''}" onclick="ugGoToSlide(${i})" aria-label="Slide ${i + 1}"></button>`).join('')}
+                        </div>
 
-                            <div>
-                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
-                                    <div style="width: 50px; height: 50px; background: rgba(255, 140, 66, 0.1); color: var(--primary); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                                        <i class="fas fa-tachometer-alt"></i>
-                                    </div>
-                                    <h2 style="font-size: 2rem; font-weight: 800;">${t('dashboardTitle')}</h2>
-                                </div>
-                                <p style="font-size: 1.1rem; color: var(--text-gray); margin-bottom: 2rem; line-height: 1.6;">
-                                    ${t('dashboardDescription')}
-                                </p>
-                                <div style="background: var(--bg-white); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border); box-shadow: var(--shadow);">
-                                    <h4 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                                        <i class="fas fa-info-circle" style="color: var(--primary);"></i> ${t('keyInsight')}
-                                    </h4>
-                                    <p style="font-size: 0.95rem; line-height: 1.5;">${t('netBalanceInsight')}</p>
-                                </div>
-                            </div>
-                            
-                        </section>
-
-                        <!-- Section 2: Credits -->
-                        <section class="guide-section guide-grid credits-section" style="padding: 9px;  box-shadow: var(--shadow-lg); border-radius: 25px;border: 3px solid var(--border);">
-                            <div class="guide-illustrations" style="order: 1;">
-                                <svg viewBox="0 0 400 250" style="width: 100%; height: auto; border-radius: 1rem; box-shadow: 0 20px 40px rgba(0,0,0,0.05);">
-                                    <rect width="400" height="250" fill="#f8fafc" rx="16"/>
-                                    <!-- Transaction List Mockup -->
-                                    <rect x="30" y="30" width="340" height="45" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
-                                    <text x="50" y="57" font-family="sans-serif" font-size="12" font-weight="bold">${t('january')} ${t('salary')}</text>
-                                    <text x="310" y="57" font-family="sans-serif" font-size="12" font-weight="bold" fill="#10B981">+$5,000</text>
-                                    
-                                    <rect x="30" y="90" width="340" height="45" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
-                                    <text x="50" y="117" font-family="sans-serif" font-size="12" font-weight="bold">${t('business')} ${t('active')}</text>
-                                    <text x="310" y="117" font-family="sans-serif" font-size="12" font-weight="bold" fill="#10B981">+$800</text>
-                                    
-                                    <rect x="30" y="150" width="340" height="45" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
-                                    <text x="50" y="177" font-family="sans-serif" font-size="12" font-weight="bold">${t('gift')}</text>
-                                    <text x="310" y="177" font-family="sans-serif" font-size="12" font-weight="bold" fill="#10B981">+$100</text>
-                                </svg>
-                            </div>
-                            <div style="order: 2;">
-                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
-                                    <div style="width: 50px; height: 50px; background: rgba(16, 185, 129, 0.1); color: var(--success); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                                        <i class="fas fa-university"></i>
-                                    </div>
-                                    <h2 style="font-size: 2rem; font-weight: 800;">${t('managingIncomeTitle')}</h2>
-                                </div>
-                                <p style="font-size: 1.1rem; color: var(--text-gray); margin-bottom: 2rem; line-height: 1.6;">
-                                    ${t('managingIncomeDescription')}
-                                </p>
-                                <div style="display: flex; flex-direction: column; gap: 1rem;">
-                                    <div style="display: flex; gap: 1rem; align-items: center;">
-                                        <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--success);"></div>
-                                        <span><strong>${t('salaryRecurring')}</strong></span>
-                                    </div>
-                                    <div style="display: flex; gap: 1rem; align-items: center;">
-                                        <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--primary);"></div>
-                                        <span><strong>${t('ccAdjustment')}</strong></span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                        </section>
-
-                        <!-- Section: Tracking Expenses -->
-                        <section class="guide-section guide-grid" style="padding: 9px;  box-shadow: var(--shadow-lg); border-radius: 25px;border: 3px solid var(--border);">
-                            <div class="guide-illustrations" style="order: 2;">
-                                <svg viewBox="0 0 400 250" style="width: 100%; height: auto; border-radius: 1rem; box-shadow: 0 20px 40px rgba(0,0,0,0.05);">
-                                    <rect width="400" height="250" fill="#f8fafc" rx="16"/>
-                                    <!-- Expense List Mockup -->
-                                    <rect x="30" y="30" width="340" height="45" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
-                                    <circle cx="55" cy="52" r="12" fill="#FEE2E2"/>
-                                    <text x="50" y="56" font-family="FontAwesome" font-size="12" fill="#EF4444" text-anchor="middle"></text> <!-- burger icon -->
-                                    <text x="75" y="57" font-family="sans-serif" font-size="12" font-weight="bold">${t('food')}</text>
-                                    <text x="310" y="57" font-family="sans-serif" font-size="12" font-weight="bold" fill="#EF4444">-$15.50</text>
-                                    
-                                    <rect x="30" y="90" width="340" height="45" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
-                                    <circle cx="55" cy="112" r="12" fill="#DBEAFE"/>
-                                    <text x="50" y="116" font-family="FontAwesome" font-size="12" fill="#3B82F6" text-anchor="middle"></text> <!-- shopping-bag icon -->
-                                    <text x="75" y="117" font-family="sans-serif" font-size="12" font-weight="bold">${t('shopping')}</text>
-                                    <text x="310" y="117" font-family="sans-serif" font-size="12" font-weight="bold" fill="#EF4444">-$84.20</text>
-                                    
-                                    <rect x="30" y="150" width="340" height="45" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
-                                    <circle cx="55" cy="172" r="12" fill="#FEF3C7"/>
-                                    <text x="50" y="176" font-family="FontAwesome" font-size="12" fill="#F59E0B" text-anchor="middle"></text> <!-- car icon -->
-                                    <text x="75" y="177" font-family="sans-serif" font-size="12" font-weight="bold">${t('transport')}</text>
-                                    <text x="310" y="177" font-family="sans-serif" font-size="12" font-weight="bold" fill="#EF4444">-$12.00</text>
-                                </svg>
-                            </div>
-                            <div>
-                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
-                                    <div style="width: 50px; height: 50px; background: rgba(239, 68, 68, 0.1); color: var(--danger); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                                        <i class="fas fa-shopping-cart"></i>
-                                    </div>
-                                    <h2 style="font-size: 2rem; font-weight: 800;">${t('expenses')}</h2>
-                                </div>
-                                <p style="font-size: 1.1rem; color: var(--text-gray); margin-bottom: 2rem; line-height: 1.6;">
-                                    ${t('trackingExpensesDescription')}
-                                </p>
-                                <div style="background: var(--bg-white); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border); box-shadow: var(--shadow);">
-                                    <h4 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                                        <i class="fas fa-lightbulb" style="color: var(--primary);"></i> ${t('proTip')}
-                                    </h4>
-                                    <p style="font-size: 0.95rem; line-height: 1.5;">${t('autoCategorizeTip')}</p>
-                                </div>
-                            </div>
-                            
-                        </section>
-
-                        <!-- Section 3: Groups (Example Scenario) -->
-                        <section class="guide-section" style="padding: 9px;border-radius: 25px;  box-shadow: var(--shadow-lg); border: 3px solid var(--border);">
-                            <div style="text-align: center; margin-bottom: 4rem;">
-                                <div style="width: 60px; height: 60px; background: rgba(59, 130, 246, 0.1); color: #3B82F6; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1.5rem;">
-                                    <i class="fas fa-users"></i>
-                                </div>
-                                <h2 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 1rem;">${t('groups')}</h2>
-                                <p style="color: var(--text-gray); font-size: 1.1rem;">${t('splitDinnerBill')}</p>
-                            </div>
-                            
-                            <div class="step-grid">
-                                <!-- Step 1 -->
-                                <div class="card" style="position: relative; padding: 2rem;">
-                                    <span style="position: absolute; top: -15px; left: 20px; background: var(--primary); color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800;">1</span>
-                                    <h3 style="margin-bottom: 1rem;">${t('addExpenseStepTitle')}</h3>
-                                    <p style="color: var(--text-gray); font-size: 0.95rem; line-height: 1.5;">${t('addExpenseStepDescription')}</p>
-                                </div>
-                                <!-- Step 2 -->
-                                <div class="card" style="position: relative; padding: 2rem;">
-                                    <span style="position: absolute; top: -15px; left: 20px; background: var(--primary); color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800;">2</span>
-                                    <h3 style="margin-bottom: 1rem;">${t('automaticSplitStepTitle')}</h3>
-                                    <p style="color: var(--text-gray); font-size: 0.95rem; line-height: 1.5;">${t('automaticSplitStepDescription')}</p>
-                                </div>
-                                <!-- Step 3 -->
-                                <div class="card" style="position: relative; padding: 2rem;">
-                                    <span style="position: absolute; top: -15px; left: 20px; background: var(--primary); color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800;">3</span>
-                                    <h3 style="margin-bottom: 1rem;">${t('settleUpStepTitle')}</h3>
-                                    <p style="color: var(--text-gray); font-size: 0.95rem; line-height: 1.5;">${t('automaticSettleUpStepDescription')}</p>
-                                </div>
-                            </div>
-                        </section>
-
-                        <!-- Case Study -->
-                        <section style="background: var(--bg-white); margin-bottom: 6rem; border-radius: 2rem; padding: 3rem; border: 1px solid var(--border); box-shadow: var(--shadow-lg);" >
-                            <div class="case-study-grid">
-                                <div>
-                                    <h3 style="font-size: 1.25rem; color: var(--primary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem;">${t('caseStudyLabel')}</h3>
-                                    <h2 style="font-size: 2.25rem; font-weight: 800; line-height: 1.2; margin-bottom: 1.5rem;">${t('weekendRoadTripCaseStudy')}</h2>
-                                    <p style="color: var(--text-gray); font-size: 1.1rem; line-height: 1.6;">${t('caseStudyDescription')}</p>
-                                </div>
-                                <div style="background: var(--bg-light); padding: 2rem; border-radius: 1.5rem;">
-                                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-                                        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
-                                            <span>${t('petrolPaidByJohnLine')}</span>
-                                            <span style="font-weight: bold;">$80.00</span>
-                                        </div>
-                                        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
-                                            <span>${t('airbnbPaidByYouLine')}</span>
-                                            <span style="font-weight: bold;">$450.00</span>
-                                        </div>
-                                        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
-                                            <span>${t('snacksPaidBySarahLine')}</span>
-                                            <span style="font-weight: bold;">$45.00</span>
-                                        </div>
-                                        <div style="margin-top: 1rem; padding: 1rem; background: var(--bg-white); border-radius: 1rem; border: 1px dashed var(--primary); text-align: center;">
-                                            <span style="font-weight: 800; color: var(--primary);">${t('resultLabel')}</span>
-                                            <p style="font-size: 0.9rem; margin-top: 0.5rem;">${t('caseStudyResultDescription')}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-
-
-                        <!-- Section: Calendar View -->
-                        <section class="guide-section guide-grid" style="padding: 9px;border-radius: 25px;  box-shadow: var(--shadow-lg); border: 3px solid var(--border);">
-                            <div class="guide-illustrations" style="order: 1;">
-                                <svg viewBox="0 0 400 300" style="width: 100%; height: auto; border-radius: 1rem; box-shadow: 0 20px 40px rgba(0,0,0,0.05);">
-                                    <rect width="400" height="300" fill="#f8fafc" rx="16"/>
-                                    <!-- Calendar Grid -->
-                                    <rect x="40" y="40" width="320" height="220" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
-                                    <!-- Day Headers -->
-                                    <text x="60" y="70" font-family="sans-serif" font-size="10" fill="#94A3B8">M</text>
-                                    <text x="100" y="70" font-family="sans-serif" font-size="10" fill="#94A3B8">T</text>
-                                    <text x="140" y="70" font-family="sans-serif" font-size="10" fill="#94A3B8">W</text>
-                                    <text x="180" y="70" font-family="sans-serif" font-size="10" fill="#94A3B8">T</text>
-                                    <text x="220" y="70" font-family="sans-serif" font-size="10" fill="#94A3B8">F</text>
-                                    <text x="260" y="70" font-family="sans-serif" font-size="10" fill="#94A3B8">S</text>
-                                    <text x="300" y="70" font-family="sans-serif" font-size="10" fill="#94A3B8">S</text>
-                                    <!-- Days with dots -->
-                                    <circle cx="102" cy="110" r="14" fill="#F1F5F9"/>
-                                    <circle cx="102" cy="118" r="3" fill="#EF4444"/> <!-- Expense dot -->
-                                    
-                                    <circle cx="182" cy="110" r="14" fill="#F1F5F9"/>
-                                    <circle cx="182" cy="118" r="3" fill="#10B981"/> <!-- Income dot -->
-                                    
-                                    <circle cx="262" cy="110" r="14" fill="#8B5CF6" opacity="0.2"/> <!-- Today -->
-                                    <circle cx="262" cy="118" r="3" fill="#EF4444"/>
-                                    
-                                    <circle cx="62" cy="150" r="14" fill="#F1F5F9"/>
-                                    <circle cx="142" cy="150" r="14" fill="#F1F5F9"/>
-                                    <circle cx="142" cy="158" r="3" fill="#10B981"/>
-                                </svg>
-                            </div>
-                            <div style="order: 2;">
-                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
-                                    <div style="width: 50px; height: 50px; background: rgba(139, 92, 246, 0.1); color: #8B5CF6; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                                        <i class="fas fa-calendar-alt"></i>
-                                    </div>
-                                    <h2 style="font-size: 2rem; font-weight: 800;">${t('calendar')}</h2>
-                                </div>
-                                <p style="font-size: 1.1rem; color: var(--text-gray); margin-bottom: 2rem; line-height: 1.6;">
-                                    ${t('calendarDescription')}
-                                </p>
-                                <div style="background: var(--bg-white); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border); box-shadow: var(--shadow);">
-                                    <p style="font-size: 0.95rem; line-height: 1.5;"><strong>${t('viewByDate')}:</strong> ${t('viewByDateDescription')}</p>
-                                </div>
-                            </div>
-                            
-                        </section>
-
-                        <!-- Section: Data Export -->
-                        <section class="guide-section guide-grid" style="padding: 9px;border-radius: 25px;  box-shadow: var(--shadow-lg); border: 3px solid var(--border);">
-                             <div class="guide-illustrations" style="order: 2;">
-                                <svg viewBox="0 0 400 250" style="width: 100%; height: auto; border-radius: 1rem; box-shadow: 0 20px 40px rgba(0,0,0,0.05);">
-                                    <rect width="400" height="250" fill="#f8fafc" rx="16"/>
-                                    <!-- Export Illustration -->
-                                    <path d="M150 50 L250 50 L270 70 L270 200 L150 200 Z" fill="white" stroke="#e2e8f0" stroke-width="2"/>
-                                    <path d="M250 50 L250 70 L270 70" fill="none" stroke="#e2e8f0" stroke-width="2"/>
-                                    <rect x="170" y="100" width="60" height="4" fill="#e2e8f0" rx="2"/>
-                                    <rect x="170" y="120" width="60" height="4" fill="#e2e8f0" rx="2"/>
-                                    <rect x="170" y="140" width="40" height="4" fill="#e2e8f0" rx="2"/>
-                                    <!-- Export Arrow -->
-                                    <path d="M290 125 L340 125 M330 115 L340 125 L330 135" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round"/>
-                                    <circle cx="350" cy="125" r="20" fill="#10B981"/>
-                                    <text x="350" y="130" font-family="FontAwesome" font-size="16" fill="white" text-anchor="middle"></text> <!-- file-download -->
-                                </svg>
-                            </div>
-                            <div>
-                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
-                                    <div style="width: 50px; height: 50px; background: rgba(16, 185, 129, 0.1); color: #10B981; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                                        <i class="fas fa-file-export"></i>
-                                    </div>
-                                    <h2 style="font-size: 2rem; font-weight: 800;">${t('exportReports')}</h2>
-                                </div>
-                                <p style="font-size: 1.1rem; color: var(--text-gray); margin-bottom: 2rem; line-height: 1.6;">
-                                    ${t('exportReportsDescription')}
-                                </p>
-                                <div style="display: flex; gap: 1rem;">
-                                    <div style="background: #FEE2E2; color: #DC2626; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.8rem;">PDF</div>
-                                    <div style="background: #DCFCE7; color: #16A34A; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.8rem;">EXCEL</div>
-                                </div>
-                            </div>
-                           
-                        </section>
-
-                        <!-- Section: Transaction Details -->
-                        <section class="guide-section guide-grid" style="padding: 9px;  box-shadow: var(--shadow-lg); border-radius: 25px;border: 3px solid var(--border);">
-                            <div class="guide-illustrations" style="order: 1;">
-                                <svg viewBox="0 0 400 250" style="width: 100%; height: auto; border-radius: 1rem; box-shadow: 0 20px 40px rgba(0,0,0,0.05);">
-                                    <rect width="400" height="250" fill="#f8fafc" rx="16"/>
-                                    <!-- Search & Table Mockup -->
-                                    <rect x="30" y="30" width="200" height="30" fill="white" rx="15" stroke="#e2e8f0" stroke-width="1"/>
-                                    <text x="45" y="50" font-family="FontAwesome" font-size="10" fill="#94A3B8"></text>
-                                    <text x="60" y="50" font-family="sans-serif" font-size="10" fill="#94A3B8">${t('search')}...</text>
-                                    
-                                    <rect x="250" y="30" width="120" height="30" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
-                                    <text x="265" y="49" font-family="sans-serif" font-size="10" fill="#1F2937">All Types </text>
-                                    
-                                    <rect x="30" y="80" width="340" height="140" fill="white" rx="8" stroke="#e2e8f0" stroke-width="1"/>
-                                    <!-- Rows -->
-                                    <line x1="30" y1="110" x2="370" y2="110" stroke="#f1f5f9" stroke-width="1"/>
-                                    <line x1="30" y1="140" x2="370" y2="140" stroke="#f1f5f9" stroke-width="1"/>
-                                    <line x1="30" y1="170" x2="370" y2="170" stroke="#f1f5f9" stroke-width="1"/>
-                                </svg>
-                            </div>
-                            <div style="order: 2;">
-                                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
-                                    <div style="width: 50px; height: 50px; background: rgba(59, 130, 246, 0.1); color: #3B82F6; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                                        <i class="fas fa-list-ul"></i>
-                                    </div>
-                                    <h2 style="font-size: 2rem; font-weight: 800;">${t('details')}</h2>
-                                </div>
-                                <p style="font-size: 1.1rem; color: var(--text-gray); margin-bottom: 2rem; line-height: 1.6;">
-                                    ${t('detailsDescription')}
-                                </p>
-                                <div style="background: var(--bg-white); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border); box-shadow: var(--shadow);">
-                                    <p style="font-size: 0.95rem; line-height: 1.5;"><strong>${t('smartSearch')}:</strong> ${t('smartSearchDescription')}</p>
-                                </div>
-                            </div>
-                            
-                        </section>
-
-                        
-
-                        <!-- CTA Section -->
-                        <div style="margin-top: 8rem; text-align: center;">
-                            <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 2rem;">${t('readyToStartSplitting')}</h2>
-                            <button class="btn btn-primary" onclick="renderAuthPage()" style="padding: 1.25rem 3.5rem; font-size: 1.25rem; width: 50%; border-radius: 2rem; box-shadow: 0 10px 20px rgb(0 0 0 / 49%);">
-                                ${t('getStarted')}
+                        <!-- Navigation -->
+                        <div class="ug-nav">
+                            <button class="ug-nav-btn" id="ugPrevBtn" onclick="ugPrevSlide()" disabled>
+                                ← ${t('previous') || 'Previous'}
+                            </button>
+                            <span class="ug-slide-counter" id="ugCounter">1 / ${slides.length}</span>
+                            <button class="ug-nav-btn" id="ugNextBtn" onclick="ugNextSlide()">
+                                ${t('next') || 'Next'} →
                             </button>
                         </div>
                     </main>
-
-                    <footer style="background: var(--bg-white); border: 3px solid var(--border); box-shadow: var(--shadow-lg); border-radius: 30px; border-top: 1px solid var(--border); padding: 4rem 1.5rem; text-align: center;">
-                        <div style="margin-bottom: 2rem;">
-                            <i class="fas fa-wallet" style="color: var(--primary); font-size: 2rem;"></i>
-                        </div>
-                        <p style="color: var(--text-gray);">&copy; 2026 SplitEra. ${t('buildWithTransparency')}</p>
-                    </footer>
                 </div>
+
+                <!-- Footer -->
+                <div class="ug-footer">© 2026 SplitEra · ${t('buildWithTransparency') || 'Built with transparency'}</div>
             `;
+
+            // Slide state management
+            window._ugTotal = slides.length;
+            window._ugCurrent = 0;
+
+            window.ugGoToSlide = function (idx) {
+                const prev = document.getElementById('ugSlide' + window._ugCurrent);
+                if (prev) prev.classList.remove('active');
+                const dots = document.querySelectorAll('.ug-dot');
+                dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+                window._ugCurrent = idx;
+                const next = document.getElementById('ugSlide' + idx);
+                if (next) next.classList.add('active');
+                document.getElementById('ugCounter').textContent = (idx + 1) + ' / ' + window._ugTotal;
+                document.getElementById('ugPrevBtn').disabled = idx === 0;
+                document.getElementById('ugNextBtn').disabled = idx === window._ugTotal - 1;
+                const pct = ((idx + 1) / window._ugTotal * 100).toFixed(1);
+                document.getElementById('ugProgressFill').style.width = pct + '%';
+                // Scroll top of stage into view
+                document.getElementById('ugStage').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            };
+
+            window.ugNextSlide = function () {
+                if (window._ugCurrent < window._ugTotal - 1) ugGoToSlide(window._ugCurrent + 1);
+            };
+            window.ugPrevSlide = function () {
+                if (window._ugCurrent > 0) ugGoToSlide(window._ugCurrent - 1);
+            };
+
+            // Keyboard navigation
+            document.addEventListener('keydown', function _ugKey(e) {
+                if (!document.getElementById('ugSlide0')) { document.removeEventListener('keydown', _ugKey); return; }
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') ugNextSlide();
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') ugPrevSlide();
+            });
+
+            // Touch/swipe support
+            let _ugTouchX = null;
+            const stage = document.getElementById('ugStage');
+            stage.addEventListener('touchstart', e => { _ugTouchX = e.touches[0].clientX; }, { passive: true });
+            stage.addEventListener('touchend', e => {
+                if (_ugTouchX === null) return;
+                const dx = e.changedTouches[0].clientX - _ugTouchX;
+                if (Math.abs(dx) > 50) { dx < 0 ? ugNextSlide() : ugPrevSlide(); }
+                _ugTouchX = null;
+            }, { passive: true });
+
             window.scrollTo(0, 0);
+        }
+
+        function getAvatar3D(type, accent) {
+            const avatars = {
+                welcome: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <radialGradient id="av_bg_w" cx="50%" cy="35%" r="55%">
+                            <stop offset="0%" stop-color="#f0e6ff"/>
+                            <stop offset="100%" stop-color="#c4b5fd"/>
+                        </radialGradient>
+                        <radialGradient id="av_skin_w" cx="40%" cy="30%" r="60%">
+                            <stop offset="0%" stop-color="#ffddbb"/>
+                            <stop offset="100%" stop-color="#f4a261"/>
+                        </radialGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="58" fill="url(#av_bg_w)" opacity="0.9"/>
+                    <!-- Body -->
+                    <ellipse cx="60" cy="95" rx="28" ry="18" fill="#7c3aed" opacity="0.85"/>
+                    <rect x="38" y="75" width="44" height="26" rx="12" fill="#7c3aed" opacity="0.9"/>
+                    <!-- Head -->
+                    <circle cx="60" cy="52" r="22" fill="url(#av_skin_w)"/>
+                    <!-- Hair -->
+                    <ellipse cx="60" cy="34" rx="21" ry="10" fill="#3d2b1a"/>
+                    <rect x="39" y="32" width="42" height="10" rx="5" fill="#3d2b1a"/>
+                    <!-- Eyes -->
+                    <circle cx="53" cy="52" r="3.5" fill="#1a1a2e"/>
+                    <circle cx="67" cy="52" r="3.5" fill="#1a1a2e"/>
+                    <circle cx="54.5" cy="50.5" r="1.2" fill="#fff"/>
+                    <circle cx="68.5" cy="50.5" r="1.2" fill="#fff"/>
+                    <!-- Smile -->
+                    <path d="M52 59 Q60 66 68 59" stroke="#c05621" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <!-- Rocket -->
+                    <g transform="translate(80,15) rotate(25)">
+                        <rect x="-5" y="-12" width="10" height="20" rx="5" fill="#ef4444"/>
+                        <polygon points="0,-18 -5,-12 5,-12" fill="#fbbf24"/>
+                        <rect x="-7" y="6" width="14" height="5" rx="2" fill="#cbd5e1"/>
+                        <circle cx="0" cy="0" r="3" fill="#fff" opacity="0.6"/>
+                    </g>
+                    <!-- Stars -->
+                    <text x="12" y="22" font-size="10">⭐</text>
+                    <text x="90" y="78" font-size="9">✨</text>
+                </svg>`,
+
+                analyst: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <radialGradient id="av_bg_a" cx="50%" cy="35%" r="55%">
+                            <stop offset="0%" stop-color="#fff7ed"/>
+                            <stop offset="100%" stop-color="#fed7aa"/>
+                        </radialGradient>
+                        <radialGradient id="av_skin_a" cx="40%" cy="30%" r="60%">
+                            <stop offset="0%" stop-color="#fddcb5"/>
+                            <stop offset="100%" stop-color="#e8956d"/>
+                        </radialGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="58" fill="url(#av_bg_a)" opacity="0.9"/>
+                    <!-- Body suit -->
+                    <rect x="36" y="74" width="48" height="28" rx="12" fill="#1e40af" opacity="0.9"/>
+                    <!-- Tie -->
+                    <polygon points="60,74 55,74 58,96 60,100 62,96 65,74" fill="#ef4444" opacity="0.9"/>
+                    <!-- Head -->
+                    <circle cx="60" cy="52" r="22" fill="url(#av_skin_a)"/>
+                    <!-- Hair -->
+                    <ellipse cx="60" cy="33" rx="20" ry="9" fill="#1a0a00"/>
+                    <!-- Glasses -->
+                    <rect x="46" y="50" width="10" height="7" rx="3" fill="none" stroke="#334155" stroke-width="2"/>
+                    <rect x="64" y="50" width="10" height="7" rx="3" fill="none" stroke="#334155" stroke-width="2"/>
+                    <line x1="56" y1="53" x2="64" y2="53" stroke="#334155" stroke-width="1.5"/>
+                    <!-- Eyes -->
+                    <circle cx="51" cy="53.5" r="2.5" fill="#1a1a2e"/>
+                    <circle cx="69" cy="53.5" r="2.5" fill="#1a1a2e"/>
+                    <!-- Smile confident -->
+                    <path d="M53 61 Q60 67 67 61" stroke="#c05621" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <!-- Chart tablet -->
+                    <g transform="translate(84,30)">
+                        <rect x="-10" y="-12" width="22" height="26" rx="3" fill="#fff" stroke="#e2e8f0" stroke-width="1"/>
+                        <rect x="-7" y="4" width="4" height="7" fill="#fb923c" rx="1"/>
+                        <rect x="-1" y="0" width="4" height="11" fill="#f97316" rx="1"/>
+                        <rect x="5" y="2" width="4" height="9" fill="#fbbf24" rx="1"/>
+                    </g>
+                </svg>`,
+
+                banker: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <radialGradient id="av_bg_b" cx="50%" cy="35%" r="55%">
+                            <stop offset="0%" stop-color="#ecfdf5"/>
+                            <stop offset="100%" stop-color="#a7f3d0"/>
+                        </radialGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="58" fill="url(#av_bg_b)" opacity="0.9"/>
+                    <!-- Body -->
+                    <rect x="36" y="74" width="48" height="28" rx="12" fill="#065f46" opacity="0.9"/>
+                    <!-- Head -->
+                    <circle cx="60" cy="52" r="22" fill="#fddcb5"/>
+                    <!-- Hair bun -->
+                    <ellipse cx="60" cy="34" rx="18" ry="8" fill="#4a2c00"/>
+                    <circle cx="60" cy="30" r="7" fill="#3d2400"/>
+                    <!-- Eyes -->
+                    <circle cx="53" cy="52" r="3" fill="#1a1a2e"/>
+                    <circle cx="67" cy="52" r="3" fill="#1a1a2e"/>
+                    <circle cx="54.2" cy="50.8" r="1" fill="#fff"/>
+                    <circle cx="68.2" cy="50.8" r="1" fill="#fff"/>
+                    <!-- Smile -->
+                    <path d="M54 60 Q60 66 66 60" stroke="#b45309" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <!-- Coin bag -->
+                    <g transform="translate(87,40)">
+                        <circle cx="0" cy="4" r="11" fill="#fbbf24"/>
+                        <circle cx="0" cy="4" r="8" fill="#f59e0b"/>
+                        <rect x="-4" y="-8" width="8" height="8" rx="2" fill="#fbbf24"/>
+                        <text x="0" y="7" text-anchor="middle" font-size="10" font-weight="bold" fill="#78350f">$</text>
+                    </g>
+                </svg>`,
+
+                shopper: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <radialGradient id="av_bg_sh" cx="50%" cy="35%" r="55%">
+                            <stop offset="0%" stop-color="#fff1f2"/>
+                            <stop offset="100%" stop-color="#fecdd3"/>
+                        </radialGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="58" fill="url(#av_bg_sh)" opacity="0.9"/>
+                    <!-- Body -->
+                    <rect x="36" y="74" width="48" height="28" rx="12" fill="#be123c" opacity="0.9"/>
+                    <!-- Head -->
+                    <circle cx="60" cy="52" r="22" fill="#fde8d0"/>
+                    <!-- Long hair -->
+                    <ellipse cx="60" cy="34" rx="21" ry="10" fill="#7c2d12"/>
+                    <rect x="38" y="35" width="8" height="25" rx="4" fill="#7c2d12"/>
+                    <rect x="74" y="35" width="8" height="25" rx="4" fill="#7c2d12"/>
+                    <!-- Eyes with lashes -->
+                    <circle cx="53" cy="52" r="3.5" fill="#1a1a2e"/>
+                    <circle cx="67" cy="52" r="3.5" fill="#1a1a2e"/>
+                    <circle cx="54.5" cy="50.5" r="1.2" fill="#fff"/>
+                    <circle cx="68.5" cy="50.5" r="1.2" fill="#fff"/>
+                    <!-- Blush -->
+                    <circle cx="47" cy="58" r="4" fill="#fda4af" opacity="0.5"/>
+                    <circle cx="73" cy="58" r="4" fill="#fda4af" opacity="0.5"/>
+                    <!-- Smile -->
+                    <path d="M53 61 Q60 67 67 61" stroke="#be123c" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <!-- Shopping bag -->
+                    <g transform="translate(87,40)">
+                        <rect x="-10" y="-2" width="22" height="20" rx="3" fill="#fff" stroke="#fda4af" stroke-width="2"/>
+                        <path d="M-4,-2 Q-4,-10 0,-10 Q4,-10 4,-2" fill="none" stroke="#fda4af" stroke-width="2"/>
+                        <line x1="-4" y1="4" x2="4" y2="4" stroke="#fda4af" stroke-width="1.5"/>
+                    </g>
+                </svg>`,
+
+                friends: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <radialGradient id="av_bg_f" cx="50%" cy="35%" r="55%">
+                            <stop offset="0%" stop-color="#eff6ff"/>
+                            <stop offset="100%" stop-color="#bfdbfe"/>
+                        </radialGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="58" fill="url(#av_bg_f)" opacity="0.9"/>
+                    <!-- Friend 1 (left) -->
+                    <circle cx="40" cy="55" r="16" fill="#fde8d0"/>
+                    <ellipse cx="40" cy="43" rx="15" ry="7" fill="#1a0a00"/>
+                    <rect x="30" y="68" width="20" height="18" rx="8" fill="#1d4ed8" opacity="0.9"/>
+                    <circle cx="37" cy="55" r="2.5" fill="#1a1a2e"/>
+                    <circle cx="43" cy="55" r="2.5" fill="#1a1a2e"/>
+                    <path d="M36 62 Q40 66 44 62" stroke="#b45309" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <!-- Friend 2 (right) -->
+                    <circle cx="80" cy="55" r="16" fill="#fddcb5"/>
+                    <ellipse cx="80" cy="43" rx="15" ry="7" fill="#7c2d12"/>
+                    <rect x="70" y="68" width="20" height="18" rx="8" fill="#15803d" opacity="0.9"/>
+                    <circle cx="77" cy="55" r="2.5" fill="#1a1a2e"/>
+                    <circle cx="83" cy="55" r="2.5" fill="#1a1a2e"/>
+                    <path d="M76 62 Q80 66 84 62" stroke="#b45309" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    <!-- Handshake / link -->
+                    <path d="M56 70 Q60 65 64 70" stroke="#7c3aed" stroke-width="3" fill="none" stroke-linecap="round"/>
+                    <circle cx="60" cy="63" r="5" fill="#7c3aed"/>
+                    <text x="60" y="66" text-anchor="middle" font-size="6" fill="#fff">✓</text>
+                </svg>`,
+
+                traveler: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <radialGradient id="av_bg_t" cx="50%" cy="35%" r="55%">
+                            <stop offset="0%" stop-color="#f5f3ff"/>
+                            <stop offset="100%" stop-color="#ddd6fe"/>
+                        </radialGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="58" fill="url(#av_bg_t)" opacity="0.9"/>
+                    <!-- Body -->
+                    <rect x="36" y="74" width="48" height="28" rx="12" fill="#6d28d9" opacity="0.9"/>
+                    <!-- Head -->
+                    <circle cx="60" cy="52" r="22" fill="#fde8d0"/>
+                    <!-- Hat -->
+                    <ellipse cx="60" cy="34" rx="22" ry="6" fill="#b45309"/>
+                    <rect x="44" y="23" width="32" height="13" rx="5" fill="#d97706"/>
+                    <!-- Eyes -->
+                    <circle cx="53" cy="52" r="3" fill="#1a1a2e"/>
+                    <circle cx="67" cy="52" r="3" fill="#1a1a2e"/>
+                    <circle cx="54.5" cy="50.5" r="1" fill="#fff"/>
+                    <circle cx="68.5" cy="50.5" r="1" fill="#fff"/>
+                    <!-- Smile -->
+                    <path d="M53 61 Q60 67 67 61" stroke="#b45309" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <!-- Map -->
+                    <g transform="translate(87,38)">
+                        <rect x="-10" y="-10" width="22" height="18" rx="2" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+                        <path d="M-4,-4 L-4,4 L0,2 L4,4 L4,-4 L0,-2 Z" fill="#d97706" stroke="none"/>
+                        <circle cx="0" cy="-6" r="2" fill="#ef4444"/>
+                    </g>
+                </svg>`,
+
+                planner: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <radialGradient id="av_bg_pl" cx="50%" cy="35%" r="55%">
+                            <stop offset="0%" stop-color="#ecfeff"/>
+                            <stop offset="100%" stop-color="#a5f3fc"/>
+                        </radialGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="58" fill="url(#av_bg_pl)" opacity="0.9"/>
+                    <!-- Body -->
+                    <rect x="36" y="74" width="48" height="28" rx="12" fill="#0e7490" opacity="0.9"/>
+                    <!-- Head -->
+                    <circle cx="60" cy="52" r="22" fill="#fddcb5"/>
+                    <!-- Hair -->
+                    <ellipse cx="60" cy="34" rx="20" ry="9" fill="#1a1a2e"/>
+                    <!-- Eyes -->
+                    <circle cx="53" cy="52" r="3" fill="#1a1a2e"/>
+                    <circle cx="67" cy="52" r="3" fill="#1a1a2e"/>
+                    <circle cx="54.2" cy="50.8" r="1" fill="#fff"/>
+                    <circle cx="68.2" cy="50.8" r="1" fill="#fff"/>
+                    <!-- Smile -->
+                    <path d="M53 61 Q60 67 67 61" stroke="#b45309" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <!-- Calendar -->
+                    <g transform="translate(87,35)">
+                        <rect x="-10" y="-8" width="22" height="22" rx="3" fill="#fff" stroke="#0e7490" stroke-width="1.5"/>
+                        <rect x="-10" y="-8" width="22" height="7" rx="3" fill="#0e7490"/>
+                        <circle cx="-4" cy="5" r="2" fill="#0e7490" opacity="0.5"/>
+                        <circle cx="2" cy="5" r="2" fill="#0e7490"/>
+                        <circle cx="8" cy="5" r="2" fill="#0e7490" opacity="0.5"/>
+                        <circle cx="-4" cy="10" r="2" fill="#0e7490" opacity="0.5"/>
+                        <circle cx="2" cy="10" r="2" fill="#ef4444"/>
+                    </g>
+                </svg>`,
+
+                exporter: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <radialGradient id="av_bg_ex" cx="50%" cy="35%" r="55%">
+                            <stop offset="0%" stop-color="#f0fdf4"/>
+                            <stop offset="100%" stop-color="#bbf7d0"/>
+                        </radialGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="58" fill="url(#av_bg_ex)" opacity="0.9"/>
+                    <!-- Body -->
+                    <rect x="36" y="74" width="48" height="28" rx="12" fill="#166534" opacity="0.9"/>
+                    <!-- Head -->
+                    <circle cx="60" cy="52" r="22" fill="#fde8d0"/>
+                    <!-- Hair -->
+                    <ellipse cx="60" cy="34" rx="19" ry="8" fill="#3d2b1a"/>
+                    <!-- Glasses nerdy -->
+                    <circle cx="52" cy="52" r="5" fill="none" stroke="#334155" stroke-width="2"/>
+                    <circle cx="68" cy="52" r="5" fill="none" stroke="#334155" stroke-width="2"/>
+                    <line x1="57" y1="52" x2="63" y2="52" stroke="#334155" stroke-width="1.5"/>
+                    <!-- Eyes -->
+                    <circle cx="52" cy="52" r="2.5" fill="#1a1a2e"/>
+                    <circle cx="68" cy="52" r="2.5" fill="#1a1a2e"/>
+                    <!-- Smile -->
+                    <path d="M53 61 Q60 66 67 61" stroke="#b45309" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+                    <!-- Upload arrow -->
+                    <g transform="translate(87,38)">
+                        <rect x="-8" y="2" width="18" height="12" rx="2" fill="#fff" stroke="#16a34a" stroke-width="1.5"/>
+                        <path d="M1,-10 L1,2" stroke="#16a34a" stroke-width="2" stroke-linecap="round"/>
+                        <path d="M-4,-5 L1,-11 L6,-5" fill="#16a34a"/>
+                    </g>
+                </svg>`,
+
+                detective: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <radialGradient id="av_bg_d" cx="50%" cy="35%" r="55%">
+                            <stop offset="0%" stop-color="#fdf4ff"/>
+                            <stop offset="100%" stop-color="#f5d0fe"/>
+                        </radialGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="58" fill="url(#av_bg_d)" opacity="0.9"/>
+                    <!-- Body -->
+                    <rect x="36" y="74" width="48" height="28" rx="12" fill="#701a75" opacity="0.9"/>
+                    <!-- Coat lapels -->
+                    <polygon points="50,74 60,80 70,74" fill="#4a044e" opacity="0.9"/>
+                    <!-- Head -->
+                    <circle cx="60" cy="52" r="22" fill="#fde8d0"/>
+                    <!-- Hat detective -->
+                    <rect x="42" y="28" width="36" height="12" rx="3" fill="#1c1917"/>
+                    <ellipse cx="60" cy="40" rx="24" ry="6" fill="#1c1917"/>
+                    <!-- Eyes -->
+                    <circle cx="53" cy="53" r="3.2" fill="#1a1a2e"/>
+                    <circle cx="67" cy="53" r="3.2" fill="#1a1a2e"/>
+                    <circle cx="54.5" cy="51.5" r="1" fill="#fff"/>
+                    <circle cx="68.5" cy="51.5" r="1" fill="#fff"/>
+                    <!-- Magnifying glass -->
+                    <g transform="translate(88,40) rotate(30)">
+                        <circle cx="0" cy="0" r="8" fill="none" stroke="#a21caf" stroke-width="2.5"/>
+                        <line x1="6" y1="6" x2="13" y2="13" stroke="#a21caf" stroke-width="2.5" stroke-linecap="round"/>
+                        <circle cx="0" cy="0" r="5" fill="rgba(250,240,255,0.5)"/>
+                    </g>
+                    <!-- Smile sly -->
+                    <path d="M54 62 Q60 67 66 62" stroke="#b45309" stroke-width="2" fill="none" stroke-linecap="round"/>
+                </svg>`,
+
+                celebrate: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <radialGradient id="av_bg_c" cx="50%" cy="35%" r="55%">
+                            <stop offset="0%" stop-color="#fff7ed"/>
+                            <stop offset="100%" stop-color="#fed7aa"/>
+                        </radialGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="58" fill="url(#av_bg_c)" opacity="0.9"/>
+                    <!-- Confetti -->
+                    <rect x="15" y="20" width="7" height="5" rx="1" fill="#f97316" transform="rotate(20 15 20)"/>
+                    <rect x="90" y="15" width="6" height="5" rx="1" fill="#7c3aed" transform="rotate(-15 90 15)"/>
+                    <rect x="25" y="85" width="5" height="5" rx="1" fill="#06b6d4" transform="rotate(40 25 85)"/>
+                    <rect x="88" y="80" width="7" height="5" rx="1" fill="#ec4899" transform="rotate(-30 88 80)"/>
+                    <circle cx="20" cy="50" r="4" fill="#fbbf24"/>
+                    <circle cx="100" cy="55" r="3" fill="#34d399"/>
+                    <!-- Body -->
+                    <rect x="36" y="74" width="48" height="28" rx="12" fill="#7c3aed" opacity="0.9"/>
+                    <!-- Party hat -->
+                    <polygon points="60,16 44,44 76,44" fill="#ef4444"/>
+                    <polygon points="60,16 44,44 52,44" fill="#fbbf24"/>
+                    <rect x="42" y="42" width="36" height="5" rx="2" fill="#fbbf24"/>
+                    <circle cx="60" cy="16" r="4" fill="#fff"/>
+                    <!-- Head -->
+                    <circle cx="60" cy="58" r="22" fill="#fde8d0"/>
+                    <!-- Eyes happy arc -->
+                    <path d="M50 55 Q53 51 56 55" stroke="#1a1a2e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                    <path d="M64 55 Q67 51 70 55" stroke="#1a1a2e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                    <!-- Big grin -->
+                    <path d="M50 64 Q60 74 70 64" stroke="#b45309" stroke-width="2.5" fill="#fcd34d" stroke-linecap="round"/>
+                    <!-- Blush -->
+                    <circle cx="46" cy="62" r="5" fill="#fda4af" opacity="0.6"/>
+                    <circle cx="74" cy="62" r="5" fill="#fda4af" opacity="0.6"/>
+                </svg>`
+            };
+            return avatars[type] || avatars['welcome'];
+        }
+
+        function getSlideBody(slide) {
+            const c = slide.content;
+            if (!c) {
+                // Welcome or CTA
+                if (slide.id === 'welcome') {
+                    return `<div class="ug-welcome-body">
+                        <p style="color:#64748b;font-size:0.95rem;max-width:500px;line-height:1.6;">Swipe through the slides or use the navigation buttons below to explore every powerful feature of SplitEra.</p>
+                        <div class="ug-welcome-feat-grid">
+                            <div class="ug-feat-card"><div class="ug-feat-icon">📊</div><div class="ug-feat-label">Dashboard</div></div>
+                            <div class="ug-feat-card"><div class="ug-feat-icon">💰</div><div class="ug-feat-label">Credits</div></div>
+                            <div class="ug-feat-card"><div class="ug-feat-icon">🛒</div><div class="ug-feat-label">Expenses</div></div>
+                            <div class="ug-feat-card"><div class="ug-feat-icon">👥</div><div class="ug-feat-label">Groups</div></div>
+                            <div class="ug-feat-card"><div class="ug-feat-icon">📅</div><div class="ug-feat-label">Calendar</div></div>
+                            <div class="ug-feat-card"><div class="ug-feat-icon">📤</div><div class="ug-feat-label">Export</div></div>
+                        </div>
+                    </div>`;
+                } else {
+                    return `<div class="ug-cta-body">
+                        <p class="ug-cta-text">You've explored all the features. Join thousands of users managing their finances smarter with SplitEra.</p>
+                        <button class="ug-btn-cta" onclick="renderAuthPage()">🚀 ${t('getStarted') || 'Get Started — It\'s Free'}</button>
+                        <p style="font-size:0.78rem;color:#94a3b8;">No credit card required. Start in seconds.</p>
+                    </div>`;
+                }
+            }
+
+            let html = '<div class="ug-card-body">';
+
+            if (c.insight) {
+                html += `<div class="ug-insight">
+                    <div class="ug-insight-icon">${c.insight.icon}</div>
+                    <div>
+                        <div class="ug-insight-label">${c.insight.label}</div>
+                        <div class="ug-insight-text">${c.insight.text}</div>
+                    </div>
+                </div>`;
+            }
+
+            if (c.tip) {
+                html += `<div class="ug-tip">
+                    <div class="ug-tip-icon">${c.tip.icon}</div>
+                    <div>
+                        <div class="ug-tip-label">${c.tip.label}</div>
+                        <div class="ug-tip-text">${c.tip.text}</div>
+                    </div>
+                </div>`;
+            }
+
+            if (c.steps) {
+                html += `<div class="ug-steps">`;
+                c.steps.forEach(s => {
+                    html += `<div class="ug-step">
+                        <div class="ug-step-num" style="background:var(--slide-accent)">${s.num}</div>
+                        <div class="ug-step-title">${s.title}</div>
+                        <div class="ug-step-desc">${s.desc}</div>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+
+            if (c.items) {
+                html += `<div class="ug-case-items">`;
+                c.items.forEach(item => {
+                    html += `<div class="ug-case-item">
+                        <span class="ug-case-label">${item.label}</span>
+                        <span class="ug-case-amount">${item.amount}</span>
+                    </div>`;
+                });
+                html += `</div>`;
+                if (c.result) {
+                    html += `<div class="ug-case-result">🏆 ${c.result}</div>`;
+                }
+            }
+
+            if (c.formats) {
+                html += `<div class="ug-formats">`;
+                c.formats.forEach(f => {
+                    html += `<div class="ug-format-badge" style="background:${f.bg};color:${f.color};">${f.label}</div>`;
+                });
+                html += `</div>`;
+            }
+
+            if (c.chips) {
+                html += `<div class="ug-chips">`;
+                c.chips.forEach(chip => {
+                    html += `<span class="ug-chip" style="--chip-bg:rgba(${hexToRgb(slide.accentColor || '#7c3aed')},0.08);--chip-color:${slide.accentColor || '#7c3aed'};--chip-border:rgba(${hexToRgb(slide.accentColor || '#7c3aed')},0.2);">✦ ${chip}</span>`;
+                });
+                html += `</div>`;
+            }
+
+            html += '</div>';
+            return html;
+        }
+
+        function hexToRgb(hex) {
+            const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return r ? parseInt(r[1], 16) + ',' + parseInt(r[2], 16) + ',' + parseInt(r[3], 16) : '124,58,237';
         }
 
         // Auth Page Component
