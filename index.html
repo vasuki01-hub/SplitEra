@@ -22330,7 +22330,7 @@
             const pages = ['dashboard', 'credits', 'personal', 'groups', 'calendar', 'details', 'settings'];
 
             // === Swipe Settings (Easy to adjust) ===
-    const MIN_SWIPE_DISTANCE = 180;        // ← Increase this to decrease swipe area
+    const MIN_SWIPE_DISTANCE = 280;        // ← Increase this to decrease swipe area
     const MIN_HORIZONTAL_RATIO = 2.5;      // How much more horizontal than vertical (higher = stricter)
 
             document.addEventListener('touchstart', (e) => {
@@ -22352,7 +22352,7 @@
 
                 const diffX = touchEndX - touchStartX;
                 const diffY = touchEndY - touchStartY;
-                const threshold = 180;
+                const threshold = 280;
 
                 // Horizontal movement must be dominant
                 if (Math.abs(diffX) > threshold && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
