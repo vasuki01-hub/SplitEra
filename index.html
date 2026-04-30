@@ -7216,55 +7216,83 @@
          */
         async function initPushNotifications() {
             try {
-                // Service worker must be registered for FCM web push
-                if (!('serviceWorker' in navigator)) {
-                    console.warn('Service workers not supported — no web push.');
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                    console.warn('Push not supported in this browser.');
                     return;
                 }
 
-                // Check if running inside Median Android WebView
                 const isMedianEnv = typeof window.median !== 'undefined' ||
                     navigator.userAgent.includes('Median') ||
                     navigator.userAgent.includes('gonative');
 
                 if (isMedianEnv) {
-                    // Median handles FCM token natively via their bridge
                     initMedianPushToken();
                     return;
                 }
 
-                // Web / PWA / Chrome flow
+                // Request permission first
                 const permission = await Notification.requestPermission();
                 if (permission !== 'granted') {
-                    console.log('Notification permission denied.');
+                    console.log('Push permission denied by user.');
                     return;
                 }
 
                 const messaging = firebase.messaging();
 
-                // Register our custom service worker (NOT sw.js — a new FCM-specific one)
-                const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                // Unregister any stale SW before registering fresh
+                const existingRegs = await navigator.serviceWorker.getRegistrations();
+                for (const reg of existingRegs) {
+                    if (reg.active?.scriptURL?.includes('firebase-messaging-sw')) {
+                        await reg.unregister();
+                        console.log('[Push] Unregistered stale SW');
+                    }
+                }
 
-                const token = await messaging.getToken({
-                    vapidKey: VAPID_KEY,
-                    serviceWorkerRegistration: swReg
-                });
+                // Register fresh
+                const swReg = await navigator.serviceWorker.register(
+                    '/firebase-messaging-sw.js',
+                    { scope: '/' }
+                );
+
+                // Wait for SW to be active before getting token
+                await navigator.serviceWorker.ready;
+
+                let token = null;
+                try {
+                    token = await messaging.getToken({
+                        vapidKey: VAPID_KEY,
+                        serviceWorkerRegistration: swReg
+                    });
+                } catch (tokenErr) {
+                    if (tokenErr.name === 'AbortError') {
+                        // Wait 3 seconds and retry once — FCM server hiccup
+                        console.warn('[Push] FCM AbortError on first try, retrying in 3s...');
+                        await new Promise(r => setTimeout(r, 3000));
+                        token = await messaging.getToken({
+                            vapidKey: VAPID_KEY,
+                            serviceWorkerRegistration: swReg
+                        });
+                    } else {
+                        throw tokenErr;
+                    }
+                }
 
                 if (token) {
                     await saveFcmToken(token);
-                    console.log('FCM web token registered.');
+                    console.log('[Push] FCM token registered successfully.');
+                } else {
+                    console.warn('[Push] No token returned — check VAPID key and SW config.');
                 }
 
-                // Handle foreground messages (app is open — show in-app toast instead)
+                // Handle foreground messages
                 messaging.onMessage((payload) => {
                     const { title, body } = payload.notification || {};
-                    if (title && body) {
-                        showToast(title, body, 'info');
-                    }
+                    if (title && body) showToast(title, body, 'info');
                 });
 
             } catch (error) {
-                console.warn('initPushNotifications error:', error);
+                // Don't crash the app over push notification failure
+                console.warn('initPushNotifications error:', error.name, error.message);
             }
         }
 
