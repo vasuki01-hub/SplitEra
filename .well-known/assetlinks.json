@@ -1,11 +1,14 @@
-[{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "com.splitera.app",                 
-    "sha256_cert_fingerprints": [
-      "A3:4A:01:2E:70:0F:F6:A7:81:A0:E0:9C:08:85:7B:ED:18:99:7A:2B:7F:95:06:DB:6A:50:CF:1D:12:2C:0F:E8" 
-    ]
-  }
-}]
-
+[
+    {
+        "relation": [
+            "delegate_permission/common.handle_all_urls"
+        ],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "co.median.android.mbzkbqr",
+            "sha256_cert_fingerprints": [
+                "C4:26:1F:49:73:0C:11:7A:38:CA:D8:FD:4E:93:04:C3:A3:12:82:BC:58:17:01:47:B1:F0:6F:03:CB:1E:48:26"
+            ]
+        }
+    }
+]
