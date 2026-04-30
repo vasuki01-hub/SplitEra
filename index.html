@@ -2230,7 +2230,7 @@
             if (window.Android || window.median) {  // Median WebView bridge if available
                 try {
                     // You can expose a method from Median if they support it
-                    console.log('Dark mode for system bars:', isDark);
+
                 } catch (e) { }
             }
         }
@@ -7272,7 +7272,7 @@
                     // Request permission
                     const permission = await OneSignal.Notifications.requestPermission();
                     if (!permission) {
-                        console.log('[Push] Web push permission denied.');
+
                         return;
                     }
 
@@ -7280,7 +7280,7 @@
                     const subscriptionId = OneSignal.User.PushSubscription.id;
                     if (subscriptionId) {
                         await saveFcmToken(subscriptionId);
-                        console.log('[Push] OneSignal web subscription saved.');
+
                     }
 
                     // Listen for future subscription changes (token refresh)
@@ -7302,7 +7302,7 @@
                 const playerId = event.detail?.playerId || event.playerId;
                 if (playerId) {
                     await saveFcmToken(playerId);
-                    console.log('[Push] OneSignal Android Player ID saved:', playerId);
+
                 }
             });
 
@@ -11940,7 +11940,7 @@
                 const pdfBlob = doc.output('blob');
 
                 const isSaved = await saveFileSafely(pdfBlob, `dashboard-report-${Date.now()}.pdf`, 'application/pdf');
-                console.log(isSaved);
+
                 if (isSaved) {
                     // Only show success if it strictly returned true
                     showToast(t('success'), t('pdfExportSuccess'));
