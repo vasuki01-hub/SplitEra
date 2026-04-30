@@ -12,12 +12,19 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-comp
 firebase.initializeApp({
     apiKey: "AIzaSyCu3sYRO65Qq0J0hkbfYfXZKre-_89VuQE",
     authDomain: "animai-studio-jtpei.firebaseapp.com",
-    databaseURL: "https://animai-studio-jtpei-default-rtdb.firebaseio.com",
     projectId: "animai-studio-jtpei",
     storageBucket: "animai-studio-jtpei.firebasestorage.app",
     messagingSenderId: "808906988475",
     appId: "1:808906988475:web:26768298ec96ac0200429e",
-    measurementId: "G-FC3SYSXMGT"
+});
+
+// Force the new SW to activate immediately instead of waiting
+self.addEventListener('install', (event) => {
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(clients.claim());
 });
 
 const messaging = firebase.messaging();

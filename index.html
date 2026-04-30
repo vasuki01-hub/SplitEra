@@ -7217,11 +7217,13 @@
         async function initPushNotifications() {
             try {
                 if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-                    console.warn('Push not supported in this browser.');
+                    console.warn('[Push] Not supported in this browser.');
                     return;
                 }
 
-                const isMedianEnv = typeof window.median !== 'undefined' ||
+                // Median Android uses OneSignal bridge — handled separately
+                const isMedianEnv =
+                    typeof window.median !== 'undefined' ||
                     navigator.userAgent.includes('Median') ||
                     navigator.userAgent.includes('gonative');
 
@@ -7230,70 +7232,80 @@
                     return;
                 }
 
-                // Request permission first
+                // Request permission
                 const permission = await Notification.requestPermission();
                 if (permission !== 'granted') {
-                    console.log('Push permission denied by user.');
+                    console.log('[Push] Permission denied by user.');
                     return;
                 }
 
-                const messaging = firebase.messaging();
-
-                // Unregister any stale SW before registering fresh
-                const existingRegs = await navigator.serviceWorker.getRegistrations();
-                for (const reg of existingRegs) {
-                    if (reg.active?.scriptURL?.includes('firebase-messaging-sw')) {
-                        await reg.unregister();
-                        console.log('[Push] Unregistered stale SW');
-                    }
-                }
-
-                // Register fresh
+                // Register SW — if already registered, browser reuses the existing one
+                // NEVER unregister before this — that causes the "no active SW" error
                 const swReg = await navigator.serviceWorker.register(
                     '/firebase-messaging-sw.js',
                     { scope: '/' }
                 );
 
-                // Wait for SW to be active before getting token
-                await navigator.serviceWorker.ready;
+                // Wait until the SW is fully active before doing anything with it
+                await waitForServiceWorkerActive(swReg);
 
-                let token = null;
-                try {
-                    token = await messaging.getToken({
-                        vapidKey: VAPID_KEY,
-                        serviceWorkerRegistration: swReg
-                    });
-                } catch (tokenErr) {
-                    if (tokenErr.name === 'AbortError') {
-                        // Wait 3 seconds and retry once — FCM server hiccup
-                        console.warn('[Push] FCM AbortError on first try, retrying in 3s...');
-                        await new Promise(r => setTimeout(r, 3000));
-                        token = await messaging.getToken({
-                            vapidKey: VAPID_KEY,
-                            serviceWorkerRegistration: swReg
-                        });
-                    } else {
-                        throw tokenErr;
-                    }
-                }
+                const messaging = firebase.messaging();
+
+                const token = await messaging.getToken({
+                    vapidKey: VAPID_KEY,
+                    serviceWorkerRegistration: swReg
+                });
 
                 if (token) {
                     await saveFcmToken(token);
-                    console.log('[Push] FCM token registered successfully.');
-                } else {
-                    console.warn('[Push] No token returned — check VAPID key and SW config.');
+                    console.log('[Push] Token registered successfully.');
                 }
 
-                // Handle foreground messages
+                // Show foreground notifications as in-app toast
                 messaging.onMessage((payload) => {
                     const { title, body } = payload.notification || {};
                     if (title && body) showToast(title, body, 'info');
                 });
 
             } catch (error) {
-                // Don't crash the app over push notification failure
-                console.warn('initPushNotifications error:', error.name, error.message);
+                console.warn('[Push] initPushNotifications error:', error.name, error.message);
             }
+        }
+
+        /**
+         * Waits until a service worker registration has an active worker.
+         * Handles all three states: active already, installing, or waiting.
+         */
+        function waitForServiceWorkerActive(registration) {
+            return new Promise((resolve) => {
+                // Already active — resolve immediately
+                if (registration.active) {
+                    resolve();
+                    return;
+                }
+
+                // Pick whichever worker is in progress
+                const worker = registration.installing || registration.waiting;
+
+                if (!worker) {
+                    // No worker at all — wait for updatefound then track it
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', function () {
+                            if (this.state === 'activated') resolve();
+                        });
+                    });
+                    return;
+                }
+
+                // Track the installing/waiting worker until it activates
+                worker.addEventListener('statechange', function () {
+                    if (this.state === 'activated') resolve();
+                });
+
+                // Safety: if it somehow became active between our check and listener
+                if (worker.state === 'activated') resolve();
+            });
         }
 
         /**
