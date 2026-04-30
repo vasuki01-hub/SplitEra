@@ -20,6 +20,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
     <!-- Phone Authentication Dependencies -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.2.1/build/css/intlTelInput.css">
     <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.2.1/build/js/intlTelInput.min.js"></script>
@@ -7104,8 +7105,9 @@
          * @param {object} meta - Extra context: { groupId, groupName, triggerUserName, targetItem }
          */
         async function createNotification(recipientUid, type, message, meta = {}) {
-            if (!recipientUid || recipientUid === currentUser?.uid) return; // Never notify yourself
+            if (!recipientUid || recipientUid === currentUser?.uid) return;
             try {
+                // 1. Write in-app notification to Firestore (the bell icon system)
                 await db.collection('notifications').add({
                     recipientUid,
                     type,
@@ -7117,6 +7119,22 @@
                     read: false,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
+
+                // 2. Send native device push notification
+                const tokens = await getFcmTokensForUsers([recipientUid]);
+                if (tokens.length > 0) {
+                    await sendPushNotification(
+                        tokens,
+                        'SplitEra — ' + (meta.groupName || 'Group Update'),
+                        message,
+                        {
+                            groupId: meta.groupId || '',
+                            groupName: meta.groupName || '',
+                            type
+                        }
+                    );
+                }
+
             } catch (e) {
                 console.warn('createNotification failed:', e);
             }
@@ -7134,12 +7152,46 @@
             try {
                 const groupDoc = await db.collection('groups').doc(groupId).get();
                 if (!groupDoc.exists) return;
+
                 const members = groupDoc.data().members || [];
                 const excluded = new Set([currentUser?.uid, ...extraExclusions]);
-                const promises = members
-                    .filter(uid => !excluded.has(uid))
-                    .map(uid => createNotification(uid, type, message, meta));
-                await Promise.all(promises);
+                const targets = members.filter(uid => !excluded.has(uid));
+
+                if (targets.length === 0) return;
+
+                // 1. Write in-app notifications for all target members
+                const batch = db.batch();
+                targets.forEach(uid => {
+                    const ref = db.collection('notifications').doc();
+                    batch.set(ref, {
+                        recipientUid: uid,
+                        type,
+                        message,
+                        groupId: meta.groupId || null,
+                        groupName: meta.groupName || null,
+                        triggerUserName: meta.triggerUserName || null,
+                        targetItem: meta.targetItem || null,
+                        read: false,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                });
+                await batch.commit();
+
+                // 2. Fetch all FCM tokens for target members and send one multicast push
+                const tokens = await getFcmTokensForUsers(targets);
+                if (tokens.length > 0) {
+                    await sendPushNotification(
+                        tokens,
+                        'SplitEra — ' + (meta.groupName || 'Group Update'),
+                        message,
+                        {
+                            groupId: meta.groupId || '',
+                            groupName: meta.groupName || '',
+                            type
+                        }
+                    );
+                }
+
             } catch (e) {
                 console.warn('createGroupNotification failed:', e);
             }
@@ -7150,6 +7202,160 @@
         // ============================================================
 
         let _notifUnsubscribe = null; // holds the Firestore listener teardown
+
+
+        // ============================================================
+        // NATIVE PUSH NOTIFICATION SYSTEM — FCM Token Management
+        // ============================================================
+
+        const VAPID_KEY = 'YOUR_VAPID_KEY_FROM_STEP_1A'; // ← paste your VAPID key here
+
+        /**
+         * Requests notification permission and registers the FCM token.
+         * Should be called after login, once the user is confirmed.
+         */
+        async function initPushNotifications() {
+            try {
+                // Service worker must be registered for FCM web push
+                if (!('serviceWorker' in navigator)) {
+                    console.warn('Service workers not supported — no web push.');
+                    return;
+                }
+
+                // Check if running inside Median Android WebView
+                const isMedianEnv = typeof window.median !== 'undefined' ||
+                    navigator.userAgent.includes('Median') ||
+                    navigator.userAgent.includes('gonative');
+
+                if (isMedianEnv) {
+                    // Median handles FCM token natively via their bridge
+                    initMedianPushToken();
+                    return;
+                }
+
+                // Web / PWA / Chrome flow
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    console.log('Notification permission denied.');
+                    return;
+                }
+
+                const messaging = firebase.messaging();
+
+                // Register our custom service worker (NOT sw.js — a new FCM-specific one)
+                const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+
+                const token = await messaging.getToken({
+                    vapidKey: VAPID_KEY,
+                    serviceWorkerRegistration: swReg
+                });
+
+                if (token) {
+                    await saveFcmToken(token);
+                    console.log('FCM web token registered.');
+                }
+
+                // Handle foreground messages (app is open — show in-app toast instead)
+                messaging.onMessage((payload) => {
+                    const { title, body } = payload.notification || {};
+                    if (title && body) {
+                        showToast(title, body, 'info');
+                    }
+                });
+
+            } catch (error) {
+                console.warn('initPushNotifications error:', error);
+            }
+        }
+
+        /**
+         * Handles FCM token registration inside Median (Android WebView) app.
+         * Median exposes the device FCM token via their JS bridge.
+         */
+        function initMedianPushToken() {
+            // Median+OneSignal fires this event with the player ID when ready
+            document.addEventListener('median_onesignal_player_id', async (event) => {
+                const playerId = event.detail?.playerId || event.playerId;
+                if (playerId) {
+                    await saveFcmToken(playerId); // reuses same Firestore save function
+                    console.log('OneSignal Player ID saved:', playerId);
+                }
+            });
+
+            // Also check if already available immediately (if app was already registered)
+            if (window.median && window.median.onesignal) {
+                window.median.onesignal.getPlayerId().then(async (playerId) => {
+                    if (playerId) await saveFcmToken(playerId);
+                });
+            }
+        }
+        /**
+         * Saves the FCM token to the current user's Firestore document.
+         * Stores as an array to support multiple devices per user.
+         * @param {string} token - The FCM device token.
+         */
+        async function saveFcmToken(token) {
+            if (!currentUser?.uid || !token) return;
+            try {
+                await db.collection('users').doc(currentUser.uid).update({
+                    fcmTokens: firebase.firestore.FieldValue.arrayUnion(token),
+                    fcmTokenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (e) {
+                console.warn('saveFcmToken error:', e);
+            }
+        }
+
+        /**
+         * Fetches FCM tokens for a list of user UIDs from Firestore.
+         * @param {string[]} uids - Array of user UIDs.
+         * @returns {Promise<string[]>} - Flat array of all FCM tokens.
+         */
+        async function getFcmTokensForUsers(uids) {
+            if (!uids || uids.length === 0) return [];
+            try {
+                const filtered = uids.filter(uid => uid !== currentUser?.uid);
+                if (filtered.length === 0) return [];
+
+                // Batch in groups of 30 (Firestore 'in' limit)
+                const tokens = [];
+                for (let i = 0; i < filtered.length; i += 30) {
+                    const batch = filtered.slice(i, i + 30);
+                    const snap = await db.collection('users')
+                        .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
+                        .get();
+                    snap.forEach(doc => {
+                        const userTokens = doc.data().fcmTokens || [];
+                        tokens.push(...userTokens);
+                    });
+                }
+                return [...new Set(tokens)]; // deduplicate
+            } catch (e) {
+                console.warn('getFcmTokensForUsers error:', e);
+                return [];
+            }
+        }
+
+        /**
+         * Sends a native push notification to a list of device tokens
+         * by calling the Vercel serverless function.
+         * @param {string[]} tokens - FCM device tokens to send to.
+         * @param {string} title - Notification title.
+         * @param {string} body - Notification body text.
+         * @param {object} data - Extra data (groupId, groupName, type).
+         */
+        async function sendPushNotification(tokens, title, body, data = {}) {
+            if (!tokens || tokens.length === 0) return;
+            try {
+                await fetch('/api/send-notification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tokens, title, body, data })
+                });
+            } catch (e) {
+                console.warn('sendPushNotification error:', e);
+            }
+        }
 
         /**
          * Starts a real-time listener for the current user's notifications.
@@ -10694,6 +10900,7 @@
 
             renderDashboard();
             startNotificationListener();
+            initPushNotifications();
         }
 
         // Navigation functions
