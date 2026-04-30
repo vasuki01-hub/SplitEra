@@ -7213,107 +7213,114 @@
          * Requests notification permission and registers the FCM token.
          * Should be called after login, once the user is confirmed.
          */
-        // ============================================================
-        // PUSH NOTIFICATION SYSTEM — OneSignal (Web + Android)
-        // ============================================================
-
         async function initPushNotifications() {
             try {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                    console.warn('[Push] Not supported in this browser.');
+                    return;
+                }
+
+                // Median Android uses OneSignal bridge — handled separately
                 const isMedianEnv =
                     typeof window.median !== 'undefined' ||
                     navigator.userAgent.includes('Median') ||
                     navigator.userAgent.includes('gonative');
 
                 if (isMedianEnv) {
-                    // Android app — OneSignal is handled natively by Median
                     initMedianPushToken();
                     return;
                 }
 
-                // Web browser — use OneSignal Web SDK
-                await initOneSignalWeb();
+                // Request permission
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+
+                    return;
+                }
+
+                // Register SW — if already registered, browser reuses the existing one
+                // NEVER unregister before this — that causes the "no active SW" error
+                const swReg = await navigator.serviceWorker.register(
+                    '/firebase-messaging-sw.js',
+                    { scope: '/' }
+                );
+
+                // Wait until the SW is fully active before doing anything with it
+                await waitForServiceWorkerActive(swReg);
+
+
+                if (token) {
+                    await saveFcmToken(token);
+
+                }
 
             } catch (error) {
                 console.warn('[Push] initPushNotifications error:', error.name, error.message);
             }
         }
 
-        async function initOneSignalWeb() {
-            try {
-                // Load OneSignal Web SDK if not already loaded
-                if (!window.OneSignal) {
-                    await new Promise((resolve, reject) => {
-                        const script = document.createElement('script');
-                        script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
-                        script.defer = true;
-                        script.onload = resolve;
-                        script.onerror = reject;
-                        document.head.appendChild(script);
-                    });
+        /**
+         * Waits until a service worker registration has an active worker.
+         * Handles all three states: active already, installing, or waiting.
+         */
+        function waitForServiceWorkerActive(registration) {
+            return new Promise((resolve) => {
+                // Already active — resolve immediately
+                if (registration.active) {
+                    resolve();
+                    return;
                 }
 
-                window.OneSignalDeferred = window.OneSignalDeferred || [];
+                // Pick whichever worker is in progress
+                const worker = registration.installing || registration.waiting;
 
-                window.OneSignalDeferred.push(async function (OneSignal) {
-                    await OneSignal.init({
-                        appId: "ebb27cdb-c8e7-427f-93c4-c5e24593f17a",
-                        serviceWorkerParam: { scope: "/" },
-                        notifyButton: { enable: false },
-                        promptOptions: {
-                            slidedown: {
-                                prompts: [{
-                                    type: "push",
-                                    autoPrompt: false
-                                }]
-                            }
-                        }
+                if (!worker) {
+                    // No worker at all — wait for updatefound then track it
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', function () {
+                            if (this.state === 'activated') resolve();
+                        });
                     });
+                    return;
+                }
 
-                    // Request permission
-                    const permission = await OneSignal.Notifications.requestPermission();
-                    if (!permission) {
-
-                        return;
-                    }
-
-                    // Get subscription ID and save it
-                    const subscriptionId = OneSignal.User.PushSubscription.id;
-                    if (subscriptionId) {
-                        await saveFcmToken(subscriptionId);
-
-                    }
-
-                    // Listen for future subscription changes (token refresh)
-                    OneSignal.User.PushSubscription.addEventListener('change', async (event) => {
-                        if (event.current?.id) {
-                            await saveFcmToken(event.current.id);
-                        }
-                    });
+                // Track the installing/waiting worker until it activates
+                worker.addEventListener('statechange', function () {
+                    if (this.state === 'activated') resolve();
                 });
 
-            } catch (e) {
-                console.warn('[Push] OneSignal web init error:', e);
-            }
+                // Safety: if it somehow became active between our check and listener
+                if (worker.state === 'activated') resolve();
+            });
         }
 
+        /**
+         * Handles FCM token registration inside Median (Android WebView) app.
+         * Median exposes the device FCM token via their JS bridge.
+         */
         function initMedianPushToken() {
-            // Median fires this event when OneSignal player ID is ready
+            // Median+OneSignal fires this event with the player ID when ready
             document.addEventListener('median_onesignal_player_id', async (event) => {
                 const playerId = event.detail?.playerId || event.playerId;
                 if (playerId) {
-                    await saveFcmToken(playerId);
+                    await saveFcmToken(playerId); // reuses same Firestore save function
 
                 }
             });
 
-            // Check if already available immediately
+            // Also check if already available immediately (if app was already registered)
             if (window.median && window.median.onesignal) {
                 window.median.onesignal.getPlayerId().then(async (playerId) => {
                     if (playerId) await saveFcmToken(playerId);
                 });
             }
         }
-
+        /**
+         * Saves the FCM token to the current user's Firestore document.
+         * Stores as an array to support multiple devices per user.
+         * @param {string} token - The FCM device token.
+         */
         async function saveFcmToken(token) {
             if (!currentUser?.uid || !token) return;
             try {
@@ -7322,16 +7329,22 @@
                     fcmTokenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
             } catch (e) {
-                console.warn('[Push] saveFcmToken error:', e);
+                console.warn('saveFcmToken error:', e);
             }
         }
 
+        /**
+         * Fetches FCM tokens for a list of user UIDs from Firestore.
+         * @param {string[]} uids - Array of user UIDs.
+         * @returns {Promise<string[]>} - Flat array of all FCM tokens.
+         */
         async function getFcmTokensForUsers(uids) {
             if (!uids || uids.length === 0) return [];
             try {
                 const filtered = uids.filter(uid => uid !== currentUser?.uid);
                 if (filtered.length === 0) return [];
 
+                // Batch in groups of 30 (Firestore 'in' limit)
                 const tokens = [];
                 for (let i = 0; i < filtered.length; i += 30) {
                     const batch = filtered.slice(i, i + 30);
@@ -7343,13 +7356,21 @@
                         tokens.push(...userTokens);
                     });
                 }
-                return [...new Set(tokens)];
+                return [...new Set(tokens)]; // deduplicate
             } catch (e) {
-                console.warn('[Push] getFcmTokensForUsers error:', e);
+                console.warn('getFcmTokensForUsers error:', e);
                 return [];
             }
         }
 
+        /**
+         * Sends a native push notification to a list of device tokens
+         * by calling the Vercel serverless function.
+         * @param {string[]} tokens - FCM device tokens to send to.
+         * @param {string} title - Notification title.
+         * @param {string} body - Notification body text.
+         * @param {object} data - Extra data (groupId, groupName, type).
+         */
         async function sendPushNotification(tokens, title, body, data = {}) {
             if (!tokens || tokens.length === 0) return;
             try {
@@ -7359,9 +7380,10 @@
                     body: JSON.stringify({ tokens, title, body, data })
                 });
             } catch (e) {
-                console.warn('[Push] sendPushNotification error:', e);
+                console.warn('sendPushNotification error:', e);
             }
         }
+
         /**
          * Starts a real-time listener for the current user's notifications.
          * Updates the bell badge count live.
