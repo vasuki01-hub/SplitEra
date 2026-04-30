@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>SplitEra - Smart Expense Manager</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="favicon.png">
@@ -65,11 +65,104 @@
             min-height: 100%;
         }
 
+        /* Safe Area Insets for Android 15+ Edge-to-Edge */
+        :root {
+            --safe-area-top: env(safe-area-inset-top);
+            --safe-area-bottom: env(safe-area-inset-bottom);
+            --safe-area-left: env(safe-area-inset-left);
+            --safe-area-right: env(safe-area-inset-right);
+        }
+
+        /* Apply to main containers */
+        html,
+        body,
+        #app {
+            padding-top: var(--safe-area-top);
+            padding-bottom: var(--safe-area-bottom);
+            padding-left: var(--safe-area-left);
+            padding-right: var(--safe-area-right);
+            min-height: 100%;
+            height: 100%;
+        }
+
+        /* Important fixed elements that should respect safe areas */
+        .mobile-bottom-nav {
+            bottom: calc(20px + var(--safe-area-bottom)) !important;
+            padding-bottom: var(--safe-area-bottom);
+        }
+
+        .header,
+        .mobile-top-bar {
+            top: var(--safe-area-top) !important;
+            padding-top: var(--safe-area-top);
+        }
+
+        /* If you have any full-screen modals or bottom sheets */
+        .modal,
+        .quick-add-modal {
+            padding-bottom: var(--safe-area-bottom);
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding-bottom: calc(80px + var(--safe-area-bottom));
+                padding-top: calc(70px + var(--safe-area-top));
+            }
+        }
+
         html,
         body,
         #app {
             font-size: small;
             height: 100%;
+            min-height: 100vh;
+            /* Add this */
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        body {
+            background: var(--bg-light);
+            /* Allow drawing behind bars */
+            padding: 0;
+        }
+
+        html,
+        body,
+        #app {
+            font-size: small;
+            height: 100%;
+        }
+
+        /* Foldable & Tablet responsive support */
+        @media (min-width: 768px) {
+            .auth-card {
+                max-width: 420px;
+            }
+
+            /* If you have a bottom nav, switch it to a sidebar on large screens */
+            .bottom-nav {
+                width: 80px;
+                height: 100%;
+                flex-direction: column;
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                justify-content: center;
+            }
+
+            #app-content {
+                margin-left: 80px;
+                /* offset for sidebar nav */
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .auth-card {
+                max-width: 480px;
+            }
         }
 
         /* Auth Page */
@@ -1898,6 +1991,23 @@
         // 🔥 Call immediately! Waiting for window 'load' causes race conditions 
         // if large assets/images delay the event but the UI is interactive.
         initFirebase();
+
+        // Handle edge-to-edge system bar colors (light/dark icons)
+        function updateSystemBars() {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+                localStorage.getItem('theme') === 'dark';
+
+            if (window.Android || window.median) {  // Median WebView bridge if available
+                try {
+                    // You can expose a method from Median if they support it
+                    console.log('Dark mode for system bars:', isDark);
+                } catch (e) { }
+            }
+        }
+
+        // Call on theme change
+        document.addEventListener('themechange', updateSystemBars); // if you have such event
+
 
 
         // Translations
@@ -9283,60 +9393,63 @@
             }
         }
 
-        // Google Authentication - Enhanced for "In-App" WebView Experience
+        // Google Authentication - Enhanced for Median/GoNative WebView
         async function signInWithGoogle() {
             showLoading();
             try {
-                // Clear any previous auth state
                 sessionStorage.removeItem('googleAuthRedirectHandled');
 
                 const provider = new firebase.auth.GoogleAuthProvider();
                 provider.addScope('email');
                 provider.addScope('profile');
-                provider.setCustomParameters({
-                    prompt: 'select_account'
-                });
+                provider.setCustomParameters({ prompt: 'select_account' });
 
-                const isWebViewEnv = typeof isWebView === 'function' ? isWebView() : false;
-                const isMobileBrowser = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                // --- DETECT MEDIAN WEBVIEW ---
+                const isMedianEnv =
+                    typeof window.median !== 'undefined' ||
+                    navigator.userAgent.includes('Median') ||
+                    navigator.userAgent.includes('gonative') ||
+                    (navigator.userAgent.includes('Android') && navigator.userAgent.includes('; wv)'));
 
-                // Use Popup for Desktop AND WebViews (App Wrappers).
-                // Use Redirect ONLY for standard Mobile Browsers to bypass strict popup blockers.
-                if (!isWebViewEnv && isMobileBrowser) {
+                if (isMedianEnv) {
+                    // In a Median WebView, signInWithPopup NEVER works.
+                    // We MUST use redirect. Android App Links (assetlinks.json) will
+                    // route the return URL back into the app instead of Chrome.
                     await auth.signInWithRedirect(provider);
                     return;
                 }
 
-                // Browser & App environment: Default to signInWithPopup
+                // Standard mobile browser (not a WebView) — also use redirect
+                const isMobileBrowser = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+                if (isMobileBrowser) {
+                    await auth.signInWithRedirect(provider);
+                    return;
+                }
+
+                // Desktop: use popup
                 try {
                     const result = await auth.signInWithPopup(provider);
                     if (result.user) {
                         await handleGoogleAuthSuccess(result.user);
-                        return;
                     }
                 } catch (popupError) {
-                    console.warn("Popup sign-in failed or restricted:", popupError.code, popupError.message);
-
-                    // Fallback to Redirect for common browser popup errors
-                    const shouldTryRedirect =
+                    console.warn('Popup failed:', popupError.code);
+                    if (
                         popupError.code === 'auth/popup-blocked' ||
                         popupError.code === 'auth/popup-closed-by-user' ||
-                        popupError.code === 'auth/operation-not-supported-in-this-environment';
-
-                    // Never fallback to redirect inside a WebView (App) to prevent boundary breaking
-                    if (shouldTryRedirect && !isWebViewEnv) {
+                        popupError.code === 'auth/operation-not-supported-in-this-environment'
+                    ) {
                         await auth.signInWithRedirect(provider);
                     } else {
                         throw popupError;
                     }
                 }
+
             } catch (error) {
                 await handleAuthError(error, 'Sign-In Error');
+            } finally {
+                hideLoading();
             }
-        }
-
-        async function signUpWithGoogle() {
-            return signInWithGoogle();
         }
 
         // Handler for Google sign-in - check if account exists
@@ -11297,11 +11410,9 @@
             return worksheet;
         }
 
-        // Save file safely — works on Web, Android WebView (Median & generic), and Desktop
         async function saveFileSafely(blob, fileName, mimeType) {
             const ua = navigator.userAgent || '';
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-            const isAndroid = /Android/i.test(ua);
+            const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(ua);
 
             function blobToBase64(b) {
                 return new Promise((resolve, reject) => {
@@ -11312,40 +11423,58 @@
                 });
             }
 
-            // 1. Median App Native Local Download (No Firebase required)
-            const isMedianApp = (typeof window.median !== 'undefined') ||
+            // --- 1. MEDIAN APP (Primary method) ---
+            // With the "File Download" plugin enabled in Median Dashboard,
+            // a standard anchor click is intercepted natively. This is the most
+            // reliable method and avoids the Base64 size limitation.
+            const isMedianApp =
+                typeof window.median !== 'undefined' ||
                 ua.includes('Median') ||
-                (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.median);
+                ua.includes('gonative') ||
+                (ua.includes('Android') && ua.includes('; wv)'));
 
             if (isMedianApp) {
                 try {
-                    const base64DataUri = await blobToBase64(blob);
-
-                    // The official Median/GoNative workaround for locally generated files (jsPDF/Excel)
-                    // is to pass the Base64 Data URI to the native Share bridge. 
-                    // This pulls up the OS-level prompt where the user simply taps "Save to Files" or "Download".
-                    if (window.median && window.median.share && typeof window.median.share.sharePage === 'function') {
-                        window.median.share.sharePage({ url: base64DataUri });
-                        return true;
-                    }
-
-                    // Fallback to custom URL scheme if JS bridge is busy/unavailable
-                    window.location.href = 'median://share/sharePage?url=' + encodeURIComponent(base64DataUri);
-
-                    await new Promise(r => setTimeout(r, 500)); // Briefly pause to let the intent fire
+                    // Primary: trigger standard download — Median's plugin intercepts it
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = fileName;
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    setTimeout(() => {
+                        URL.revokeObjectURL(url);
+                        document.body.removeChild(link);
+                    }, 1500);
+                    showToast('Info', 'Saving file to your Downloads folder...', 'info');
                     return true;
-                } catch (err) {
-                    console.warn('Median local download failed:', err);
+                } catch (e) {
+                    console.warn('Median blob download failed, trying share bridge:', e);
                 }
+
+                // Fallback: use Median's native share bridge (only if blob is small)
+                try {
+                    if (blob.size < 3 * 1024 * 1024) { // Only for files under 3MB
+                        const base64DataUri = await blobToBase64(blob);
+                        if (window.median && window.median.share) {
+                            window.median.share.sharePage({ url: base64DataUri, filename: fileName });
+                            return true;
+                        }
+                    } else {
+                        showToast('Warning', 'File is too large for direct share. Please use web version.', 'warning');
+                    }
+                } catch (shareErr) {
+                    console.warn('Median share bridge failed:', shareErr);
+                }
+                return false;
             }
 
-            // 2. Web Share API (Strongest method for iOS PWA and supported Android PWAs)
+            // --- 2. WEB SHARE API (iOS PWA + supported Android browsers) ---
             if (navigator.share && isMobile) {
                 try {
                     const file = new File([blob], fileName, { type: mimeType });
-                    const canShare = navigator.canShare ? navigator.canShare({ files: [file] }) : true;
-                    if (canShare) {
-                        // Removing 'text' parameter improves reliability on some Android devices
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
                         await navigator.share({ files: [file], title: fileName });
                         return true;
                     }
@@ -11355,13 +11484,13 @@
                 }
             }
 
-            // 3. Desktop: File System Access API
+            // --- 3. DESKTOP: File System Access API ---
             if (!isMobile && 'showSaveFilePicker' in window) {
                 try {
-                    const ext = fileName.includes('.') ? '' : (mimeType === 'application/pdf' ? '.pdf' : '.xlsx');
+                    const ext = mimeType.includes('pdf') ? '.pdf' : '.xlsx';
                     const handle = await window.showSaveFilePicker({
-                        suggestedName: fileName + ext,
-                        types: [{ description: mimeType.includes('pdf') ? 'PDF Document' : 'Excel Workbook', accept: { [mimeType]: [ext || '.bin'] } }]
+                        suggestedName: fileName,
+                        types: [{ description: mimeType.includes('pdf') ? 'PDF Document' : 'Excel Workbook', accept: { [mimeType]: [ext] } }]
                     });
                     const writable = await handle.createWritable();
                     await writable.write(blob);
@@ -11373,7 +11502,7 @@
                 }
             }
 
-            // 4. Universal blob-URL fallback (Native implementation for PWAs, Android Chrome, Desktop)
+            // --- 4. UNIVERSAL BLOB-URL FALLBACK ---
             try {
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
@@ -11388,25 +11517,122 @@
                 console.warn('Blob URL download failed:', err);
             }
 
-            // 5. Android WebView generic base64 fallback (Only as a last resort)
-            if (isAndroid) {
-                try {
-                    const base64 = await blobToBase64(blob);
-                    const link = document.createElement('a');
-                    link.href = base64;
-                    link.download = fileName;
-                    link.style.display = 'none';
-                    document.body.appendChild(link);
-                    link.click();
-                    setTimeout(() => document.body.removeChild(link), 1000);
-                    return true;
-                } catch (err) {
-                    console.error('Android base64 download failed:', err);
-                }
-            }
-
+            showToast('Error', 'Download failed. Please try from a browser.', 'error');
             return false;
         }
+
+        /*
+                // Save file safely — works on Web, Android WebView (Median & generic), and Desktop
+                async function saveFileSafely(blob, fileName, mimeType) {
+                    const ua = navigator.userAgent || '';
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+                    const isAndroid = /Android/i.test(ua);
+        
+                    function blobToBase64(b) {
+                        return new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(b);
+                        });
+                    }
+        
+                    // 1. Median App Native Local Download (No Firebase required)
+                    const isMedianApp = (typeof window.median !== 'undefined') ||
+                        ua.includes('Median') ||
+                        (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.median);
+        
+                    if (isMedianApp) {
+                        try {
+                            const base64DataUri = await blobToBase64(blob);
+        
+                            // The official Median/GoNative workaround for locally generated files (jsPDF/Excel)
+                            // is to pass the Base64 Data URI to the native Share bridge. 
+                            // This pulls up the OS-level prompt where the user simply taps "Save to Files" or "Download".
+                            if (window.median && window.median.share && typeof window.median.share.sharePage === 'function') {
+                                window.median.share.sharePage({ url: base64DataUri });
+                                return true;
+                            }
+        
+                            // Fallback to custom URL scheme if JS bridge is busy/unavailable
+                            window.location.href = 'median://share/sharePage?url=' + encodeURIComponent(base64DataUri);
+        
+                            await new Promise(r => setTimeout(r, 500)); // Briefly pause to let the intent fire
+                            return true;
+                        } catch (err) {
+                            console.warn('Median local download failed:', err);
+                        }
+                    }
+        
+                    // 2. Web Share API (Strongest method for iOS PWA and supported Android PWAs)
+                    if (navigator.share && isMobile) {
+                        try {
+                            const file = new File([blob], fileName, { type: mimeType });
+                            const canShare = navigator.canShare ? navigator.canShare({ files: [file] }) : true;
+                            if (canShare) {
+                                // Removing 'text' parameter improves reliability on some Android devices
+                                await navigator.share({ files: [file], title: fileName });
+                                return true;
+                            }
+                        } catch (err) {
+                            if (err.name === 'AbortError') return false;
+                            console.warn('Web Share API failed:', err);
+                        }
+                    }
+        
+                    // 3. Desktop: File System Access API
+                    if (!isMobile && 'showSaveFilePicker' in window) {
+                        try {
+                            const ext = fileName.includes('.') ? '' : (mimeType === 'application/pdf' ? '.pdf' : '.xlsx');
+                            const handle = await window.showSaveFilePicker({
+                                suggestedName: fileName + ext,
+                                types: [{ description: mimeType.includes('pdf') ? 'PDF Document' : 'Excel Workbook', accept: { [mimeType]: [ext || '.bin'] } }]
+                            });
+                            const writable = await handle.createWritable();
+                            await writable.write(blob);
+                            await writable.close();
+                            return true;
+                        } catch (err) {
+                            if (err.name === 'AbortError') return false;
+                            console.warn('File System Access API failed:', err);
+                        }
+                    }
+        
+                    // 4. Universal blob-URL fallback (Native implementation for PWAs, Android Chrome, Desktop)
+                    try {
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = fileName;
+                        link.style.display = 'none';
+                        document.body.appendChild(link);
+                        link.click();
+                        setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(link); }, 1000);
+                        return true;
+                    } catch (err) {
+                        console.warn('Blob URL download failed:', err);
+                    }
+        
+                    // 5. Android WebView generic base64 fallback (Only as a last resort)
+                    if (isAndroid) {
+                        try {
+                            const base64 = await blobToBase64(blob);
+                            const link = document.createElement('a');
+                            link.href = base64;
+                            link.download = fileName;
+                            link.style.display = 'none';
+                            document.body.appendChild(link);
+                            link.click();
+                            setTimeout(() => document.body.removeChild(link), 1000);
+                            return true;
+                        } catch (err) {
+                            console.error('Android base64 download failed:', err);
+                        }
+                    }
+        
+                    return false;
+                }
+                */
 
         // Save file safely — works on Web, Android WebView (Median & generic), and Desktop
         /* async function saveFileSafely(blob, fileName, mimeType) {
@@ -22330,8 +22556,8 @@
             const pages = ['dashboard', 'credits', 'personal', 'groups', 'calendar', 'details', 'settings'];
 
             // === Swipe Settings (Easy to adjust) ===
-    const MIN_SWIPE_DISTANCE = 280;        // ← Increase this to decrease swipe area
-    const MIN_HORIZONTAL_RATIO = 2.5;      // How much more horizontal than vertical (higher = stricter)
+            const MIN_SWIPE_DISTANCE = 280;        // ← Increase this to decrease swipe area
+            const MIN_HORIZONTAL_RATIO = 2.5;      // How much more horizontal than vertical (higher = stricter)
 
             document.addEventListener('touchstart', (e) => {
                 touchStartX = e.changedTouches[0].screenX;
