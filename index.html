@@ -1902,236 +1902,6 @@
         [data-theme="dark"] .iti__arrow--up {
             border-bottom-color: #D1D5DB;
         }
-
-
-        /* ============================================================
-   NOTIFICATION SYSTEM STYLES
-   ============================================================ */
-
-        /* Bell button wrapper in header */
-        .notif-bell-btn {
-            position: relative;
-            background: none;
-            border: none;
-            color: var(--text-dark);
-            font-size: 1.2rem;
-            cursor: pointer;
-            padding: 0.4rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .notif-badge {
-            position: absolute;
-            top: -2px;
-            right: -4px;
-            background: var(--danger);
-            color: #fff;
-            font-size: 0.6rem;
-            font-weight: 700;
-            min-width: 16px;
-            height: 16px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 3px;
-            pointer-events: none;
-        }
-
-        /* Notification Drawer / Panel */
-        .notif-panel-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.3);
-            z-index: 9998;
-            display: none;
-        }
-
-        .notif-panel-overlay.show {
-            display: block;
-        }
-
-        .notif-panel {
-            position: fixed;
-            top: 0;
-            right: 0;
-            width: 360px;
-            max-width: 100vw;
-            height: 100%;
-            background: var(--bg-white);
-            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            transform: translateX(100%);
-            transition: transform 0.3s ease;
-        }
-
-        .notif-panel.show {
-            transform: translateX(0);
-        }
-
-        .notif-panel-header {
-            padding: 1.25rem 1.25rem 1rem;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-shrink: 0;
-        }
-
-        .notif-panel-header h3 {
-            font-size: 1rem;
-            font-weight: 700;
-            color: var(--text-dark);
-            margin: 0;
-        }
-
-        .notif-panel-actions {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .notif-mark-all-btn {
-            background: none;
-            border: none;
-            color: var(--primary);
-            font-size: 0.75rem;
-            font-weight: 600;
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 6px;
-        }
-
-        .notif-mark-all-btn:hover {
-            background: rgba(255, 140, 66, 0.1);
-        }
-
-        .notif-close-btn {
-            background: none;
-            border: none;
-            color: var(--text-gray);
-            font-size: 1.1rem;
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 6px;
-        }
-
-        .notif-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 0.5rem 0;
-        }
-
-        .notif-empty {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: var(--text-gray);
-            gap: 0.75rem;
-            padding: 2rem;
-            text-align: center;
-        }
-
-        .notif-empty i {
-            font-size: 2.5rem;
-            opacity: 0.3;
-        }
-
-        /* Individual notification item */
-        .notif-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            padding: 0.85rem 1.25rem;
-            border-bottom: 1px solid var(--border);
-            cursor: pointer;
-            transition: background 0.2s;
-            position: relative;
-        }
-
-        .notif-item:hover {
-            background: var(--bg-light);
-        }
-
-        .notif-item.unread {
-            background: rgba(255, 140, 66, 0.06);
-        }
-
-        .notif-item.unread::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            background: var(--primary);
-            border-radius: 0 2px 2px 0;
-        }
-
-        .notif-icon {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.85rem;
-            flex-shrink: 0;
-        }
-
-        .notif-icon.type-invite {
-            background: rgba(59, 130, 246, 0.15);
-            color: #3B82F6;
-        }
-
-        .notif-icon.type-member {
-            background: rgba(16, 185, 129, 0.15);
-            color: #10B981;
-        }
-
-        .notif-icon.type-leave {
-            background: rgba(239, 68, 68, 0.15);
-            color: #EF4444;
-        }
-
-        .notif-icon.type-expense {
-            background: rgba(245, 158, 11, 0.15);
-            color: #F59E0B;
-        }
-
-        .notif-icon.type-settle {
-            background: rgba(139, 92, 246, 0.15);
-            color: #8B5CF6;
-        }
-
-        .notif-icon.type-default {
-            background: rgba(107, 114, 128, 0.15);
-            color: #6B7280;
-        }
-
-        .notif-body {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .notif-msg {
-            font-size: 0.82rem;
-            color: var(--text-dark);
-            line-height: 1.45;
-            margin: 0 0 3px;
-            word-break: break-word;
-        }
-
-        .notif-time {
-            font-size: 0.7rem;
-            color: var(--text-gray);
-        }
     </style>
     <style>
         @view-transition {
@@ -2230,7 +2000,7 @@
             if (window.Android || window.median) {  // Median WebView bridge if available
                 try {
                     // You can expose a method from Median if they support it
-
+                    console.log('Dark mode for system bars:', isDark);
                 } catch (e) { }
             }
         }
@@ -7091,467 +6861,6 @@
             return safeDate(dateValue).getTime();
         }
 
-
-        // ============================================================
-        // NOTIFICATION SYSTEM — Core Functions
-        // ============================================================
-
-        /**
-         * Writes a single notification document for one recipient.
-         * @param {string} recipientUid - The UID of the user who receives this notification.
-         * @param {string} type - Category: 'invite'|'member'|'leave'|'expense'|'settle'|'decline'
-         * @param {string} message - The human-readable notification text.
-         * @param {object} meta - Extra context: { groupId, groupName, triggerUserName, targetItem }
-         */
-        async function createNotification(recipientUid, type, message, meta = {}) {
-            if (!recipientUid || recipientUid === currentUser?.uid) return;
-            try {
-                // 1. Write in-app notification to Firestore (the bell icon system)
-                await db.collection('notifications').add({
-                    recipientUid,
-                    type,
-                    message,
-                    groupId: meta.groupId || null,
-                    groupName: meta.groupName || null,
-                    triggerUserName: meta.triggerUserName || null,
-                    targetItem: meta.targetItem || null,
-                    read: false,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                // 2. Send native device push notification
-                const tokens = await getFcmTokensForUsers([recipientUid]);
-                if (tokens.length > 0) {
-                    await sendPushNotification(
-                        tokens,
-                        'SplitEra — ' + (meta.groupName || 'Group Update'),
-                        message,
-                        {
-                            groupId: meta.groupId || '',
-                            groupName: meta.groupName || '',
-                            type
-                        }
-                    );
-                }
-
-            } catch (e) {
-                console.warn('createNotification failed:', e);
-            }
-        }
-
-        /**
-         * Sends a notification to ALL current members of a group, except the actor.
-         * @param {string} groupId - The group to look up members for.
-         * @param {string} type - Notification type string.
-         * @param {string} message - Notification message.
-         * @param {object} meta - Passed through to createNotification.
-         * @param {string[]} [extraExclusions=[]] - Additional UIDs to skip (e.g. admin already notified separately).
-         */
-        async function createGroupNotification(groupId, type, message, meta = {}, extraExclusions = []) {
-            try {
-                const groupDoc = await db.collection('groups').doc(groupId).get();
-                if (!groupDoc.exists) return;
-
-                const members = groupDoc.data().members || [];
-                const excluded = new Set([currentUser?.uid, ...extraExclusions]);
-                const targets = members.filter(uid => !excluded.has(uid));
-
-                if (targets.length === 0) return;
-
-                // 1. Write in-app notifications for all target members
-                const batch = db.batch();
-                targets.forEach(uid => {
-                    const ref = db.collection('notifications').doc();
-                    batch.set(ref, {
-                        recipientUid: uid,
-                        type,
-                        message,
-                        groupId: meta.groupId || null,
-                        groupName: meta.groupName || null,
-                        triggerUserName: meta.triggerUserName || null,
-                        targetItem: meta.targetItem || null,
-                        read: false,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                });
-                await batch.commit();
-
-                // 2. Fetch all FCM tokens for target members and send one multicast push
-                const tokens = await getFcmTokensForUsers(targets);
-                if (tokens.length > 0) {
-                    await sendPushNotification(
-                        tokens,
-                        'SplitEra — ' + (meta.groupName || 'Group Update'),
-                        message,
-                        {
-                            groupId: meta.groupId || '',
-                            groupName: meta.groupName || '',
-                            type
-                        }
-                    );
-                }
-
-            } catch (e) {
-                console.warn('createGroupNotification failed:', e);
-            }
-        }
-
-        // ============================================================
-        // NOTIFICATION SYSTEM — UI & Listener
-        // ============================================================
-
-        let _notifUnsubscribe = null; // holds the Firestore listener teardown
-
-
-        // ============================================================
-        // NATIVE PUSH NOTIFICATION SYSTEM — FCM Token Management
-        // ============================================================
-
-        // const VAPID_KEY = 'BMU_kfKzI0qanP3hRDHEHxAkCqu6cgL53xancIEYc6Z3fl4JP-vFHFknSkAEflvfUkecy0g2EmlKONZqYDmjXxg'; // ← paste your VAPID key here
-
-        /**
-         * Requests notification permission and registers the FCM token.
-         * Should be called after login, once the user is confirmed.
-         */
-        async function initPushNotifications() {
-            try {
-                if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-                    console.warn('[Push] Not supported in this browser.');
-                    return;
-                }
-
-                // Median Android uses OneSignal bridge — handled separately
-                const isMedianEnv =
-                    typeof window.median !== 'undefined' ||
-                    navigator.userAgent.includes('Median') ||
-                    navigator.userAgent.includes('gonative');
-
-                if (isMedianEnv) {
-                    initMedianPushToken();
-                    return;
-                }
-
-                // Request permission
-                const permission = await Notification.requestPermission();
-                if (permission !== 'granted') {
-
-                    return;
-                }
-
-                // Register SW — if already registered, browser reuses the existing one
-                // NEVER unregister before this — that causes the "no active SW" error
-                const swReg = await navigator.serviceWorker.register(
-                    '/firebase-messaging-sw.js',
-                    { scope: '/' }
-                );
-
-                // Wait until the SW is fully active before doing anything with it
-                await waitForServiceWorkerActive(swReg);
-
-
-                if (token) {
-                    await saveFcmToken(token);
-
-                }
-
-            } catch (error) {
-                console.warn('[Push] initPushNotifications error:', error.name, error.message);
-            }
-        }
-
-        /**
-         * Waits until a service worker registration has an active worker.
-         * Handles all three states: active already, installing, or waiting.
-         */
-        function waitForServiceWorkerActive(registration) {
-            return new Promise((resolve) => {
-                // Already active — resolve immediately
-                if (registration.active) {
-                    resolve();
-                    return;
-                }
-
-                // Pick whichever worker is in progress
-                const worker = registration.installing || registration.waiting;
-
-                if (!worker) {
-                    // No worker at all — wait for updatefound then track it
-                    registration.addEventListener('updatefound', () => {
-                        const newWorker = registration.installing;
-                        newWorker.addEventListener('statechange', function () {
-                            if (this.state === 'activated') resolve();
-                        });
-                    });
-                    return;
-                }
-
-                // Track the installing/waiting worker until it activates
-                worker.addEventListener('statechange', function () {
-                    if (this.state === 'activated') resolve();
-                });
-
-                // Safety: if it somehow became active between our check and listener
-                if (worker.state === 'activated') resolve();
-            });
-        }
-
-        /**
-         * Handles FCM token registration inside Median (Android WebView) app.
-         * Median exposes the device FCM token via their JS bridge.
-         */
-        function initMedianPushToken() {
-            // Median+OneSignal fires this event with the player ID when ready
-            document.addEventListener('median_onesignal_player_id', async (event) => {
-                const playerId = event.detail?.playerId || event.playerId;
-                if (playerId) {
-                    await saveFcmToken(playerId); // reuses same Firestore save function
-
-                }
-            });
-
-            // Also check if already available immediately (if app was already registered)
-            if (window.median && window.median.onesignal) {
-                window.median.onesignal.getPlayerId().then(async (playerId) => {
-                    if (playerId) await saveFcmToken(playerId);
-                });
-            }
-        }
-        /**
-         * Saves the FCM token to the current user's Firestore document.
-         * Stores as an array to support multiple devices per user.
-         * @param {string} token - The FCM device token.
-         */
-        async function saveFcmToken(token) {
-            if (!currentUser?.uid || !token) return;
-            try {
-                await db.collection('users').doc(currentUser.uid).update({
-                    fcmTokens: firebase.firestore.FieldValue.arrayUnion(token),
-                    fcmTokenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            } catch (e) {
-                console.warn('saveFcmToken error:', e);
-            }
-        }
-
-        /**
-         * Fetches FCM tokens for a list of user UIDs from Firestore.
-         * @param {string[]} uids - Array of user UIDs.
-         * @returns {Promise<string[]>} - Flat array of all FCM tokens.
-         */
-        async function getFcmTokensForUsers(uids) {
-            if (!uids || uids.length === 0) return [];
-            try {
-                const filtered = uids.filter(uid => uid !== currentUser?.uid);
-                if (filtered.length === 0) return [];
-
-                // Batch in groups of 30 (Firestore 'in' limit)
-                const tokens = [];
-                for (let i = 0; i < filtered.length; i += 30) {
-                    const batch = filtered.slice(i, i + 30);
-                    const snap = await db.collection('users')
-                        .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
-                        .get();
-                    snap.forEach(doc => {
-                        const userTokens = doc.data().fcmTokens || [];
-                        tokens.push(...userTokens);
-                    });
-                }
-                return [...new Set(tokens)]; // deduplicate
-            } catch (e) {
-                console.warn('getFcmTokensForUsers error:', e);
-                return [];
-            }
-        }
-
-        /**
-         * Sends a native push notification to a list of device tokens
-         * by calling the Vercel serverless function.
-         * @param {string[]} tokens - FCM device tokens to send to.
-         * @param {string} title - Notification title.
-         * @param {string} body - Notification body text.
-         * @param {object} data - Extra data (groupId, groupName, type).
-         */
-        async function sendPushNotification(tokens, title, body, data = {}) {
-            if (!tokens || tokens.length === 0) return;
-            try {
-                await fetch('/api/send-notification', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tokens, title, body, data })
-                });
-            } catch (e) {
-                console.warn('sendPushNotification error:', e);
-            }
-        }
-
-        /**
-         * Starts a real-time listener for the current user's notifications.
-         * Updates the bell badge count live.
-         */
-        function startNotificationListener() {
-            if (_notifUnsubscribe) _notifUnsubscribe(); // tear down old listener if re-logging in
-
-            _notifUnsubscribe = db.collection('notifications')
-                .where('recipientUid', '==', currentUser.uid)
-                .where('read', '==', false)
-                .onSnapshot(snapshot => {
-                    const count = snapshot.size;
-                    // Update ALL badge elements (desktop + mobile)
-                    document.querySelectorAll('.notif-badge').forEach(el => {
-                        el.textContent = count > 99 ? '99+' : count;
-                        el.style.display = count === 0 ? 'none' : 'flex';
-                    });
-                }, err => console.warn('Notification listener error:', err));
-        }
-
-        /**
-         * Opens the notification panel drawer.
-         */
-        async function openNotificationsPanel() {
-            // Remove existing panel if already open
-            document.getElementById('notifPanelOverlay')?.remove();
-
-            const overlay = document.createElement('div');
-            overlay.className = 'notif-panel-overlay';
-            overlay.id = 'notifPanelOverlay';
-            overlay.innerHTML = `
-        <div class="notif-panel" id="notifPanel">
-            <div class="notif-panel-header">
-                <h3><i class="fas fa-bell" style="color:var(--primary);margin-right:6px;"></i> Notifications</h3>
-                <div class="notif-panel-actions">
-                    <button class="notif-mark-all-btn" onclick="markAllNotificationsRead()">
-                        <i class="fas fa-check-double"></i> Mark all read
-                    </button>
-                    <button class="notif-close-btn" onclick="closeNotificationsPanel()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="notif-list" id="notifList">
-                <div class="notif-empty">
-                    <i class="fas fa-bell-slash"></i>
-                    <span>Loading notifications...</span>
-                </div>
-            </div>
-        </div>
-    `;
-
-            document.body.appendChild(overlay);
-
-            // Close on overlay click
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) closeNotificationsPanel();
-            });
-
-            // Animate in
-            requestAnimationFrame(() => {
-                overlay.classList.add('show');
-                document.getElementById('notifPanel').classList.add('show');
-            });
-
-            await renderNotificationsList();
-        }
-
-        function closeNotificationsPanel() {
-            const overlay = document.getElementById('notifPanelOverlay');
-            const panel = document.getElementById('notifPanel');
-            if (!overlay) return;
-            panel?.classList.remove('show');
-            overlay.classList.remove('show');
-            setTimeout(() => overlay.remove(), 300);
-        }
-
-        async function renderNotificationsList() {
-            const listEl = document.getElementById('notifList');
-            if (!listEl) return;
-
-            try {
-                const snap = await db.collection('notifications')
-                    .where('recipientUid', '==', currentUser.uid)
-                    .orderBy('timestamp', 'desc')
-                    .limit(50)
-                    .get();
-
-                if (snap.empty) {
-                    listEl.innerHTML = `
-                <div class="notif-empty">
-                    <i class="fas fa-bell-slash"></i>
-                    <span>You're all caught up!<br>No notifications yet.</span>
-                </div>`;
-                    return;
-                }
-
-                const iconMap = {
-                    invite: { cls: 'type-invite', icon: 'fa-envelope' },
-                    member: { cls: 'type-member', icon: 'fa-user-plus' },
-                    decline: { cls: 'type-leave', icon: 'fa-user-times' },
-                    leave: { cls: 'type-leave', icon: 'fa-door-open' },
-                    expense: { cls: 'type-expense', icon: 'fa-receipt' },
-                    settle: { cls: 'type-settle', icon: 'fa-handshake' },
-                };
-
-                let html = '';
-                snap.forEach(doc => {
-                    const n = doc.data();
-                    const id = doc.id;
-                    const im = iconMap[n.type] || { cls: 'type-default', icon: 'fa-bell' };
-                    const time = n.timestamp
-                        ? formatDateTime(n.timestamp)
-                        : 'Just now';
-                    html += `
-            <div class="notif-item ${n.read ? '' : 'unread'}" 
-                 onclick="markNotificationRead('${id}', '${n.groupId || ''}')">
-                <div class="notif-icon ${im.cls}">
-                    <i class="fas ${im.icon}"></i>
-                </div>
-                <div class="notif-body">
-                    <p class="notif-msg">${escapeHTML(n.message)}</p>
-                    ${n.groupName ? `<p class="notif-time" style="color:var(--primary);font-weight:600;">${escapeHTML(n.groupName)}</p>` : ''}
-                    <p class="notif-time">${time}</p>
-                </div>
-            </div>`;
-                });
-
-                listEl.innerHTML = html;
-
-            } catch (e) {
-                listEl.innerHTML = `<div class="notif-empty"><span>Failed to load. Try again.</span></div>`;
-                console.error('renderNotificationsList error:', e);
-            }
-        }
-
-        async function markNotificationRead(notifId, groupId) {
-            try {
-                await db.collection('notifications').doc(notifId).update({ read: true });
-                // Refresh the rendered list
-                await renderNotificationsList();
-                // If tapped from a group context, navigate there
-                if (groupId) {
-                    closeNotificationsPanel();
-                    navigate('groups');
-                }
-            } catch (e) {
-                console.warn('markNotificationRead error:', e);
-            }
-        }
-
-        async function markAllNotificationsRead() {
-            try {
-                const snap = await db.collection('notifications')
-                    .where('recipientUid', '==', currentUser.uid)
-                    .where('read', '==', false)
-                    .get();
-                const batch = db.batch();
-                snap.forEach(doc => batch.update(doc.ref, { read: true }));
-                await batch.commit();
-                await renderNotificationsList();
-            } catch (e) {
-                console.warn('markAllNotificationsRead error:', e);
-            }
-        }
-
-
-
         async function logGroupActivity(groupId, type, description, amount = 0, additionalData = {}) {
             try {
                 if (!groupId) return;
@@ -10785,14 +10094,10 @@
                                 </div>
                             </nav>
                             <div class="header-actions">
-    <button class="theme-toggle" onclick="toggleTheme()">
-        <i class="fas ${currentTheme === 'dark' ? 'fa-sun' : 'fa-moon'}"></i>
-    </button>
-    <button class="notif-bell-btn" onclick="openNotificationsPanel()" title="Notifications">
-        <i class="fas fa-bell"></i>
-        <span class="notif-badge" style="display:none;">0</span>
-    </button>
-    <div class="user-menu">
+                                <button class="theme-toggle" onclick="toggleTheme()">
+                                    <i class="fas ${currentTheme === 'dark' ? 'fa-sun' : 'fa-moon'}"></i>
+                                </button>
+                                <div class="user-menu">
                                     <img src="${currentUser.photoUrl || 'https://ui-avatars.com/api/?name=' + currentUser.firstName + '+' + currentUser.lastName}" 
                                          alt="User" class="user-avatar" onclick="toggleUserDropdown(event, 'desktop')">
                                 </div>
@@ -10809,14 +10114,10 @@
                                 <img src="favicon.png" alt="SplitEra Logo" style="width: 45px;height: auto;t-fit: contain;border-radius: 1rem;">
                             </div>
                         <div style="display: flex; align-items: center; gap: 15px;">
-    <button class="theme-toggle" onclick="toggleTheme()" style="background: none; border: none; color: var(--text-primary); font-size: 1.2rem;">
-        <i class="fas ${currentTheme === 'dark' ? 'fa-sun' : 'fa-moon'}"></i>
-    </button>
-    <button class="notif-bell-btn" onclick="openNotificationsPanel()" title="Notifications">
-        <i class="fas fa-bell"></i>
-        <span class="notif-badge" style="display:none;">0</span>
-    </button>
-    <div class="user-menu" style="position: relative;">
+                            <button class="theme-toggle" onclick="toggleTheme()" style="background: none; border: none; color: var(--text-primary); font-size: 1.2rem;">
+                                <i class="fas ${currentTheme === 'dark' ? 'fa-sun' : 'fa-moon'}"></i>
+                            </button>
+                            <div class="user-menu" style="position: relative;">
                                 <img src="${currentUser.photoUrl || 'https://ui-avatars.com/api/?name=' + currentUser.firstName + '+' + currentUser.lastName}" 
                                      alt="User" class="user-avatar" style="width: 32px; height: 32px;" onclick="toggleUserDropdown(event, 'mobile')">
                             </div>
@@ -10926,8 +10227,6 @@
             });
 
             renderDashboard();
-            startNotificationListener();
-            initPushNotifications();
         }
 
         // Navigation functions
@@ -11962,7 +11261,7 @@
                 const pdfBlob = doc.output('blob');
 
                 const isSaved = await saveFileSafely(pdfBlob, `dashboard-report-${Date.now()}.pdf`, 'application/pdf');
-
+                console.log(isSaved);
                 if (isSaved) {
                     // Only show success if it strictly returned true
                     showToast(t('success'), t('pdfExportSuccess'));
@@ -14851,54 +14150,27 @@
                 const inviteRef = db.collection('group_invites').doc(inviteId);
                 const inviteDoc = await inviteRef.get();
 
-                if (!inviteDoc.exists) throw new Error('Invitation not found');
+                if (!inviteDoc.exists) {
+                    throw new Error('Invitation not found');
+                }
 
                 const inviteData = inviteDoc.data();
-                const actorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                const groupId = inviteData.groupId;
-                const groupName = inviteData.groupName;
-                const adminUid = inviteData.invitedBy;
-                const meta = { groupId, groupName, triggerUserName: actorName };
 
                 if (accept) {
                     // Add user to group
-                    await db.collection('groups').doc(groupId).update({
+                    await db.collection('groups').doc(inviteData.groupId).update({
                         members: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
                     });
+
+                    // Update invite status
                     await inviteRef.update({ status: 'accepted' });
-
-                    // ── NOTIFICATION: Tell the admin who invited them ──────────────
-                    await createNotification(
-                        adminUid,
-                        'member',
-                        `${actorName} accepted your invitation and joined "${groupName}".`,
-                        { ...meta, targetItem: actorName }
-                    );
-
-                    // ── NOTIFICATION: Tell all other group members ─────────────────
-                    await createGroupNotification(
-                        groupId,
-                        'member',
-                        `${actorName} has joined the group.`,
-                        meta,
-                        [adminUid] // Admin already notified above
-                    );
-
-                    showToast('Success', `Joined ${groupName}!`);
+                    showToast('Success', `Joined ${inviteData.groupName}!`);
                 } else {
                     await inviteRef.update({ status: 'rejected' });
-
-                    // ── NOTIFICATION: Tell only the admin ─────────────────────────
-                    await createNotification(
-                        adminUid,
-                        'decline',
-                        `${actorName} declined your invitation to join "${groupName}".`,
-                        { ...meta, targetItem: actorName }
-                    );
-
-                    showToast('Info', 'Invitation declined.');
+                    showToast('Info', 'Invitation rejected');
                 }
 
+                // Refresh both
                 forceRefreshCurrentPage();
 
             } catch (error) {
@@ -15111,24 +14383,6 @@
 
                     }
                     await batch.commit();
-
-
-                    // ── NOTIFICATION: Notify all invited registered users ──────────
-                    const actorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                    for (const userInvite of userInvites) {
-                        await createNotification(
-                            userInvite.user.id,
-                            'invite',
-                            `${actorName} invited you to join the group "${name}".`,
-                            {
-                                groupId: groupId,
-                                groupName: name,
-                                triggerUserName: actorName,
-                                targetItem: name
-                            }
-                        );
-                    }
-                    // ───────────────────────────────────────────────────────────────
                 }
 
                 document.querySelector('.modal-overlay')?.remove();
@@ -15412,33 +14666,13 @@
                 try {
                     // Log activity BEFORE removing member (so user still has permission)
                     const userName = currentUser ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : 'Unknown';
-
-                    // Fetch group name BEFORE leaving (while still a member)
-                    const leavingGroupDoc = await db.collection('groups').doc(groupId).get();
-                    const leavingGroupName = leavingGroupDoc.data()?.name || 'the group';
-
                     await logGroupActivity(groupId, 'MEMBER_REMOVED', `${userName} left the group`);
-
-                    // ── NOTIFICATION: Tell all remaining members ───────────────────────────
-                    await createGroupNotification(
-                        groupId,
-                        'leave',
-                        `${userName} has left "${leavingGroupName}".`,
-                        {
-                            groupId,
-                            groupName: leavingGroupName,
-                            triggerUserName: userName,
-                            targetItem: userName
-                        }
-                    );
-                    // ──────────────────────────────────────────────────────────────────────
 
                     await db.collection('groups').doc(groupId).update({
                         members: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
                     });
 
                     showToast('Success', 'Left group successfully');
-
                     forceRefreshCurrentPage();
                 } catch (error) {
                     showToast('Error', error.message, 'error');
@@ -15620,24 +14854,6 @@
                 }
 
                 await batch.commit();
-
-                // ── NOTIFICATION: Notify all invited registered users ──────────
-                const actorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                for (const userInvite of userInvites) {
-                    await createNotification(
-                        userInvite.user.id,
-                        'invite',
-                        `${actorName} invited you to join the group "${name}".`,
-                        {
-                            groupId: groupId,
-                            groupName: name,
-                            triggerUserName: actorName,
-                            targetItem: name
-                        }
-                    );
-                }
-                // ───────────────────────────────────────────────────────────────
-
 
                 document.querySelector('.modal-overlay')?.remove();
                 showToast(t('success'), t('groupCreatedSuccess'));
@@ -16368,35 +15584,8 @@
                         members: firebase.firestore.FieldValue.arrayUnion(existingUser.id)
                     });
 
-                    // ── NOTIFICATION: Notify all current members ───────────────────────────
-                    const addActorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                    const groupDoc2 = await db.collection('groups').doc(groupId).get();
-                    await createGroupNotification(
-                        groupId,
-                        'member',
-                        `${addActorName} added ${userDisplayName} to the group.`,
-                        {
-                            groupId,
-                            groupName: groupDoc2.data().name,
-                            triggerUserName: addActorName,
-                            targetItem: userDisplayName
-                        }
-                    );
-                    // Also notify the newly added person
-                    await createNotification(
-                        existingUser.id,
-                        'member',
-                        `${addActorName} added you to the group "${groupDoc2.data().name}".`,
-                        {
-                            groupId,
-                            groupName: groupDoc2.data().name,
-                            triggerUserName: addActorName,
-                            targetItem: userDisplayName
-                        }
-                    );
-                    // ──────────────────────────────────────────────────────────────────────
-
                     showToast('Success', `Added ${userDisplayName} to group!`, 'success');
+
                     // Refresh view
                     btn.closest('.modal-overlay')?.remove();
                     setTimeout(() => {
@@ -18329,21 +17518,15 @@
                     // Activity Log
                     const fromMember = (currentGroupMembers || []).find(m => m.id === fromUid);
                     const toMember = (currentGroupMembers || []).find(m => m.id === toUid);
-                    const fromName = fromMember ? `${fromMember.firstName} ${fromMember.lastName || ''}`.trim() : 'Someone';
-                    const toName = toMember ? `${toMember.firstName}   ${toMember.lastName || ''}`.trim() : 'Someone';
+                    const fromName = fromMember ? fromMember.firstName : 'Someone';
+                    const toName = toMember ? toMember.firstName : 'Someone';
 
                     logGroupActivity(groupId, 'SETTLEMENT', `${fromName} paid ${toName}`, amountVal, {
-                        fromUid, toUid, fromName, toName
+                        fromUid,
+                        toUid,
+                        fromName,
+                        toName
                     });
-
-                    // ── NOTIFICATION ─────────────────────────────────────────────────────────
-                    const settleGroupDoc = await db.collection('groups').doc(groupId).get();
-                    const settleGroupName = settleGroupDoc.data()?.name || 'the group';
-                    const settleMsg = `${fromName} settled ${formatCurrency(amountVal)} with ${toName} in "${settleGroupName}".`;
-                    const settleMeta = { groupId, groupName: settleGroupName, triggerUserName: fromName, targetItem: toName };
-
-                    await createGroupNotification(groupId, 'settle', settleMsg, settleMeta);
-                    // ─────────────────────────────────────────────────────────────────────────
 
                     // Real-time DOM updates for total balance debt card
                     var totalBalanceDebtCard = document.getElementById(`debt-card-${groupId}-${fromUid}-${toUid}`);
@@ -18951,44 +18134,21 @@
                     attachments.push(url);
                 }
                 expenseData.attachments = attachments;
-                const expGroupDoc = await db.collection('groups').doc(groupId).get();
-                const expGroupName = expGroupDoc.data()?.name || 'the group';
-                const expActorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                const expItemName = expenseData.expenseName || expenseData.description || 'Expense';
-
                 if (editId) {
                     await db.collection('group_expenses').doc(editId).update(expenseData);
                     showToast('Success', 'Expense updated!');
-                    logGroupActivity(groupId, 'EXPENSE_EDITED', `${expActorName} edited "${expItemName}"`, amount, {
+                    logGroupActivity(groupId, 'EXPENSE_EDITED', `${currentUser.firstName} edited "${expenseData.expenseName || expenseData.description}"`, amount, {
                         expenseId: editId,
                         category: expenseData.category
                     });
-
-                    // ── NOTIFICATION ───────────────────────────────────────────────────
-                    await createGroupNotification(
-                        groupId,
-                        'expense',
-                        `${expActorName} edited the expense "${expItemName}" in "${expGroupName}".`,
-                        { groupId, groupName: expGroupName, triggerUserName: expActorName, targetItem: expItemName }
-                    );
-                    // ──────────────────────────────────────────────────────────────────
                 } else {
                     expenseData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                     const newDoc = await db.collection('group_expenses').add(expenseData);
                     showToast('Success', 'Expense added!');
-                    logGroupActivity(groupId, 'EXPENSE_ADDED', `${expActorName} added "${expItemName}"`, amount, {
+                    logGroupActivity(groupId, 'EXPENSE_ADDED', `${currentUser.firstName} added "${expenseData.expenseName || expenseData.description}"`, amount, {
                         expenseId: newDoc.id,
                         category: expenseData.category
                     });
-
-                    // ── NOTIFICATION ───────────────────────────────────────────────────
-                    await createGroupNotification(
-                        groupId,
-                        'expense',
-                        `${expActorName} added a new expense: "${expItemName}" in "${expGroupName}".`,
-                        { groupId, groupName: expGroupName, triggerUserName: expActorName, targetItem: expItemName }
-                    );
-                    // ──────────────────────────────────────────────────────────────────
                 }
 
                 // Only remove the functional modal, keep Group Details open
@@ -19858,28 +19018,15 @@
                 const expData = expDoc.data();
 
                 await db.collection('group_expenses').doc(expenseId).delete();
+                // Close only the confirmation modal, not the parent Group Details
                 const confirmModal = btn.closest('.modal-overlay');
                 if (confirmModal) confirmModal.remove();
 
                 if (expData) {
-                    const delActorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                    const delItemName = expData.expenseName || expData.description || 'Expense';
-
-                    logGroupActivity(groupId, 'EXPENSE_DELETED', `${delActorName} deleted "${delItemName}"`, expData.amount, {
-                        expenseId,
+                    logGroupActivity(groupId, 'EXPENSE_DELETED', `${currentUser.firstName} deleted "${expData.expenseName || expData.description}"`, expData.amount, {
+                        expenseId: expenseId,
                         category: expData.category
                     });
-
-                    // ── NOTIFICATION ───────────────────────────────────────────────────
-                    const delGroupDoc = await db.collection('groups').doc(groupId).get();
-                    const delGroupName = delGroupDoc.data()?.name || 'the group';
-                    await createGroupNotification(
-                        groupId,
-                        'expense',
-                        `${delActorName} deleted the expense "${delItemName}" from "${delGroupName}".`,
-                        { groupId, groupName: delGroupName, triggerUserName: delActorName, targetItem: delItemName }
-                    );
-                    // ──────────────────────────────────────────────────────────────────
                 }
 
                 await viewGroupDetails(groupId);
