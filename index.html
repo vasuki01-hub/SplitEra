@@ -368,6 +368,7 @@
         }
 
         .btn-sm {
+                margin-left: 5px;
             padding: 0.5rem 1rem;
             font-size: 0.75rem;
         }
@@ -918,6 +919,7 @@
         }
 
         .card-header {
+            overflow: auto;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -2250,6 +2252,8 @@
                 profilePhoto: 'Profile Photo',
                 dashboard: 'Dashboard',
                 creditBalance: 'Credit',
+                editCredit: 'Edit Credit',
+                editExpense: 'Edit Expense',
                 personal: 'Expenses',
                 groups: 'Groups',
                 calendar: 'Calendar',
@@ -2710,6 +2714,8 @@
                 exportExcel: 'એક્સેલ નિકાસ કરો',
                 creditCard: 'ક્રેડિટ કાર્ડ',
                 creditCardExpense: 'ક્રેડિટ કાર્ડ ખર્ચ',
+                editCredit: 'ક્રેડિટમાં ફેરફાર કરો',
+editExpense: 'ખર્ચમાં ફેરફાર કરો',
                 date: 'તારીખ',
                 description: 'વર્ણન',
                 amount: 'રકમ',
@@ -3097,6 +3103,8 @@
                 addExpense: 'खर्च जोड़ें',
                 expenseName: 'खर्च का नाम',
                 createGroup: 'ग्रुप बनाएं',
+                editCredit: 'क्रेडिट संपादित करें',
+editExpense: 'व्यय संपादित करें',
                 joinGroup: 'ग्रुप में शामिल हों',
                 exportPDF: 'PDF निर्यात करें',
                 search: 'खोजें...',
@@ -3533,6 +3541,8 @@
                 exportExcel: 'एक्सेल निर्यात करा',
                 creditCard: 'क्रेडिट कार्ड',
                 creditCardExpense: 'क्रेडिट कार्ड खर्च',
+                editCredit: 'क्रेडिट संपादित करा',
+editExpense: 'खर्च संपादित करा',
                 date: 'तारीख',
                 description: 'वर्णन',
                 amount: 'रक्कम',
@@ -3939,6 +3949,8 @@
                 creditCardExpense: 'கிரெடிட் கார்டு செலவு',
                 date: 'தேதி',
                 description: 'விளக்கம்',
+                editCredit: 'கடனைத் திருத்து',
+editExpense: 'செலவைத் திருத்து',
                 amount: 'தொகை',
                 category: 'வகை',
                 source: 'மூலம்',
@@ -4351,6 +4363,8 @@
                 description: 'వివరణ',
                 amount: 'మొత్తం',
                 category: 'వర్గం',
+                editCredit: 'క్రెడిట్‌ను సవరించండి',
+editExpense: 'ఖర్చును సవరించండి',
                 source: 'మూలం',
                 mode: 'మోడ్',
                 remarks: 'వ్యాఖ్యలు',
@@ -4758,6 +4772,8 @@
                 creditCard: 'ऋणपत्रम्',
                 creditCardExpense: 'ऋणपत्रव्ययः',
                 date: 'तिथिः',
+                editCredit: 'ऋणं संपादयतु',
+editExpense: 'व्ययं संपादयतु',
                 description: 'विवरणम्',
                 amount: 'राशिः',
                 category: 'वर्गः',
@@ -5158,6 +5174,8 @@
                 netCreditCardBalance: 'ਨੈੱਟ ਕ੍ਰੈਡਿਟ ਕਾਰਡ ਬੈਲੰਸ',
                 totalCreditCardCredits: 'ਕੁੱਲ ਕ੍ਰੈਡਿਟ ਕਾਰਡ ਕ੍ਰੈਡਿਟ',
                 totalCreditCardExpenses: 'ਕੁੱਲ ਕ੍ਰੈਡਿਟ ਕਾਰਡ ਖਰਚੇ',
+                editCredit: 'ਕ੍ਰੈਡਿਟ ਸੋਧੋ',
+editExpense: 'ਖਰਚਾ ਸੋਧੋ',
                 bankAccount: 'ਬੈਂਕ ਖਾਤਾ',
                 netBankAccountBalance: 'ਨੈੱਟ ਬੈਂਕ ਖਾਤਾ ਬੈਲੰਸ',
                 totalBankBalanceExpenses: 'ਕੁੱਲ ਬੈਂਕ ਬੈਲੰਸ ਖਰਚੇ',
@@ -5580,6 +5598,8 @@
                 description: 'বিবরণ',
                 amount: 'পরিমাণ',
                 category: 'ক্যাটাগরি',
+                editCredit: 'ক্রেডিট সম্পাদনা করুন',
+editExpense: 'খরচ সম্পাদনা করুন',
                 source: 'উৎস',
                 mode: 'মোড',
                 remarks: 'মন্তব্য',
@@ -5985,6 +6005,8 @@
                 creditCard: 'ಕ್ರೆಡಿಟ್ ಕಾರ್ಡ್',
                 creditCardExpense: 'ಕ್ರೆಡಿಟ್ ಕಾರ್ಡ್ ಖರ್ಚು',
                 date: 'ದಿನಾಂಕ',
+                editCredit: 'ಕ್ರೆಡಿಟ್ ತಿದ್ದುಪಡಿ ಮಾಡಿ',
+editExpense: 'ವೆಚ್ಚ ತಿದ್ದುಪಡಿ ಮಾಡಿ',
                 description: 'ವಿವರಣೆ',
                 amount: 'ಮೊತ್ತ',
                 category: 'ವರ್ಗ',
@@ -6372,6 +6394,8 @@
                 createGroup: 'ഗ്രൂപ്പ് ഉണ്ടാക്കുക',
                 joinGroup: 'ഗ്രൂപ്പിൽ ചേരുക',
                 exportPDF: 'PDF എക്സ്പോർട്ട് ചെയ്യുക',
+                editCredit: 'ക്രെഡിറ്റ് തിരുത്തുക',
+editExpense: 'ചെലവ് തിരുത്തുക',
                 search: 'തിരയുക...',
                 year: 'വർഷം',
                 month: 'മാസം',
@@ -8313,7 +8337,7 @@
                     </div>
                     <div class="modal-body" style="display: grid; gap: 0.5rem;">
                         <button class="btn btn-secondary" onclick="toggleSelectionFromActionSheet('${section}', '${id}', '${itemType}')">Select</button>
-                        <button class="btn btn-primary" onclick="editFromActionSheet('${section}', '${id}', '${itemType}')">Edit</button>
+                        
                         <button class="btn btn-danger" onclick="deleteFromActionSheet('${section}', '${id}', '${itemType}')">${t('delete')}</button>
                     </div>
                 </div>
