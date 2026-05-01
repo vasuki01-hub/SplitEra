@@ -7229,92 +7229,119 @@
         }
 
 
+        // Guard flag — prevents double-init when renderMainLayout fires twice
+        let _oneSignalInitialized = false;
+
         async function initOneSignalWeb() {
             try {
-                if (!window.OneSignal) {
-                    await new Promise((resolve, reject) => {
-                        const script = document.createElement('script');
-                        script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
-                        script.defer = true;
-                        script.onload = resolve;
-                        script.onerror = reject;
-                        document.head.appendChild(script);
-                    });
+                // Already initialized — skip silently
+                if (_oneSignalInitialized) {
+                    console.log('[Push] OneSignal already initialized, skipping.');
+                    return;
                 }
 
-                window.OneSignalDeferred = window.OneSignalDeferred || [];
-
-                window.OneSignalDeferred.push(async function (OneSignal) {
-                    await OneSignal.init({
-                        appId: "ebb27cdb-c8e7-427f-93c4-c5e24593f17a",
-                        serviceWorkerParam: { scope: "/" },
-                        notifyButton: { enable: false },
-                        promptOptions: {
-                            slidedown: {
-                                prompts: [{ type: "push", autoPrompt: false }]
-                            }
-                        }
+                // Load the OneSignal SDK script
+                if (!window.OneSignal) {
+                    const loaded = await new Promise((resolve) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
+                        script.async = true;
+                        // Resolve true on load, false on error (ad blocker etc.)
+                        script.onload = () => resolve(true);
+                        script.onerror = () => resolve(false);
+                        document.head.appendChild(script);
                     });
 
-                    const permission = await OneSignal.Notifications.requestPermission();
-                    if (!permission) {
-                        console.log('[Push] Web push permission denied.');
+                    if (!loaded) {
+                        // Script blocked (ad blocker) — fail silently, real users unaffected
+                        console.warn('[Push] OneSignal SDK blocked (likely ad blocker). Push disabled for this session.');
                         return;
                     }
+                }
 
-                    const subscriptionId = OneSignal.User.PushSubscription.id;
-                    if (subscriptionId) {
-                        await saveFcmToken(subscriptionId);
-                        console.log('[Push] OneSignal web subscription saved.');
-                    }
+                // Wait for SDK to be ready
+                await new Promise(resolve => setTimeout(resolve, 500));
 
-                    OneSignal.User.PushSubscription.addEventListener('change', async (event) => {
-                        if (event.current?.id) {
-                            await saveFcmToken(event.current.id);
+                if (!window.OneSignal) {
+                    console.warn('[Push] OneSignal SDK not available after load.');
+                    return;
+                }
+
+                // Check if already initialized by a previous call
+                if (window.OneSignal.initialized) {
+                    _oneSignalInitialized = true;
+                    await handleOneSignalSubscription();
+                    return;
+                }
+
+                await window.OneSignal.init({
+                    appId: "ebb27cdb-c8e7-427f-93c4-c5e24593f17a",
+                    serviceWorkerParam: { scope: "/" },
+                    notifyButton: { enable: false },
+                    // Fix the /default-icon 404 error
+                    defaultIconUrl: "/favicon.png",
+                    promptOptions: {
+                        slidedown: {
+                            prompts: [{ type: "push", autoPrompt: false }]
                         }
-                    });
+                    }
                 });
 
+                _oneSignalInitialized = true;
+                console.log('[Push] OneSignal initialized.');
+
+                await handleOneSignalSubscription();
+
             } catch (e) {
-                console.warn('[Push] OneSignal web init error:', e);
+                // Catch "SDK already initialized" error and recover gracefully
+                if (e?.message?.includes('already initialized') || e?.message?.includes('already been initialized')) {
+                    _oneSignalInitialized = true;
+                    console.log('[Push] OneSignal was already initialized, recovering.');
+                    await handleOneSignalSubscription();
+                } else {
+                    console.warn('[Push] OneSignal web init error:', e?.message || e);
+                }
             }
         }
 
+        async function handleOneSignalSubscription() {
+            try {
+                const OneSignal = window.OneSignal;
+
+                // Request permission
+                const permission = await OneSignal.Notifications.requestPermission();
+                if (!permission) {
+                    console.log('[Push] Web push permission denied by user.');
+                    return;
+                }
+
+                // Wait briefly for subscription to be ready after permission granted
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                const subscriptionId = OneSignal.User?.PushSubscription?.id;
+                if (subscriptionId) {
+                    await saveFcmToken(subscriptionId);
+                    console.log('[Push] OneSignal web subscription saved successfully.');
+                } else {
+                    console.warn('[Push] No subscription ID yet — will catch via change event.');
+                }
+
+                // Listen for subscription changes (covers delayed subscription assignment)
+                OneSignal.User?.PushSubscription?.addEventListener('change', async (event) => {
+                    if (event.current?.id) {
+                        await saveFcmToken(event.current.id);
+                        console.log('[Push] OneSignal subscription updated and saved.');
+                    }
+                });
+
+            } catch (e) {
+                console.warn('[Push] handleOneSignalSubscription error:', e?.message || e);
+            }
+        }
         /**
          * Waits until a service worker registration has an active worker.
          * Handles all three states: active already, installing, or waiting.
          */
-        function waitForServiceWorkerActive(registration) {
-            return new Promise((resolve) => {
-                // Already active — resolve immediately
-                if (registration.active) {
-                    resolve();
-                    return;
-                }
-
-                // Pick whichever worker is in progress
-                const worker = registration.installing || registration.waiting;
-
-                if (!worker) {
-                    // No worker at all — wait for updatefound then track it
-                    registration.addEventListener('updatefound', () => {
-                        const newWorker = registration.installing;
-                        newWorker.addEventListener('statechange', function () {
-                            if (this.state === 'activated') resolve();
-                        });
-                    });
-                    return;
-                }
-
-                // Track the installing/waiting worker until it activates
-                worker.addEventListener('statechange', function () {
-                    if (this.state === 'activated') resolve();
-                });
-
-                // Safety: if it somehow became active between our check and listener
-                if (worker.state === 'activated') resolve();
-            });
-        }
 
         /**
          * Handles FCM token registration inside Median (Android WebView) app.

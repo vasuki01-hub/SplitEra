@@ -1,11 +1,15 @@
 {
     "headers": [
         {
-            "source": "/.well-known/assetlinks.json",
+            "source": "/OneSignalSDKWorker.js",
             "headers": [
                 {
+                    "key": "Service-Worker-Allowed",
+                    "value": "/"
+                },
+                {
                     "key": "Content-Type",
-                    "value": "application/json"
+                    "value": "application/javascript"
                 }
             ]
         }
