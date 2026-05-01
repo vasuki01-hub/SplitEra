@@ -7228,6 +7228,58 @@
             }
         }
 
+
+        async function initOneSignalWeb() {
+            try {
+                if (!window.OneSignal) {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
+                        script.defer = true;
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                    });
+                }
+
+                window.OneSignalDeferred = window.OneSignalDeferred || [];
+
+                window.OneSignalDeferred.push(async function (OneSignal) {
+                    await OneSignal.init({
+                        appId: "ebb27cdb-c8e7-427f-93c4-c5e24593f17a",
+                        serviceWorkerParam: { scope: "/" },
+                        notifyButton: { enable: false },
+                        promptOptions: {
+                            slidedown: {
+                                prompts: [{ type: "push", autoPrompt: false }]
+                            }
+                        }
+                    });
+
+                    const permission = await OneSignal.Notifications.requestPermission();
+                    if (!permission) {
+                        console.log('[Push] Web push permission denied.');
+                        return;
+                    }
+
+                    const subscriptionId = OneSignal.User.PushSubscription.id;
+                    if (subscriptionId) {
+                        await saveFcmToken(subscriptionId);
+                        console.log('[Push] OneSignal web subscription saved.');
+                    }
+
+                    OneSignal.User.PushSubscription.addEventListener('change', async (event) => {
+                        if (event.current?.id) {
+                            await saveFcmToken(event.current.id);
+                        }
+                    });
+                });
+
+            } catch (e) {
+                console.warn('[Push] OneSignal web init error:', e);
+            }
+        }
+
         /**
          * Waits until a service worker registration has an active worker.
          * Handles all three states: active already, installing, or waiting.
