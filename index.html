@@ -10548,6 +10548,9 @@
                 }
             } else {
                 try {
+                    if (!window.recaptchaVerifier) {
+                        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', { 'size': 'invisible' });
+                    }
                     const confirmationResult = await auth.signInWithPhoneNumber(contact, window.recaptchaVerifier);
                     window.forgotConfirmationResult = confirmationResult;
                     showToast('Success', `OTP sent to ${input}`, 'success');
@@ -10562,6 +10565,26 @@
                 }
             }
             return false;
+        }
+
+        async function resetPasswordWithAdmin(contactType, contact, newPassword) {
+            const response = await fetch('/api/resetPassword', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contactType,
+                    contact,
+                    newPassword
+                })
+            });
+
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Failed to update password.');
+            }
+            return result;
         }
 
         // Initialize all event listeners for the Forgot Password modal
@@ -10688,7 +10711,10 @@
                     if (input) {
                         showLoading();
                         try {
-                            await sendOtpLogic(input);
+                            const sent = await sendOtpLogic(input);
+                            if (!sent) {
+                                throw new Error('OTP could not be resent');
+                            }
                             startOtpTimer();
                         } catch (error) {
                             showToast('Error', 'Failed to resend OTP', 'error');
@@ -10770,28 +10796,12 @@
                     try {
                         const tempContact = sessionStorage.getItem('tempContact');
                         const contactType = sessionStorage.getItem('contactType');
-
-                        if (contactType === 'email') {
-                            // For email, we still use the standard reset link for security
-                            await auth.sendPasswordResetEmail(tempContact);
-                            showToast('Success', 'Password reset instructions sent to your email.', 'success');
-                        } else {
-                            // For phone, the user is already authenticated after confirm()
-                            // We can directly update the password
-                            const user = auth.currentUser;
-                            if (user) {
-                                await user.updatePassword(newPassword);
-                                showToast('Success', 'Password updated successfully! You are now logged in.', 'success');
-
-                                // Fetch user data and log in
-                                const userDoc = await db.collection('users').doc(user.uid).get();
-                                currentUser = { uid: user.uid, ...userDoc.data() };
-                                renderMainLayout();
-                                navigate('dashboard');
-                            } else {
-                                throw new Error('User not authenticated.');
-                            }
+                        if (!tempContact || !contactType) {
+                            throw new Error('Reset session expired. Please request OTP again.');
                         }
+
+                        await resetPasswordWithAdmin(contactType, tempContact, newPassword);
+                        showToast('Success', 'Password updated successfully! Please log in with your new password.', 'success');
 
                         // Success - cleanup and close
                         closeForgotPasswordModal();
