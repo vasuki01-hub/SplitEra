@@ -2140,11 +2140,7 @@
     </style>
     <script src="https://cdn.tailwindcss.com/3.4.1"></script>
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js');
-            });
-        }
+
     </script>
 </head>
 
@@ -7240,13 +7236,13 @@
 
                 // Register SW — if already registered, browser reuses the existing one
                 // NEVER unregister before this — that causes the "no active SW" error
-                const swReg = await navigator.serviceWorker.register(
+                /* const swReg = await navigator.serviceWorker.register(
                     '/firebase-messaging-sw.js',
                     { scope: '/' }
-                );
+                ); 
 
                 // Wait until the SW is fully active before doing anything with it
-                await waitForServiceWorkerActive(swReg);
+                await waitForServiceWorkerActive(swReg); */
 
 
                 if (token) {
