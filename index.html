@@ -8211,6 +8211,267 @@
             return grouped;
         }
 
+        const selectionState = {
+            credits: new Set(),
+            personal: new Set(),
+            details: new Set(),
+            groupExpenses: new Set()
+        };
+        const rowLongPressTimers = {};
+        const ROW_LONG_PRESS_MS = 550;
+
+        function isInteractiveRowTarget(target) {
+            return !!target?.closest('button, a, input, select, textarea, label, .attachment, .action-btn, [data-no-row-action="true"]');
+        }
+
+        function updateBulkDeleteButton(section) {
+            const btn = document.querySelector(`[data-bulk-delete="${section}"]`);
+            if (!btn) return;
+            const selectedCount = selectionState[section]?.size || 0;
+            btn.style.display = selectedCount > 0 ? 'inline-flex' : 'none';
+            btn.innerHTML = `<i class="fas fa-trash"></i> ${t('delete')} (${selectedCount})`;
+        }
+
+        function toggleRowSelection(section, selectionKey, checked) {
+            const set = selectionState[section];
+            if (!set) return;
+            if (checked) set.add(selectionKey);
+            else set.delete(selectionKey);
+            updateBulkDeleteButton(section);
+        }
+
+        function toggleMonthSelection(section, monthKey, checked) {
+            const inputs = document.querySelectorAll(`input[data-select-section="${section}"][data-month-key="${monthKey}"]`);
+            inputs.forEach(input => {
+                input.checked = checked;
+                toggleRowSelection(section, input.dataset.selectionKey, checked);
+            });
+        }
+
+        function setMonthHeaderCheckboxState(section, monthKey) {
+            const monthInputs = Array.from(document.querySelectorAll(`input[data-select-section="${section}"][data-month-key="${monthKey}"]`));
+            const monthHeader = document.querySelector(`input[data-month-header-section="${section}"][data-month-header-key="${monthKey}"]`);
+            if (!monthHeader || monthInputs.length === 0) return;
+            const checkedCount = monthInputs.filter(x => x.checked).length;
+            monthHeader.checked = checkedCount === monthInputs.length;
+            monthHeader.indeterminate = checkedCount > 0 && checkedCount < monthInputs.length;
+        }
+
+        function startRowLongPress(section, id, evt) {
+            if (isInteractiveRowTarget(evt.target)) return;
+            const row = evt.currentTarget;
+            const timerKey = `${section}:${id}`;
+            clearTimeout(rowLongPressTimers[timerKey]);
+            rowLongPressTimers[timerKey] = setTimeout(() => {
+                row.dataset.longPressTriggered = '1';
+                openRowActionSheet(section, id, row.dataset.itemType || '', row.dataset.canEdit === 'true');
+            }, ROW_LONG_PRESS_MS);
+        }
+
+        function cancelRowLongPress(section, id) {
+            const timerKey = `${section}:${id}`;
+            clearTimeout(rowLongPressTimers[timerKey]);
+            delete rowLongPressTimers[timerKey];
+        }
+
+        function handleRowPrimaryAction(section, id, evt) {
+            if (isInteractiveRowTarget(evt.target)) return;
+            const row = evt.currentTarget;
+            if (row.dataset.longPressTriggered === '1') {
+                row.dataset.longPressTriggered = '0';
+                return;
+            }
+            if (section === 'credits') {
+                editCredit(id);
+                return;
+            }
+            if (section === 'personal') {
+                editPersonal(id);
+                return;
+            }
+            if (section === 'details') {
+                const itemType = row.dataset.itemType || '';
+                const canEdit = row.dataset.canEdit === 'true';
+                if (canEdit) editDetailsRow(itemType, id);
+                return;
+            }
+            if (section === 'groupExpenses') {
+                toggleExpenseExpansion(id);
+            }
+        }
+
+        function openRowActionSheet(section, id, itemType = '', canEdit = true) {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay show row-action-sheet';
+            modal.innerHTML = `
+                <div class="modal" style="max-width: 320px;">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Actions</h3>
+                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body" style="display: grid; gap: 0.5rem;">
+                        <button class="btn btn-secondary" onclick="toggleSelectionFromActionSheet('${section}', '${id}', '${itemType}')">Select</button>
+                        <button class="btn btn-primary" onclick="editFromActionSheet('${section}', '${id}', '${itemType}')">Edit</button>
+                        <button class="btn btn-danger" onclick="deleteFromActionSheet('${section}', '${id}', '${itemType}')">${t('delete')}</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            if (!canEdit) {
+                const editBtn = modal.querySelector('.btn.btn-primary');
+                if (editBtn) editBtn.disabled = true;
+            }
+        }
+
+        function toggleSelectionFromActionSheet(section, id, itemType = '') {
+            const selectionKey = section === 'details' ? `${itemType}::${id}` : id;
+            const checkbox = document.querySelector(`input[data-select-section="${section}"][data-selection-key="${selectionKey}"]`);
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                toggleRowSelection(section, selectionKey, checkbox.checked);
+                if (checkbox.dataset.monthKey) setMonthHeaderCheckboxState(section, checkbox.dataset.monthKey);
+            }
+            document.querySelector('.row-action-sheet')?.remove();
+        }
+
+        function editFromActionSheet(section, id, itemType = '') {
+            document.querySelector('.row-action-sheet')?.remove();
+            if (section === 'credits') editCredit(id);
+            else if (section === 'personal') editPersonal(id);
+            else if (section === 'details') editDetailsRow(itemType, id);
+            else if (section === 'groupExpenses') editGroupExpense(id, window.currentGroupId);
+        }
+
+        function deleteFromActionSheet(section, id, itemType = '') {
+            document.querySelector('.row-action-sheet')?.remove();
+            if (section === 'credits') deleteCredit(id);
+            else if (section === 'personal') deletePersonal(id);
+            else if (section === 'details') deleteDetailsRow(itemType, id);
+            else if (section === 'groupExpenses') deleteGroupExpense(id, window.currentGroupId);
+        }
+
+        async function bulkDeleteSelected(section) {
+            const selected = Array.from(selectionState[section] || []);
+            if (selected.length === 0) return;
+            showConfirmation('Delete Selected', `Delete ${selected.length} selected item(s)?`, async () => {
+                showLoading();
+                try {
+                    if (section === 'credits') {
+                        await Promise.all(selected.map(id => db.collection('credits').doc(id).delete()));
+                        selectionState.credits.clear();
+                        await loadCredits();
+                    } else if (section === 'personal') {
+                        await Promise.all(selected.map(id => db.collection('personal_expenses').doc(id).delete()));
+                        selectionState.personal.clear();
+                        await loadPersonal();
+                    } else if (section === 'groupExpenses') {
+                        await Promise.all(selected.map(id => db.collection('group_expenses').doc(id).delete()));
+                        selectionState.groupExpenses.clear();
+                        await viewGroupDetails(window.currentGroupId, true);
+                    } else if (section === 'details') {
+                        await Promise.all(selected.map(key => {
+                            const [itemType, id] = key.split('::');
+                            const collection = itemType === 'credit' ? 'credits' : itemType === 'personal' ? 'personal_expenses' : 'group_expenses';
+                            return db.collection(collection).doc(id).delete();
+                        }));
+                        selectionState.details.clear();
+                        await loadDetails();
+                    }
+                    updateBulkDeleteButton(section);
+                    showToast('Success', 'Selected items deleted successfully!');
+                } catch (error) {
+                    showToast('Error', error.message, 'error');
+                } finally {
+                    hideLoading();
+                }
+            });
+        }
+
+        function enhanceMonthGroupedRows(section, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const monthGroups = Array.from(container.querySelectorAll('.month-group'));
+            monthGroups.forEach((monthGroup, monthIndex) => {
+                const monthKey = `${section}-${monthIndex}`;
+                const header = monthGroup.querySelector('.month-header');
+                if (header && !header.querySelector(`[data-month-header-section="${section}"]`)) {
+                    const monthSelect = document.createElement('label');
+                    monthSelect.style.display = 'flex';
+                    monthSelect.style.alignItems = 'center';
+                    monthSelect.style.gap = '0.35rem';
+                    monthSelect.innerHTML = `<input type="checkbox" data-month-header-section="${section}" data-month-header-key="${monthKey}" onchange="toggleMonthSelection('${section}', '${monthKey}', this.checked)"> <small>Select all</small>`;
+                    header.prepend(monthSelect);
+                }
+
+                const table = monthGroup.querySelector('table');
+                if (!table) return;
+                const headRow = table.querySelector('thead tr');
+                if (headRow && !headRow.querySelector('.row-select-col')) {
+                    const th = document.createElement('th');
+                    th.className = 'row-select-col';
+                    th.textContent = '';
+                    headRow.prepend(th);
+                }
+
+                table.querySelectorAll('tbody tr[id]').forEach(row => {
+                    if (row.querySelector('input[data-select-section]')) return;
+                    const id = row.dataset.rowId || row.dataset.id || row.id.split('-').slice(-1)[0];
+                    const selectionKey = section === 'details'
+                        ? `${row.dataset.itemType || row.id.split('-')[2]}::${id}`
+                        : id;
+                    const td = document.createElement('td');
+                    td.innerHTML = `<input type="checkbox" data-select-section="${section}" data-selection-key="${selectionKey}" data-month-key="${monthKey}" onclick="event.stopPropagation();" onpointerdown="event.stopPropagation();" onchange="toggleRowSelection('${section}', '${selectionKey}', this.checked); setMonthHeaderCheckboxState('${section}', '${monthKey}'); event.stopPropagation();">`;
+                    row.prepend(td);
+
+                    row.onclick = (evt) => handleRowPrimaryAction(section, id, evt);
+                    row.onpointerdown = (evt) => startRowLongPress(section, id, evt);
+                    row.onpointerup = () => cancelRowLongPress(section, id);
+                    row.onpointerleave = () => cancelRowLongPress(section, id);
+                    row.style.cursor = 'pointer';
+                });
+
+                setMonthHeaderCheckboxState(section, monthKey);
+            });
+
+            updateBulkDeleteButton(section);
+        }
+
+        function enhanceGroupExpenseRows() {
+            const modal = document.querySelector('.modal-overlay.show .modal-large');
+            if (!modal) return;
+            const table = modal.querySelector('#groupTabContent table.table');
+            if (!table) return;
+            const headRow = table.querySelector('thead tr');
+            if (headRow && !headRow.querySelector('.row-select-col')) {
+                const th = document.createElement('th');
+                th.className = 'row-select-col';
+                th.textContent = '';
+                headRow.prepend(th);
+            }
+            table.querySelectorAll('tbody.expense-row-group > tr:first-child').forEach(row => {
+                const actionsBtn = row.querySelector('.action-btn[onclick*="toggleExpenseExpansion"]');
+                if (!actionsBtn) return;
+                const onclickAttr = actionsBtn.getAttribute('onclick') || '';
+                const m = onclickAttr.match(/toggleExpenseExpansion\('(.+?)'\)/);
+                if (!m) return;
+                const expenseId = m[1];
+                if (!row.querySelector('input[data-select-section="groupExpenses"]')) {
+                    const td = document.createElement('td');
+                    td.innerHTML = `<input type="checkbox" data-select-section="groupExpenses" data-selection-key="${expenseId}" onclick="event.stopPropagation();" onpointerdown="event.stopPropagation();" onchange="toggleRowSelection('groupExpenses','${expenseId}', this.checked); event.stopPropagation();">`;
+                    row.prepend(td);
+                }
+                row.onclick = (evt) => handleRowPrimaryAction('groupExpenses', expenseId, evt);
+                row.onpointerdown = (evt) => startRowLongPress('groupExpenses', expenseId, evt);
+                row.onpointerup = () => cancelRowLongPress('groupExpenses', expenseId);
+                row.onpointerleave = () => cancelRowLongPress('groupExpenses', expenseId);
+                row.style.cursor = 'pointer';
+            });
+            updateBulkDeleteButton('groupExpenses');
+        }
+
         // Get month name
         function getMonthName(monthIndex) {
             const months = [
@@ -12998,6 +13259,7 @@
         // Details Page
         async function renderDetails() {
             const content = document.getElementById('mainContent');
+            selectionState.details.clear();
 
             content.innerHTML = `
                 <div class="page-header">
@@ -13011,6 +13273,9 @@
                     <div class="card-header">
                         <h2 class="card-title">${t('allTransactions')}</h2>
                         <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-danger btn-sm" data-bulk-delete="details" style="display: none;" onclick="bulkDeleteSelected('details')">
+                                <i class="fas fa-trash"></i> ${t('delete')}
+                            </button>
                             <button class="btn btn-primary btn-sm" onclick="exportDetailsPDF()" style="background: #4949f0;">
                                 <i class="fas fa-file-pdf"></i> ${t('exportPDF')}
                             </button>
@@ -13205,6 +13470,7 @@
         // Credits Page
         async function renderCredits() {
             const content = document.getElementById('mainContent');
+            selectionState.credits.clear();
 
             const yearOptions = [];
             yearOptions.push(`<option value="all">${t('allTime')}</option>`);
@@ -13242,6 +13508,9 @@
                             <button class="btn btn-primary btn-sm" onclick="openAddCreditModal()">
                                 <i class="fas fa-plus"></i>
                                 ${t('addCredit')}
+                            </button>
+                            <button class="btn btn-danger btn-sm" data-bulk-delete="credits" style="display: none;" onclick="bulkDeleteSelected('credits')">
+                                <i class="fas fa-trash"></i> ${t('delete')}
                             </button>
                             <button class="btn btn-secondary btn-sm" onclick="exportCreditsPDF()">
                                 <i class="fas fa-file-pdf"></i>
@@ -13311,6 +13580,7 @@
                             <div class="empty-message">${t('addCreditPrompt')}</div>
                         </div>
                     `;
+                    updateBulkDeleteButton('credits');
                 } else {
                     const grouped = groupByMonth(credits);
                     let html = '';
@@ -13341,7 +13611,7 @@
                                         </thead>
                                         <tbody>
                                             ${grouped[month].map(credit => `
-                                                <tr id="credit-row-${credit.id}">
+                                                <tr id="credit-row-${credit.id}" data-row-id="${credit.id}">
                                                     <td>${credit.date.toDate().toLocaleDateString()}</td>
                                                     <td>${escapeHTML(credit.description)}</td>
                                                     <td>${escapeHTML(credit.source || '-')}</td>
@@ -13378,6 +13648,7 @@
                     });
 
                     container.innerHTML = html;
+                    enhanceMonthGroupedRows('credits', 'creditsTableContainer');
 
                     if (dataState.paging.hasMoreCredits) {
                         const loadMoreDiv = document.createElement('div');
@@ -14040,6 +14311,7 @@
         // Personal Expenses Page
         async function renderPersonal() {
             const content = document.getElementById('mainContent');
+            selectionState.personal.clear();
 
             const yearOptions = [];
             yearOptions.push(`<option value="all">${t('allTime')}</option>`);
@@ -14077,6 +14349,9 @@
                             <button class="btn btn-primary btn-sm" onclick="openAddPersonalModal()">
                                 <i class="fas fa-plus"></i>
                                 ${t('addExpense')}
+                            </button>
+                            <button class="btn btn-danger btn-sm" data-bulk-delete="personal" style="display: none;" onclick="bulkDeleteSelected('personal')">
+                                <i class="fas fa-trash"></i> ${t('delete')}
                             </button>
                             <button class="btn btn-secondary btn-sm" onclick="exportPersonalPDF()">
                                 <i class="fas fa-file-pdf"></i>
@@ -14140,6 +14415,7 @@
                             <div class="empty-message">${t('addPersonalPrompt')}</div>
                         </div>
                     `;
+                    updateBulkDeleteButton('personal');
                 } else {
                     const grouped = groupByMonth(expenses);
 
@@ -14209,6 +14485,7 @@
                     });
 
                     container.innerHTML = html;
+                    enhanceMonthGroupedRows('personal', 'personalTableContainer');
 
                     if (dataState.paging.hasMorePersonal) {
                         const loadMoreDiv = document.createElement('div');
@@ -15352,6 +15629,7 @@
                     }
                     html += '</div>';
                     container.innerHTML = html;
+                    enhanceMonthGroupedRows('details', 'detailsTableContainer');
                 }
             } catch (error) {
                 showToast('Error', error.message, 'error');
@@ -16620,6 +16898,7 @@
          */
         async function viewGroupDetails(groupId, isSilent = false) {
             window.currentGroupId = groupId;
+            selectionState.groupExpenses.clear();
             // Check if modal is already open
             let existingModal = document.querySelector('.modal-overlay.show .modal-large');
             const isUpdating = !!existingModal || isSilent;
@@ -17025,6 +17304,9 @@
                                                 <h4 style="margin:0;">${t('expenses')}</h4>
 
                                         <div style="display: flex; gap: 10px;">
+                                            <button class="btn btn-danger btn-sm" data-bulk-delete="groupExpenses" style="display: none;" onclick="bulkDeleteSelected('groupExpenses')">
+                                                <i class="fas fa-trash"></i> ${t('delete')}
+                                            </button>
                                             <button class="btn btn-secondary btn-sm" onclick="exportGroupPDF('${groupId}')">
                                                 <i class="fas fa-file-pdf"></i> ${t('pdfReport')}
                                             </button>
@@ -17332,6 +17614,9 @@
                                             <h4 style="margin:0;">${t('expenses')}</h4>
 
                                     <div style="display: flex; gap: 10px;">
+                                        <button class="btn btn-danger btn-sm" data-bulk-delete="groupExpenses" style="display: none;" onclick="bulkDeleteSelected('groupExpenses')">
+                                            <i class="fas fa-trash"></i> ${t('delete')}
+                                        </button>
                                         <button class="btn btn-secondary btn-sm" onclick="exportGroupPDF('${groupId}')">
                                             <i class="fas fa-file-pdf"></i> ${t('pdfReport')}
                                         </button>
@@ -17615,6 +17900,7 @@
                 if (window.currentGroupTab === 'activity') {
                     renderRecentActivity(groupId, document.getElementById('groupTabContent'));
                 }
+                enhanceGroupExpenseRows();
 
 
             } catch (error) {
@@ -17933,6 +18219,7 @@
                             <p>${t('noTransactionsFound')}</p>
                         </div>
                     `;
+                    updateBulkDeleteButton('details');
                 } else {
                     // Group data by month for display
                     const grouped = groupByMonth(allData);
@@ -17968,7 +18255,7 @@
                                         </thead>
                                         <tbody>
                                             ${grouped[month].map(item => `
-                                                <tr id="details-row-${item.sectionType}-${item.id}">
+                                                <tr id="details-row-${item.sectionType}-${item.id}" data-row-id="${item.id}" data-item-type="${item.sectionType}" data-can-edit="${item.canEdit ? 'true' : 'false'}">
                                                     <td>${safeDate(item.date).toLocaleDateString()}</td>
                                                     <td><span class="badge badge-${item.sectionType === 'credit' ? 'success' : item.sectionType === 'personal' ? 'warning' : 'info'}">${item.section}</span></td>
                                                     <td>${escapeHTML(item.description)}</td>
