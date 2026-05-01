@@ -7211,12 +7211,6 @@
          */
         async function initPushNotifications() {
             try {
-                if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-                    console.warn('[Push] Not supported in this browser.');
-                    return;
-                }
-
-                // Median Android uses OneSignal bridge — handled separately
                 const isMedianEnv =
                     typeof window.median !== 'undefined' ||
                     navigator.userAgent.includes('Median') ||
@@ -7227,28 +7221,7 @@
                     return;
                 }
 
-                // Request permission
-                const permission = await Notification.requestPermission();
-                if (permission !== 'granted') {
-
-                    return;
-                }
-
-                // Register SW — if already registered, browser reuses the existing one
-                // NEVER unregister before this — that causes the "no active SW" error
-                /* const swReg = await navigator.serviceWorker.register(
-                    '/firebase-messaging-sw.js',
-                    { scope: '/' }
-                ); 
-
-                // Wait until the SW is fully active before doing anything with it
-                await waitForServiceWorkerActive(swReg); */
-
-
-                if (token) {
-                    await saveFcmToken(token);
-
-                }
+                await initOneSignalWeb();
 
             } catch (error) {
                 console.warn('[Push] initPushNotifications error:', error.name, error.message);
