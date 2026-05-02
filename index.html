@@ -93,7 +93,7 @@
 
         .header,
         .mobile-top-bar {
-            top: var(--safe-area-top) !important;
+            /* top: var(--safe-area-top) !important;*/
             padding-top: var(--safe-area-top);
         }
 
@@ -1667,14 +1667,15 @@
         }
 
         .mobile-top-bar {
-            top: 5px;
+            backdrop-filter: blur(1px);
+            top: 3px;
             border-radius: 3rem;
             display: none;
             position: absolute;
             left: 8px;
             right: 8px;
             height: 60px;
-            background: var(--bg-white);
+            background: #ffffff00;
             border-bottom: 0px solid #ff8c42;
             z-index: 1000;
             padding: 0 1.5rem;
