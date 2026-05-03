@@ -7236,7 +7236,7 @@
         // const VAPID_KEY = 'BMU_kfKzI0qanP3hRDHEHxAkCqu6cgL53xancIEYc6Z3fl4JP-vFHFknSkAEflvfUkecy0g2EmlKONZqYDmjXxg'; // ← paste your VAPID key here
 
         // ============================================================
-        // PUSH NOTIFICATION SYSTEM — Final Version
+        // PUSH NOTIFICATION SYSTEM — OneSignal (Web + Android)
         // ============================================================
 
         let _oneSignalInitialized = false;
@@ -7265,17 +7265,13 @@
             try {
                 if (_oneSignalInitialized) return;
 
-                // SDK loaded via <head> script tag — wait up to 6 seconds for it
                 let attempts = 0;
                 while (!window.OneSignal && attempts < 20) {
                     await new Promise(r => setTimeout(r, 300));
                     attempts++;
                 }
 
-                if (!window.OneSignal) {
-                    console.warn('[Push] OneSignal SDK not available (blocked or not loaded).');
-                    return;
-                }
+                if (!window.OneSignal) return;
 
                 try {
                     if (!window.OneSignal.initialized) {
@@ -7298,48 +7294,42 @@
                 _oneSignalInitialized = true;
 
                 const granted = await window.OneSignal.Notifications.requestPermission();
-                if (!granted) {
-                    console.log('[Push] Notification permission denied.');
-                    return;
-                }
+                if (!granted) return;
 
                 await new Promise(r => setTimeout(r, 1500));
 
                 const subId = window.OneSignal.User?.PushSubscription?.id;
-                if (subId) {
-                    await saveFcmToken(subId);
-                    console.log('[Push] Web subscription saved.');
-                }
+                if (subId) await saveFcmToken(subId);
 
                 window.OneSignal.User?.PushSubscription?.addEventListener('change', async (e) => {
                     if (e.current?.id) await saveFcmToken(e.current.id);
                 });
 
             } catch (e) {
-                console.warn('[Push] Web init error:', e?.message || e);
+                if (e?.message?.includes('already')) {
+                    _oneSignalInitialized = true;
+                } else {
+                    console.warn('[Push] Web init error:', e?.message || e);
+                }
             }
         }
 
         function initMedianPushToken() {
             const handleToken = async (token) => {
                 if (!token) return;
-                console.log('[Push] Median token received:', token);
                 if (currentUser?.uid) {
                     await saveFcmToken(token);
                 } else {
-                    console.log('[Push] currentUser not ready, storing token for later.');
                     _pendingPushToken = token;
                 }
             };
 
             document.addEventListener('median_onesignal_player_id', async (e) => {
-                const id = e.detail?.playerId || e.detail?.userId || e.playerId || e.userId;
-                await handleToken(id);
+                await handleToken(e.detail?.playerId || e.detail?.userId || e.playerId || e.userId);
             });
 
             document.addEventListener('median_onesignal_subscription_changed', async (e) => {
-                const id = e.detail?.subscriptionId || e.detail?.id;
-                await handleToken(id);
+                await handleToken(e.detail?.subscriptionId || e.detail?.id);
             });
 
             if (window.median?.onesignal) {
@@ -7358,29 +7348,35 @@
 
         async function flushPendingPushToken() {
             if (_pendingPushToken && currentUser?.uid) {
-                console.log('[Push] Flushing pending token for uid:', currentUser.uid);
                 await saveFcmToken(_pendingPushToken);
                 _pendingPushToken = null;
             }
         }
 
         async function saveFcmToken(token) {
-            console.log('[Push] saveFcmToken called. token:', token, 'uid:', currentUser?.uid);
             if (!token) return;
             if (!currentUser?.uid) {
                 _pendingPushToken = token;
-                console.log('[Push] Stored as pending token.');
                 return;
             }
             try {
-                console.log('[Push] Writing token to Firestore...');
                 await db.collection('users').doc(currentUser.uid).update({
                     fcmTokens: firebase.firestore.FieldValue.arrayUnion(token),
                     fcmTokenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                console.log('[Push] Token saved for uid:', currentUser.uid);
             } catch (e) {
                 console.warn('[Push] saveFcmToken error:', e);
+            }
+        }
+
+        async function cleanStaleTokens(staleTokens) {
+            if (!staleTokens || staleTokens.length === 0 || !currentUser?.uid) return;
+            try {
+                await db.collection('users').doc(currentUser.uid).update({
+                    fcmTokens: firebase.firestore.FieldValue.arrayRemove(...staleTokens)
+                });
+            } catch (e) {
+                console.warn('[Push] cleanStaleTokens error:', e);
             }
         }
 
@@ -7397,8 +7393,7 @@
                         .where(firebase.firestore.FieldPath.documentId(), 'in', batchUids)
                         .get();
                     snap.forEach(doc => {
-                        const t = doc.data().fcmTokens || [];
-                        tokens.push(...t);
+                        tokens.push(...(doc.data().fcmTokens || []));
                     });
                 }
                 return [...new Set(tokens)];
@@ -7411,14 +7406,18 @@
         async function sendPushNotification(tokens, title, body, data = {}) {
             if (!tokens || tokens.length === 0) return;
             try {
-                console.log('[Push] Sending to tokens:', tokens);
                 const res = await fetch('/api/send-notification', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ tokens, title, body, data })
                 });
                 const result = await res.json();
-                console.log('[Push] Send result FULL:', JSON.stringify(result, null, 2));
+
+                // Auto-remove any stale tokens OneSignal reported as invalid
+
+                if (result.invalidTokens?.length > 0) {
+                    await cleanStaleTokens(result.invalidTokens);
+                }
             } catch (e) {
                 console.warn('[Push] sendPushNotification error:', e);
             }
