@@ -7365,12 +7365,15 @@
         }
 
         async function saveFcmToken(token) {
+            console.log('[Push] saveFcmToken called. token:', token, 'uid:', currentUser?.uid);
             if (!token) return;
             if (!currentUser?.uid) {
                 _pendingPushToken = token;
+                console.log('[Push] Stored as pending token.');
                 return;
             }
             try {
+                console.log('[Push] Writing token to Firestore...');
                 await db.collection('users').doc(currentUser.uid).update({
                     fcmTokens: firebase.firestore.FieldValue.arrayUnion(token),
                     fcmTokenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -7408,13 +7411,14 @@
         async function sendPushNotification(tokens, title, body, data = {}) {
             if (!tokens || tokens.length === 0) return;
             try {
+                console.log('[Push] Sending to tokens:', tokens);
                 const res = await fetch('/api/send-notification', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ tokens, title, body, data })
                 });
                 const result = await res.json();
-                console.log('[Push] Send result:', result);
+                console.log('[Push] Send result FULL:', JSON.stringify(result, null, 2));
             } catch (e) {
                 console.warn('[Push] sendPushNotification error:', e);
             }
