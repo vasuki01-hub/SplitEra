@@ -25,7 +25,6 @@ module.exports = async function handler(req, res) {
             small_icon: 'ic_notification',
             chrome_web_icon: '/favicon.png',
             url: 'https://split-era.vercel.app',
-            include_player_ids: validTokens,
             include_subscription_ids: validTokens
         };
 
