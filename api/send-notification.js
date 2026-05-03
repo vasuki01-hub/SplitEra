@@ -41,7 +41,7 @@ module.exports = async function handler(req, res) {
         const result = await response.json();
 
         if (!response.ok) {
-            console.error('[OneSignal] API error:', JSON.stringify(result));
+            console.error('[OneSignal] API error FULL:', JSON.stringify(result, null, 2));
             return res.status(200).json({ success: false, error: result });
         }
 
