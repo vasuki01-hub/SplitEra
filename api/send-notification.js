@@ -1,5 +1,3 @@
-// api/send-notification.js — OneSignal v1 API
-
 module.exports = async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -8,10 +6,9 @@ module.exports = async function handler(req, res) {
     const { tokens, title, body, data } = req.body;
 
     if (!tokens || !Array.isArray(tokens) || tokens.length === 0) {
-        return res.status(200).json({ success: true, sent: 0, message: 'No tokens provided' });
+        return res.status(200).json({ success: true, sent: 0 });
     }
 
-    // Filter out empty/invalid tokens
     const validTokens = tokens.filter(t => t && typeof t === 'string' && t.length > 5);
     if (validTokens.length === 0) {
         return res.status(200).json({ success: true, sent: 0, message: 'No valid tokens' });
@@ -26,18 +23,10 @@ module.exports = async function handler(req, res) {
             priority: 10,
             android_visibility: 1,
             small_icon: 'ic_notification',
-            large_icon: 'ic_notification',
-            // Support both old player IDs and new subscription IDs
-            include_subscription_ids: validTokens,
-            // Fallback for legacy player IDs
-            include_player_ids: validTokens,
-            // Target URL when notification tapped
-            url: process.env.APP_URL || 'https://split-era.vercel.app',
-            // Android notification channel
-            android_channel_id: 'splitera_group_notifications',
-            // Web push icon
             chrome_web_icon: '/favicon.png',
-            firefox_icon: '/favicon.png'
+            url: 'https://split-era.vercel.app',
+            include_player_ids: validTokens,
+            include_subscription_ids: validTokens
         };
 
         const response = await fetch('https://onesignal.com/api/v1/notifications', {
@@ -52,18 +41,15 @@ module.exports = async function handler(req, res) {
         const result = await response.json();
 
         if (!response.ok) {
-            console.error('OneSignal API error:', result);
-            return res.status(response.status).json({ error: result });
+            console.error('[OneSignal] API error:', JSON.stringify(result));
+            return res.status(200).json({ success: false, error: result });
         }
 
-        return res.status(200).json({
-            success: true,
-            sent: result.recipients || 0,
-            id: result.id
-        });
+        console.log('[OneSignal] Sent to', result.recipients, 'recipients.');
+        return res.status(200).json({ success: true, sent: result.recipients || 0 });
 
     } catch (error) {
-        console.error('OneSignal send error:', error);
+        console.error('[OneSignal] Send error:', error.message);
         return res.status(500).json({ error: error.message });
     }
 };
