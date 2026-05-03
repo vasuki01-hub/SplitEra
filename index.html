@@ -7316,7 +7316,7 @@
 
         function initMedianPushToken() {
             const handleToken = async (token) => {
-                if (!token) return;
+                if (!token || typeof token !== 'string') return;
                 if (currentUser?.uid) {
                     await saveFcmToken(token);
                 } else {
@@ -7324,22 +7324,45 @@
                 }
             };
 
-            document.addEventListener('median_onesignal_player_id', async (e) => {
-                await handleToken(e.detail?.playerId || e.detail?.userId || e.playerId || e.userId);
+            // ── OneSignal v5 events (Legacy Mode OFF) ──────────────────────
+            // Fired when subscription ID is ready
+            document.addEventListener('median_onesignal_subscription_id', async (e) => {
+                await handleToken(
+                    e.detail?.subscriptionId ||
+                    e.detail?.id ||
+                    e.subscriptionId
+                );
             });
 
+            // Fired when subscription changes (e.g. token refresh)
             document.addEventListener('median_onesignal_subscription_changed', async (e) => {
-                await handleToken(e.detail?.subscriptionId || e.detail?.id);
+                await handleToken(
+                    e.detail?.subscriptionId ||
+                    e.detail?.id ||
+                    e.subscriptionId
+                );
             });
 
+            // ── OneSignal v4 events (Legacy Mode ON — kept as fallback) ────
+            document.addEventListener('median_onesignal_player_id', async (e) => {
+                await handleToken(
+                    e.detail?.playerId ||
+                    e.detail?.userId ||
+                    e.playerId
+                );
+            });
+
+            // ── Direct JS Bridge calls (works when already registered) ─────
             if (window.median?.onesignal) {
-                if (typeof window.median.onesignal.getPlayerId === 'function') {
-                    window.median.onesignal.getPlayerId()
+                // v5 SDK method
+                if (typeof window.median.onesignal.getSubscriptionId === 'function') {
+                    window.median.onesignal.getSubscriptionId()
                         .then(id => { if (id) handleToken(id); })
                         .catch(() => { });
                 }
-                if (typeof window.median.onesignal.getSubscriptionId === 'function') {
-                    window.median.onesignal.getSubscriptionId()
+                // v4 SDK method (fallback)
+                if (typeof window.median.onesignal.getPlayerId === 'function') {
+                    window.median.onesignal.getPlayerId()
                         .then(id => { if (id) handleToken(id); })
                         .catch(() => { });
                 }
