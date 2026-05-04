@@ -7319,8 +7319,7 @@
 
         function initMedianPushToken() {
             const handleToken = async (token) => {
-                if (!token || typeof token !== 'string' || token.length < 10) return;
-                console.log('[Push Android] Token received:', token);
+                if (!token || typeof token !== 'string') return;
                 if (currentUser?.uid) {
                     await saveFcmToken(token);
                 } else {
@@ -7328,59 +7327,48 @@
                 }
             };
 
-            // ── Method 1: Direct bridge call (most reliable) ───────────────
-            // Poll every second for up to 30 seconds until token is available
-            let pollCount = 0;
-            const pollInterval = setInterval(async () => {
-                pollCount++;
-                if (pollCount > 30) {
-                    clearInterval(pollInterval);
-                    return;
-                }
-
-                try {
-                    if (window.median?.onesignal) {
-                        // v5 SDK (Legacy Mode OFF)
-                        if (typeof window.median.onesignal.getSubscriptionId === 'function') {
-                            const id = await window.median.onesignal.getSubscriptionId();
-                            if (id) {
-                                clearInterval(pollInterval);
-                                await handleToken(id);
-                                return;
-                            }
-                        }
-                        // v4 SDK fallback (Legacy Mode ON)
-                        if (typeof window.median.onesignal.getPlayerId === 'function') {
-                            const id = await window.median.onesignal.getPlayerId();
-                            if (id) {
-                                clearInterval(pollInterval);
-                                await handleToken(id);
-                                return;
-                            }
-                        }
-                    }
-                } catch (e) { /* bridge not ready yet, keep polling */ }
-            }, 1000);
-
-            // ── Method 2: Event listeners (backup in case polling misses it) ─
+            // ── OneSignal v5 events (Legacy Mode OFF) ──────────────────────
+            // Fired when subscription ID is ready
             document.addEventListener('median_onesignal_subscription_id', async (e) => {
-                const id = e.detail?.subscriptionId || e.detail?.id || e.subscriptionId;
-                if (id) { clearInterval(pollInterval); await handleToken(id); }
+                await handleToken(
+                    e.detail?.subscriptionId ||
+                    e.detail?.id ||
+                    e.subscriptionId
+                );
             });
 
+            // Fired when subscription changes (e.g. token refresh)
             document.addEventListener('median_onesignal_subscription_changed', async (e) => {
-                const id = e.detail?.subscriptionId || e.detail?.id;
-                if (id) await handleToken(id);
+                await handleToken(
+                    e.detail?.subscriptionId ||
+                    e.detail?.id ||
+                    e.subscriptionId
+                );
             });
 
+            // ── OneSignal v4 events (Legacy Mode ON — kept as fallback) ────
             document.addEventListener('median_onesignal_player_id', async (e) => {
-                const id = e.detail?.playerId || e.detail?.userId || e.playerId;
-                if (id) { clearInterval(pollInterval); await handleToken(id); }
+                await handleToken(
+                    e.detail?.playerId ||
+                    e.detail?.userId ||
+                    e.playerId
+                );
             });
 
-            // ── Method 3: OneSignal JS API direct call (v5 SDK) ─────────────
-            if (window.OneSignal?.User?.PushSubscription?.id) {
-                handleToken(window.OneSignal.User.PushSubscription.id);
+            // ── Direct JS Bridge calls (works when already registered) ─────
+            if (window.median?.onesignal) {
+                // v5 SDK method
+                if (typeof window.median.onesignal.getSubscriptionId === 'function') {
+                    window.median.onesignal.getSubscriptionId()
+                        .then(id => { if (id) handleToken(id); })
+                        .catch(() => { });
+                }
+                // v4 SDK method (fallback)
+                if (typeof window.median.onesignal.getPlayerId === 'function') {
+                    window.median.onesignal.getPlayerId()
+                        .then(id => { if (id) handleToken(id); })
+                        .catch(() => { });
+                }
             }
         }
 
@@ -11277,9 +11265,6 @@
             startNotificationListener();
             initPushNotifications();
             flushPendingPushToken();
-            // Delayed flush — catches Android tokens that arrive a few seconds after login
-            setTimeout(() => flushPendingPushToken(), 5000);
-            setTimeout(() => flushPendingPushToken(), 15000);
         }
 
         // Navigation functions
@@ -23838,29 +23823,6 @@
 
         // Environment initialization logic follows above definitions
 
-    </script>
-    <script>
-        // Median + OneSignal Bridge
-        function requestOneSignalPermission() {
-            if (typeof median !== "undefined" && median.onesignal) {
-                console.log("🔄 Requesting OneSignal permission via Median bridge...");
-                median.onesignal.register();
-            } else if (typeof OneSignal !== "undefined") {
-                OneSignal.showSlidedownPrompt();
-            } else {
-                console.warn("OneSignal/Median not ready yet");
-            }
-        }
-
-        // Auto initialize
-        document.addEventListener("DOMContentLoaded", function () {
-            setTimeout(() => {
-                requestOneSignalPermission();
-            }, 2500); // Give time for plugin to load
-        });
-
-        // Also expose a button for manual trigger (optional but useful)
-        window.requestPushPermission = requestOneSignalPermission;
     </script>
 
 </body>
