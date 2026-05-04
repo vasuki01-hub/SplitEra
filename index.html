@@ -23840,29 +23840,27 @@
 
     </script>
     <script>
-        // Initialize OneSignal for Web + Median Native
-        function initOneSignal() {
-            const oneSignalAppId = "ebb27cdbb-c8e7-427f-93c4-c5e2459317a"; // ← Put your real OneSignal App ID here
-
-            if (typeof OneSignal !== "undefined") {
-                OneSignal.init({
-                    appId: oneSignalAppId,
-                });
-
-                // Optional: Show prompt to user
-                // OneSignal.showSlidedownPrompt();
+        // Median + OneSignal Bridge
+        function requestOneSignalPermission() {
+            if (typeof median !== "undefined" && median.onesignal) {
+                console.log("🔄 Requesting OneSignal permission via Median bridge...");
+                median.onesignal.register();
+            } else if (typeof OneSignal !== "undefined") {
+                OneSignal.showSlidedownPrompt();
+            } else {
+                console.warn("OneSignal/Median not ready yet");
             }
-
-            console.log("✅ OneSignal initialized for Median + Web");
         }
 
-        // Run when page loads
-        document.addEventListener('DOMContentLoaded', initOneSignal);
-
-        // Also run after Firebase auth (in case of SPA)
-        window.addEventListener('load', () => {
-            setTimeout(initOneSignal, 1500);
+        // Auto initialize
+        document.addEventListener("DOMContentLoaded", function () {
+            setTimeout(() => {
+                requestOneSignalPermission();
+            }, 2500); // Give time for plugin to load
         });
+
+        // Also expose a button for manual trigger (optional but useful)
+        window.requestPushPermission = requestOneSignalPermission;
     </script>
 
 </body>
