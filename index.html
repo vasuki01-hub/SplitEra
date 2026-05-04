@@ -23839,6 +23839,31 @@
         // Environment initialization logic follows above definitions
 
     </script>
+    <script>
+        // Initialize OneSignal for Web + Median Native
+        function initOneSignal() {
+            const oneSignalAppId = "ebb27cdbb-c8e7-427f-93c4-c5e2459317a"; // ← Put your real OneSignal App ID here
+
+            if (typeof OneSignal !== "undefined") {
+                OneSignal.init({
+                    appId: oneSignalAppId,
+                });
+
+                // Optional: Show prompt to user
+                // OneSignal.showSlidedownPrompt();
+            }
+
+            console.log("✅ OneSignal initialized for Median + Web");
+        }
+
+        // Run when page loads
+        document.addEventListener('DOMContentLoaded', initOneSignal);
+
+        // Also run after Firebase auth (in case of SPA)
+        window.addEventListener('load', () => {
+            setTimeout(initOneSignal, 1500);
+        });
+    </script>
 
 </body>
 
