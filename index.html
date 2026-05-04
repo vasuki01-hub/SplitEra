@@ -2229,6 +2229,40 @@
         // if large assets/images delay the event but the UI is interactive.
         initFirebase();
 
+
+
+        // ✅ OneSignal Setup (GLOBAL)
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+
+        OneSignalDeferred.push(async function (OneSignal) {
+            await OneSignal.init({
+                appId: "ebb27cdb-c8e7-427f-93c4-c5e24593f17a", // your app id
+                notifyButton: { enable: false }
+            });
+
+            console.log("OneSignal initialized");
+        });
+
+
+
+        function setupOneSignalUser(userId, email) {
+            if (!window.OneSignalDeferred) return;
+
+            OneSignalDeferred.push(async function (OneSignal) {
+                try {
+                    await OneSignal.login(userId);
+
+                    if (email) {
+                        await OneSignal.User.addEmail(email);
+                    }
+
+                    console.log("✅ OneSignal linked:", userId);
+                } catch (e) {
+                    console.error("❌ OneSignal link error:", e);
+                }
+            });
+        }
+
         // Handle edge-to-edge system bar colors (light/dark icons)
         function updateSystemBars() {
             const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
@@ -7244,6 +7278,20 @@
 
         let _oneSignalInitialized = false;
         let _pendingPushToken = null;
+        async function linkPushTokenToCurrentUser(token) {
+            if (!token) return;
+
+            if (!currentUser?.uid) {
+                _pendingPushToken = token;
+                return;
+            }
+
+            try {
+                await saveFcmToken(token);
+            } catch (e) {
+                console.warn('[Push] linkPushTokenToCurrentUser error:', e);
+            }
+        }
 
         async function initPushNotifications() {
             try {
@@ -7302,10 +7350,10 @@
                 await new Promise(r => setTimeout(r, 1500));
 
                 const subId = window.OneSignal.User?.PushSubscription?.id;
-                if (subId) await saveFcmToken(subId);
+                if (subId) await linkPushTokenToCurrentUser(subId);
 
                 window.OneSignal.User?.PushSubscription?.addEventListener('change', async (e) => {
-                    if (e.current?.id) await saveFcmToken(e.current.id);
+                    if (e.current?.id) await linkPushTokenToCurrentUser(e.current.id);
                 });
 
             } catch (e) {
@@ -7320,11 +7368,7 @@
         function initMedianPushToken() {
             const handleToken = async (token) => {
                 if (!token || typeof token !== 'string') return;
-                if (currentUser?.uid) {
-                    await saveFcmToken(token);
-                } else {
-                    _pendingPushToken = token;
-                }
+                await linkPushTokenToCurrentUser(token);
             };
 
             // ── OneSignal v5 events (Legacy Mode OFF) ──────────────────────
@@ -10131,6 +10175,10 @@
                     const result = await auth.signInWithEmailAndPassword(email.toLowerCase(), password);
                     const userDoc = await db.collection('users').doc(result.user.uid).get();
                     currentUser = { uid: result.user.uid, ...userDoc.data() };
+
+                    await flushPendingPushToken();
+                    initPushNotifications();
+
                     renderMainLayout();
                     showToast('Success', 'Logged in successfully!');
                 } catch (error) {
@@ -11265,6 +11313,8 @@
             startNotificationListener();
             initPushNotifications();
             flushPendingPushToken();
+            setTimeout(() => flushPendingPushToken(), 5000);
+            setTimeout(() => flushPendingPushToken(), 15000);
         }
 
         // Navigation functions
@@ -23575,6 +23625,9 @@
                                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                                 });
 
+                                await flushPendingPushToken();
+                                initPushNotifications();
+
                                 sessionStorage.removeItem('newUserData');
 
                                 // Build current user object
@@ -23592,6 +23645,10 @@
                                     language: 'en',
                                     darkMode: false
                                 };
+
+                                await flushPendingPushToken();
+                                initPushNotifications();
+
 
                                 // Initialize data listeners and WAIT for initial data
                                 await setupDataListeners(user.uid, user.email, currentUser.phone);
