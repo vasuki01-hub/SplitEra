@@ -1960,14 +1960,16 @@
         }
 
         .notif-panel {
+            backdrop-filter: blur(5px);
+            border-radius: 2rem;
             position: fixed;
-            top: 0;
-            right: 0;
-            width: 360px;
+            top: 4rem;
+            right: 1rem;
+            width: 75%;
             max-width: 100vw;
-            height: 100%;
-            background: var(--bg-white);
-            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+            height: 80%;
+            background: #ffffff17;
+            box-shadow: inset 0px 0px 20px 6px rgb(0 0 0 / 25%);
             z-index: 9999;
             display: flex;
             flex-direction: column;
@@ -2051,11 +2053,12 @@
 
         /* Individual notification item */
         .notif-item {
+            border-radius: 8rem;
             display: flex;
             align-items: flex-start;
             gap: 0.75rem;
-            padding: 0.85rem 1.25rem;
-            border-bottom: 1px solid var(--border);
+            padding: 0.35rem 2.25rem;
+            border-bottom: 3px solid var(--border);
             cursor: pointer;
             transition: background 0.2s;
             position: relative;
@@ -7316,7 +7319,8 @@
 
         function initMedianPushToken() {
             const handleToken = async (token) => {
-                if (!token || typeof token !== 'string') return;
+                if (!token || typeof token !== 'string' || token.length < 10) return;
+                console.log('[Push Android] Token received:', token);
                 if (currentUser?.uid) {
                     await saveFcmToken(token);
                 } else {
@@ -7324,48 +7328,59 @@
                 }
             };
 
-            // ── OneSignal v5 events (Legacy Mode OFF) ──────────────────────
-            // Fired when subscription ID is ready
+            // ── Method 1: Direct bridge call (most reliable) ───────────────
+            // Poll every second for up to 30 seconds until token is available
+            let pollCount = 0;
+            const pollInterval = setInterval(async () => {
+                pollCount++;
+                if (pollCount > 30) {
+                    clearInterval(pollInterval);
+                    return;
+                }
+
+                try {
+                    if (window.median?.onesignal) {
+                        // v5 SDK (Legacy Mode OFF)
+                        if (typeof window.median.onesignal.getSubscriptionId === 'function') {
+                            const id = await window.median.onesignal.getSubscriptionId();
+                            if (id) {
+                                clearInterval(pollInterval);
+                                await handleToken(id);
+                                return;
+                            }
+                        }
+                        // v4 SDK fallback (Legacy Mode ON)
+                        if (typeof window.median.onesignal.getPlayerId === 'function') {
+                            const id = await window.median.onesignal.getPlayerId();
+                            if (id) {
+                                clearInterval(pollInterval);
+                                await handleToken(id);
+                                return;
+                            }
+                        }
+                    }
+                } catch (e) { /* bridge not ready yet, keep polling */ }
+            }, 1000);
+
+            // ── Method 2: Event listeners (backup in case polling misses it) ─
             document.addEventListener('median_onesignal_subscription_id', async (e) => {
-                await handleToken(
-                    e.detail?.subscriptionId ||
-                    e.detail?.id ||
-                    e.subscriptionId
-                );
+                const id = e.detail?.subscriptionId || e.detail?.id || e.subscriptionId;
+                if (id) { clearInterval(pollInterval); await handleToken(id); }
             });
 
-            // Fired when subscription changes (e.g. token refresh)
             document.addEventListener('median_onesignal_subscription_changed', async (e) => {
-                await handleToken(
-                    e.detail?.subscriptionId ||
-                    e.detail?.id ||
-                    e.subscriptionId
-                );
+                const id = e.detail?.subscriptionId || e.detail?.id;
+                if (id) await handleToken(id);
             });
 
-            // ── OneSignal v4 events (Legacy Mode ON — kept as fallback) ────
             document.addEventListener('median_onesignal_player_id', async (e) => {
-                await handleToken(
-                    e.detail?.playerId ||
-                    e.detail?.userId ||
-                    e.playerId
-                );
+                const id = e.detail?.playerId || e.detail?.userId || e.playerId;
+                if (id) { clearInterval(pollInterval); await handleToken(id); }
             });
 
-            // ── Direct JS Bridge calls (works when already registered) ─────
-            if (window.median?.onesignal) {
-                // v5 SDK method
-                if (typeof window.median.onesignal.getSubscriptionId === 'function') {
-                    window.median.onesignal.getSubscriptionId()
-                        .then(id => { if (id) handleToken(id); })
-                        .catch(() => { });
-                }
-                // v4 SDK method (fallback)
-                if (typeof window.median.onesignal.getPlayerId === 'function') {
-                    window.median.onesignal.getPlayerId()
-                        .then(id => { if (id) handleToken(id); })
-                        .catch(() => { });
-                }
+            // ── Method 3: OneSignal JS API direct call (v5 SDK) ─────────────
+            if (window.OneSignal?.User?.PushSubscription?.id) {
+                handleToken(window.OneSignal.User.PushSubscription.id);
             }
         }
 
@@ -11262,6 +11277,9 @@
             startNotificationListener();
             initPushNotifications();
             flushPendingPushToken();
+            // Delayed flush — catches Android tokens that arrive a few seconds after login
+            setTimeout(() => flushPendingPushToken(), 5000);
+            setTimeout(() => flushPendingPushToken(), 15000);
         }
 
         // Navigation functions
