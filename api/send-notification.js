@@ -1,53 +1,77 @@
-module.exports = async function handler(req, res) {
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
+// api/send-notification.js
+// Vercel Serverless Function — Place this at: /api/send-notification.js in your repo root
 
-    const { tokens, title, body, data } = req.body;
+export default async function handler(req, res) {
+    // ── CORS headers (allow your Vercel domain + localhost) ──────────────
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    const { tokens, title, body, data = {} } = req.body || {};
+
+    // ── Validate ─────────────────────────────────────────────────────────
     if (!tokens || !Array.isArray(tokens) || tokens.length === 0) {
-        return res.status(200).json({ success: true, sent: 0 });
+        return res.status(400).json({ error: 'tokens array is required' });
+    }
+    if (!title || !body) {
+        return res.status(400).json({ error: 'title and body are required' });
     }
 
-    const validTokens = tokens.filter(t => t && typeof t === 'string' && t.length > 5);
-    if (validTokens.length === 0) {
-        return res.status(200).json({ success: true, sent: 0 });
+    const ONESIGNAL_APP_ID  = process.env.ONESIGNAL_APP_ID;
+    const ONESIGNAL_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
+
+    if (!ONESIGNAL_APP_ID || !ONESIGNAL_API_KEY) {
+        console.error('[Push] Missing ONESIGNAL_APP_ID or ONESIGNAL_REST_API_KEY env vars');
+        return res.status(500).json({ error: 'Server misconfiguration: missing env vars' });
     }
+
+    // ── Deduplicate tokens ────────────────────────────────────────────────
+    const uniqueTokens = [...new Set(tokens)];
 
     try {
-        const response = await fetch('https://onesignal.com/api/v1/notifications', {
+        // ── Call OneSignal REST API ───────────────────────────────────────
+        // tokens stored in Firestore are OneSignal Subscription IDs (v5 SDK)
+        const payload = {
+            app_id:                     ONESIGNAL_APP_ID,
+            include_subscription_ids:   uniqueTokens,   // OneSignal sub IDs
+            headings:  { en: title },
+            contents:  { en: body  },
+            data:      data,                            // passed back on notification tap
+            android_channel_id:         "splitera-alerts", // optional but recommended
+            small_icon:                 "ic_stat_onesignal_default",
+        };
+
+        const osResponse = await fetch('https://api.onesignal.com/notifications', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Basic ${process.env.ONESIGNAL_REST_API_KEY}`
+                'Content-Type':  'application/json',
+                'Authorization': `Key ${ONESIGNAL_API_KEY}`,
             },
-            body: JSON.stringify({
-                app_id: process.env.ONESIGNAL_APP_ID,
-                headings: { en: title || 'SplitEra' },
-                contents: { en: body || '' },
-                data: data || {},
-                priority: 10,
-                android_visibility: 1,
-                small_icon: 'ic_notification',
-                chrome_web_icon: '/favicon.png',
-                url: 'https://split-era.vercel.app',
-                include_subscription_ids: validTokens
-            })
+            body: JSON.stringify(payload),
         });
 
-        const result = await response.json();
+        const osResult = await osResponse.json();
 
-        if (!response.ok) {
-            return res.status(200).json({ success: false, error: result });
+        if (!osResponse.ok) {
+            console.error('[Push] OneSignal error:', osResult);
+            return res.status(osResponse.status).json({ error: osResult });
         }
 
+        // ── Report invalid / unsubscribed tokens back so caller can clean them ──
+        const invalidTokens = osResult.invalid_player_ids || [];
+
         return res.status(200).json({
-            success: true,
-            sent: result.recipients || 0,
-            invalidTokens: result.errors || []
+            success:       true,
+            id:            osResult.id,
+            recipients:    osResult.recipients,
+            invalidTokens: invalidTokens,
         });
 
-    } catch (error) {
-        return res.status(500).json({ error: error.message });
+    } catch (err) {
+        console.error('[Push] Unexpected error:', err);
+        return res.status(500).json({ error: err.message });
     }
-};
+}
