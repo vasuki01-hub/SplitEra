@@ -7405,7 +7405,20 @@
 
             // ── Direct JS Bridge calls (works when already registered) ─────
             if (window.median?.onesignal) {
-                // v5 SDK method
+                // Using the official Median JS Bridge info callback
+                window.onesignalInfoCallback = function (info) {
+                    if (!info) return;
+                    const token = info.oneSignalSubscriptionId || info.oneSignalUserId || info.oneSignalPlayerId || info.oneSignalPushToken;
+                    if (token) handleToken(token);
+                };
+
+                try {
+                    window.median.onesignal.onesignalInfo({ 'callback': 'onesignalInfoCallback' });
+                } catch (e) {
+                    console.warn('[Push] Median onesignalInfo error:', e);
+                }
+
+                // v5 SDK method fallback
                 if (typeof window.median.onesignal.getSubscriptionId === 'function') {
                     window.median.onesignal.getSubscriptionId()
                         .then(id => { if (id) handleToken(id); })
