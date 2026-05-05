@@ -12909,6 +12909,7 @@
                 credits = filterByDateRange(credits, fromDate, toDate);
                 personal = filterByDateRange(personal, fromDate, toDate);
 
+
                 // Calculate totals including credit card specific
                 const totalCredits = credits.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
                 const totalPersonal = personal.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
@@ -15517,20 +15518,20 @@
                     await batch.commit();
 
 
-                    // ── NOTIFICATION: Notify all invited registered users ──────────
+                    // ── NOTIFICATION: Notify registered users who were invited ──────
                     const actorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                    for (const userInvite of userInvites) {
-                        await createNotification(
-                            userInvite.user.id,
-                            'invite',
-                            `${actorName} invited you to join the group "${name}".`,
-                            {
-                                groupId: groupId,
-                                groupName: name,
-                                triggerUserName: actorName,
-                                targetItem: name
+                    for (const email of emailsToInvite) {
+                        try {
+                            const invSnap = await db.collection('users').where('email', '==', email.toLowerCase()).get();
+                            if (!invSnap.empty) {
+                                await createNotification(
+                                    invSnap.docs[0].id,
+                                    'invite',
+                                    `${actorName} invited you to join the group "${name}".`,
+                                    { groupId: groupId, groupName: name, triggerUserName: actorName, targetItem: name }
+                                );
                             }
-                        );
+                        } catch (_) { /* non-critical — don't block group save */ }
                     }
                     // ───────────────────────────────────────────────────────────────
                 }
@@ -15569,6 +15570,18 @@
                     targetMemberName: targetName
                 });
 
+                // ── NOTIFICATION: Notify all remaining members ────────────────────────────────
+                const remActorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                const remGroupDoc = await db.collection('groups').doc(groupId).get();
+                const remGroupName = remGroupDoc.data()?.name || 'the group';
+                await createGroupNotification(
+                    groupId,
+                    'member',
+                    `${remActorName} removed ${targetName} from "${remGroupName}".`,
+                    { groupId, groupName: remGroupName, triggerUserName: remActorName, targetItem: targetName }
+                );
+                // ────────────────────────────────────────────────────────────────────────────
+
                 // Close modal and refresh
                 document.querySelector('.modal-overlay')?.remove();
                 showToast(t('success'), t('memberRemoved'));
@@ -15589,14 +15602,37 @@
             hideLoading();
 
             try {
-                const groups = dataState.groups;
+                const now = Date.now();
+                const FIFTEEN_MINS = 15 * 60 * 1000;
 
-                // Calculate user's total share in groups and individual expenses
+                const activeGroups = [];
+                const deletedGroups = [];
+                const groupsToPurge = [];
+
+                dataState.groups.forEach(g => {
+                    if (g.status === 'deleted') {
+                        const deletedAt = g.deletedAt?.toMillis?.() || g.deletedAt || 0;
+                        if (now - deletedAt > FIFTEEN_MINS) {
+                            groupsToPurge.push(g.id);
+                        } else {
+                            deletedGroups.push(g);
+                        }
+                    } else {
+                        activeGroups.push(g);
+                    }
+                });
+
+                // Execute purging in background
+                if (groupsToPurge.length > 0) {
+                    purgeDeletedGroups(groupsToPurge);
+                }
+
+                // Calculate user's total share in active groups and individual expenses
                 let userTotalShare = 0;
                 let userIndividualExpenses = 0;
 
                 const allGroupExpenses = dataState.groupExpenses;
-                for (let group of groups) {
+                for (let group of activeGroups) {
                     const groupExpenses = allGroupExpenses.filter(e => e.groupId === group.id);
 
                     // Calculate user's share in this group
@@ -15621,8 +15657,10 @@
                 `;
 
                 const container = document.getElementById('groupsContainer');
-                if (groups.length === 0) {
-                    container.innerHTML = `
+                let html = '';
+
+                if (activeGroups.length === 0) {
+                    html += `
                         <div class="empty-state">
                             <div class="empty-icon"><i class="fas fa-users"></i></div>
                             <div class="empty-title">${t('noGroupsFound')}</div>
@@ -15630,8 +15668,8 @@
                         </div>
                     `;
                 } else {
-                    let html = '<div class="groups-grid">';
-                    for (let group of groups) {
+                    html += '<div class="groups-grid">';
+                    for (let group of activeGroups) {
                         const groupExpensesList = allGroupExpenses.filter(e => e.groupId === group.id);
                         const totalExpenses = groupExpensesList.reduce((sum, exp) => {
                             // Exclude settlement expenses to avoid double counting
@@ -15697,13 +15735,100 @@
                         `;
                     }
                     html += '</div>';
-                    container.innerHTML = html;
-                    enhanceMonthGroupedRows('details', 'detailsTableContainer');
                 }
+
+                // ── RECOVER DELETED GROUPS SECTION ─────────────────────────────
+                if (deletedGroups.length > 0) {
+                    html += `
+                        <div style="margin-top: 30px; border-top: 2px dashed var(--border); padding-top: 20px;">
+                            <h3 style="color: var(--warning); margin-bottom: 15px;"><i class="fas fa-trash-restore"></i> Recently Deleted Groups</h3>
+                            <div class="groups-grid">
+                    `;
+                    for (let group of deletedGroups) {
+                        const deletedAtMillis = group.deletedAt?.toMillis?.() || group.deletedAt || Date.now();
+                        const timeRemainingStr = new Date(deletedAtMillis + FIFTEEN_MINS).toLocaleTimeString();
+                        html += `
+                            <div class="group-card" style="opacity: 0.8; border: 1px solid var(--warning);">
+                                <div class="group-header" style="background: rgba(255, 152, 0, 0.1);">
+                                    <h3 style="color: var(--warning);">${escapeHTML(group.name)}</h3>
+                                    <span class="badge badge-warning">Deleted</span>
+                                </div>
+                                <div class="group-body">
+                                    <p style="color: var(--text-gray);"><i class="fas fa-clock"></i> Permanently deletes at: <strong>${timeRemainingStr}</strong></p>
+                                    <p><small>Groups are permanently deleted 15 minutes after deletion.</small></p>
+                                </div>
+                                <div class="group-footer" style="justify-content: flex-end;">
+                                    ${group.deletedBy === currentUser.uid ? `
+                                        <button class="btn btn-warning btn-sm" onclick="recoverGroup('${group.id}')">
+                                            <i class="fas fa-undo"></i> Recover
+                                        </button>
+                                    ` : `<p style="font-size: 0.8rem;">Only the deleter can recover.</p>`}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    html += `</div></div>`;
+                }
+                // ───────────────────────────────────────────────────────────────
+
+                container.innerHTML = html;
+                enhanceMonthGroupedRows('details', 'detailsTableContainer');
             } catch (error) {
                 showToast('Error', error.message, 'error');
             } finally {
                 hideLoading();
+            }
+        }
+
+        async function recoverGroup(groupId) {
+            showLoading();
+            try {
+                // Fetch group info for notification
+                const groupDoc = await db.collection('groups').doc(groupId).get();
+                const groupData = groupDoc.data();
+
+                await db.collection('groups').doc(groupId).update({
+                    status: firebase.firestore.FieldValue.delete(),
+                    deletedAt: firebase.firestore.FieldValue.delete(),
+                    deletedBy: firebase.firestore.FieldValue.delete()
+                });
+
+                // ── NOTIFICATION: Notify all members about recovery ────────────────
+                try {
+                    const recActorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                    await createGroupNotification(
+                        groupId,
+                        'member',
+                        `${recActorName} recovered the group "${groupData.name}".`,
+                        { groupId, groupName: groupData.name, triggerUserName: recActorName, targetItem: groupData.name }
+                    );
+                } catch (_) { }
+                // ───────────────────────────────────────────────────────────────────
+
+                showToast('Success', 'Group recovered successfully!');
+                await loadGroups();
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function purgeDeletedGroups(groupIds) {
+            try {
+                for (const groupId of groupIds) {
+                    const expensesSnapshot = await db.collection('group_expenses')
+                        .where('groupId', '==', groupId)
+                        .get();
+                    const batch = db.batch();
+                    expensesSnapshot.docs.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
+                    await batch.commit();
+                    await db.collection('groups').doc(groupId).delete();
+                }
+            } catch (error) {
+                console.error("Failed to purge groups:", error);
             }
         }
 
@@ -15782,6 +15907,27 @@
                         ? `${acceptedUserDoc.data().firstName || ''} ${acceptedUserDoc.data().lastName || ''}`.trim()
                         : userId;
                     await logGroupActivity(groupId, 'MEMBER_ADDED', `${acceptedName} joined the group`);
+
+                    // ── NOTIFICATION: Notify the accepted user ────────────────────────────────
+                    const accGroupDoc = await db.collection('groups').doc(groupId).get();
+                    const accGroupName = accGroupDoc.data()?.name || 'the group';
+                    const accAdminName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                    // Tell the newly accepted user
+                    await createNotification(
+                        userId,
+                        'member',
+                        `Your request to join "${accGroupName}" was accepted by ${accAdminName}.`,
+                        { groupId, groupName: accGroupName, triggerUserName: accAdminName, targetItem: acceptedName }
+                    );
+                    // Tell all existing group members
+                    await createGroupNotification(
+                        groupId,
+                        'member',
+                        `${acceptedName} joined "${accGroupName}" via join request.`,
+                        { groupId, groupName: accGroupName, triggerUserName: accAdminName, targetItem: acceptedName },
+                        [userId] // accepted user already notified above
+                    );
+                    // ────────────────────────────────────────────────────────────────────────────
                 } catch (actErr) {
                     console.error('Error logging join activity:', actErr);
                 }
@@ -15802,6 +15948,20 @@
                 await db.collection('groups').doc(groupId).update({
                     pendingRequests: firebase.firestore.FieldValue.arrayRemove(userId)
                 });
+
+                // ── NOTIFICATION: Notify the denied user ───────────────────────────────────
+                try {
+                    const denyGroupDoc = await db.collection('groups').doc(groupId).get();
+                    const denyGroupName = denyGroupDoc.data()?.name || 'the group';
+                    const denyAdminName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                    await createNotification(
+                        userId,
+                        'decline',
+                        `Your request to join "${denyGroupName}" was declined.`,
+                        { groupId, groupName: denyGroupName, triggerUserName: denyAdminName, targetItem: denyGroupName }
+                    );
+                } catch (_) { /* non-critical */ }
+                // ────────────────────────────────────────────────────────────────────────────
 
                 container.innerHTML = '<div style="color: var(--danger); text-align: center; width: 100%;">Denied</div>';
                 setTimeout(() => container.remove(), 1000);
@@ -16913,6 +17073,18 @@
                     pendingRequests: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
                 });
 
+                // ── NOTIFICATION: Notify admin of join request ─────────────────────
+                try {
+                    const reqActorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                    await createNotification(
+                        groupData.createdBy,
+                        'member',
+                        `${reqActorName} requested to join the group "${groupData.name}".`,
+                        { groupId: groupDoc.id, groupName: groupData.name, triggerUserName: reqActorName, targetItem: groupData.name }
+                    );
+                } catch (_) { /* non-critical */ }
+                // ───────────────────────────────────────────────────────────────────
+
                 document.querySelector('.modal-overlay').remove();
                 showToast(t('success'), t('joinRequestSent'));
             } catch (error) {
@@ -18019,6 +18191,22 @@
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
 
+                    // ── NOTIFICATION: Notify group about deleted settlement ──────────
+                    if (deletedSettlement) {
+                        try {
+                            const delSettleActor = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                            const groupDoc = await db.collection('groups').doc(groupId).get();
+                            const groupName = groupDoc.data()?.name || 'the group';
+                            await createGroupNotification(
+                                groupId,
+                                'settle',
+                                `${delSettleActor} deleted a settlement of ${formatCurrency(deletedSettlement.amount)} in "${groupName}".`,
+                                { groupId, groupName, triggerUserName: delSettleActor, targetItem: deletedSettlement.amount }
+                            );
+                        } catch (_) { }
+                    }
+                    // ───────────────────────────────────────────────────────────────────
+
                     if (deletedSettlement) {
                         logGroupActivity(groupId, 'SETTLEMENT', `${currentUser.firstName} deleted a settlement of ${formatCurrency(deletedSettlement.amount)} in "${expense.description}"`, deletedSettlement.amount, {
                             action: 'delete',
@@ -18413,6 +18601,20 @@
                     settlements: updatedSettlements,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
+
+                // ── NOTIFICATION: Notify group about edited settlement ───────────
+                try {
+                    const editSettleActor = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                    const groupDoc = await db.collection('groups').doc(groupId).get();
+                    const groupName = groupDoc.data()?.name || 'the group';
+                    await createGroupNotification(
+                        groupId,
+                        'settle',
+                        `${editSettleActor} updated a settlement to ${formatCurrency(amount)} in "${groupName}".`,
+                        { groupId, groupName, triggerUserName: editSettleActor, targetItem: amount }
+                    );
+                } catch (_) { }
+                // ───────────────────────────────────────────────────────────────────
                 showToast('Success', 'Settlement updated successfully!');
 
                 // Close the specific modal and refresh data
@@ -18573,6 +18775,20 @@
                     splitDetails: updatedSplitDetails,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
+
+                // ── NOTIFICATION: Notify group about edited balance ──────────────
+                try {
+                    const editBalActor = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                    const groupDoc = await db.collection('groups').doc(groupId).get();
+                    const groupName = groupDoc.data()?.name || 'the group';
+                    await createGroupNotification(
+                        groupId,
+                        'expense',
+                        `${editBalActor} updated an individual balance in "${groupName}".`,
+                        { groupId, groupName, triggerUserName: editBalActor, targetItem: expense.description || 'an expense' }
+                    );
+                } catch (_) { }
+                // ───────────────────────────────────────────────────────────────────
                 showToast('Success', 'Balance updated successfully!');
 
                 // Close the specific modal and refresh data
@@ -18629,6 +18845,20 @@
                         updatedAt: timestamp
                     });
                     await batch.commit();
+
+                    // ── NOTIFICATION: Notify group about individual settlement ───────
+                    try {
+                        const settleBalActor = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                        const groupDoc = await db.collection('groups').doc(groupId).get();
+                        const groupName = groupDoc.data()?.name || 'the group';
+                        await createGroupNotification(
+                            groupId,
+                            'settle',
+                            `${settleBalActor} marked a balance as settled in "${groupName}".`,
+                            { groupId, groupName, triggerUserName: settleBalActor, targetItem: expense.description || 'an expense' }
+                        );
+                    } catch (_) { }
+                    // ───────────────────────────────────────────────────────────────────
                     showToast('Success', 'Balance settled successfully!');
                     // Real-time DOM updates for individual balance
                     var individualBalanceElement = document.getElementById(`individual-balance-${expenseId}-${memberId}`);
@@ -20323,7 +20553,7 @@
             </div>
             <div class="modal-body">
                 <p>Are you sure you want to delete this group?</p>
-                <p style="color: var(--danger); font-weight: 600;">All group expenses will also be deleted.</p>
+                <p style="color: var(--warning); font-weight: 600;">You will have 15 minutes to recover it before it is permanently deleted.</p>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
@@ -20345,17 +20575,29 @@
         async function confirmDeleteGroup(groupId) {
             showLoading();
             try {
-                // Delete all group expenses
-                const expensesSnapshot = await db.collection('group_expenses')
-                    .where('groupId', '==', groupId)
-                    .get();
-                const batch = db.batch();
-                expensesSnapshot.docs.forEach(doc => {
-                    batch.delete(doc.ref);
+                // Fetch group info for notification
+                const groupDoc = await db.collection('groups').doc(groupId).get();
+                const groupData = groupDoc.data();
+
+                // Soft-delete the group instead of permanent deletion
+                await db.collection('groups').doc(groupId).update({
+                    status: 'deleted',
+                    deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    deletedBy: currentUser.uid
                 });
-                await batch.commit();
-                // Delete group
-                await db.collection('groups').doc(groupId).delete();
+
+                // ── NOTIFICATION: Notify all members about group deletion ──────────
+                try {
+                    const delActorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
+                    await createGroupNotification(
+                        groupId,
+                        'leave',
+                        `${delActorName} deleted the group "${groupData.name}".`,
+                        { groupId, groupName: groupData.name, triggerUserName: delActorName, targetItem: groupData.name }
+                    );
+                } catch (_) { }
+                // ───────────────────────────────────────────────────────────────────
+
                 document.querySelector('.modal-overlay')?.remove();
                 await loadGroups();
                 showToast('Success', 'Group deleted successfully!');
