@@ -26,11 +26,21 @@ module.exports = async function handler(req, res) {
                 headings: { en: title || 'SplitEra' },
                 contents: { en: body || '' },
                 data: data || {},
+                // ── Delivery settings ──────────────────────────────────────
+                // target_channel: 'push' is required for Median hybrid apps
+                // (Web + Android in the same OneSignal app).
+                target_channel: 'push',
+                ttl: 259200,          // 3-day time-to-live
                 priority: 10,
                 android_visibility: 1,
                 small_icon: 'ic_notification',
+                // Web / browser icons
                 chrome_web_icon: '/favicon.png',
+                firefox_icon: '/favicon.png',
+                // Deep-link target for web and Android
                 url: 'https://split-era.vercel.app',
+                web_url: 'https://split-era.vercel.app',
+                app_url: 'https://split-era.vercel.app',
                 include_subscription_ids: validTokens
             })
         });
@@ -38,16 +48,22 @@ module.exports = async function handler(req, res) {
         const result = await response.json();
 
         if (!response.ok) {
-            return res.status(200).json({ success: false, error: result });
+            console.error('OneSignal Error:', result);
+            return res.status(200).json({
+                success: false,
+                error: result.errors ? result.errors[0] : 'Unknown notification error'
+            });
         }
 
         return res.status(200).json({
             success: true,
             sent: result.recipients || 0,
-            invalidTokens: result.errors || []
+            id: result.id || null,
+            invalidTokens: result.errors?.invalid_subscription_ids || []
         });
 
     } catch (error) {
+        console.error('Notification Exception:', error);
         return res.status(500).json({ error: error.message });
     }
 };
