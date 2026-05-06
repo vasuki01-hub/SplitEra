@@ -17626,29 +17626,15 @@
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('receivable')}:</span>
                                                 <strong style="color: var(--success);">${formatCurrency(Math.max(0, displayExpenses.reduce((sum, e) => {
-                                const payerId = e.paidBy || e.userId;
-                                if (payerId !== currentUser.uid) return sum;
                                 const breakdown = breakdowns[e.id];
-                                const settlements = e.settlements || [];
-                                const totalReceived = settlements.reduce((s, settlement) => {
-                                    return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
-                                }, 0);
-                                const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                                return sum + (parseFloat(e.amount) - myShare - totalReceived);
+                                if (!breakdown) return sum;
+                                const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                                return sum + Math.max(0, remaining);
                             }, 0) - displayExpenses.reduce((sum, e) => {
-                                const payerId = e.paidBy || e.userId;
-                                if (payerId === currentUser.uid) return sum;
                                 const breakdown = breakdowns[e.id];
-                                const settlements = e.settlements || [];
-                                const totalPaid = settlements.reduce((s, settlement) => {
-                                    return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
-                                }, 0);
-                                let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                                if (myShare === 0) {
-                                    const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                                    myShare = breakdown?.contributions?.[guestKey] || 0;
-                                }
-                                return sum + Math.max(0, myShare - totalPaid);
+                                if (!breakdown) return sum;
+                                const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                                return sum + Math.max(0, -remaining);
                             }, 0)))}</strong>
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
@@ -17677,29 +17663,10 @@
                                         }, 0);
 
                                         const netOwed = displayExpenses.reduce((sum, e) => {
-                                            const payerId = e.paidBy || e.userId;
                                             const breakdown = breakdowns[e.id];
-                                            const settlements = e.settlements || [];
-
-                                            let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                                            if (myShare === 0) {
-                                                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                                                myShare = breakdown?.contributions?.[guestKey] || 0;
-                                            }
-
-                                            if (payerId === currentUser.uid) {
-                                                const totalReceived = settlements.reduce((s, settlement) => {
-                                                    return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) || 0 : 0);
-                                                }, 0);
-                                                const receivableThisExpense = parseFloat(e.amount) - myShare - totalReceived;
-                                                return sum - Math.max(0, receivableThisExpense);
-                                            } else {
-                                                const totalPaidByMe = settlements.reduce((s, settlement) => {
-                                                    return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) || 0 : 0);
-                                                }, 0);
-                                                const stillOweThisExpense = myShare - totalPaidByMe;
-                                                return sum + Math.max(0, stillOweThisExpense);
-                                            }
+                                            if (!breakdown) return sum;
+                                            const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                                            return sum - remaining; // If remaining is negative (owes), this adds to sum
                                         }, 0);
 
                                         return formatCurrency(Math.max(0, netOwed));
@@ -17936,29 +17903,15 @@
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                             <span class="text-secondary">${t('receivable')}:</span>
                                             <strong style="color: var(--success);">${formatCurrency(Math.max(0, displayExpenses.reduce((sum, e) => {
-                        const payerId = e.paidBy || e.userId;
-                        if (payerId !== currentUser.uid) return sum;
                         const breakdown = breakdowns[e.id];
-                        const settlements = e.settlements || [];
-                        const totalReceived = settlements.reduce((s, settlement) => {
-                            return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
-                        }, 0);
-                        const myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                        return sum + (parseFloat(e.amount) - myShare - totalReceived);
+                        if (!breakdown) return sum;
+                        const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                        return sum + Math.max(0, remaining);
                     }, 0) - displayExpenses.reduce((sum, e) => {
-                        const payerId = e.paidBy || e.userId;
-                        if (payerId === currentUser.uid) return sum;
                         const breakdown = breakdowns[e.id];
-                        const settlements = e.settlements || [];
-                        const totalPaid = settlements.reduce((s, settlement) => {
-                            return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
-                        }, 0);
-                        let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                        if (myShare === 0) {
-                            const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                            myShare = breakdown?.contributions?.[guestKey] || 0;
-                        }
-                        return sum + Math.max(0, myShare - totalPaid);
+                        if (!breakdown) return sum;
+                        const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                        return sum + Math.max(0, -remaining);
                     }, 0)))}</strong>
                                         </div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
@@ -20265,16 +20218,10 @@
                 }, 0);
                 const totalYourShare = expenses.reduce((sum, e) => sum + (breakdowns[e.id]?.contributions?.[currentUser.uid] || 0), 0);
                 const totalReceivable = expenses.reduce((sum, e) => {
-                    const payerId = e.paidBy || e.userId;
-                    if (payerId === currentUser.uid) {
-                        const myShare = breakdowns[e.id]?.contributions?.[currentUser.uid] || 0;
-                        const settlements = e.settlements || [];
-                        const totalReceived = settlements.reduce((s, settlement) => {
-                            return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) : 0);
-                        }, 0);
-                        return sum + ((parseFloat(e.amount) || 0) - myShare - totalReceived);
-                    }
-                    return sum;
+                    const breakdown = breakdowns[e.id];
+                    if (!breakdown) return sum;
+                    const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                    return sum + Math.max(0, remaining);
                 }, 0);
                 // Header (Blue)
                 doc.setFillColor(41, 128, 185);
@@ -20453,7 +20400,7 @@
                 const excelData = expenses.map(ex => {
                     const amt = parseFloat(ex.amount) || 0;
                     const myShare = breakdowns[ex.id]?.contributions?.[currentUser.uid] || 0;
-                    const payer = memberMap[ex.paidBy || ex.userId] || { firstName: t('unknown') };
+                    const payerLabel = ex.isMultiPayer ? t('multiplePayers') || 'Multiple Payers' : (memberMap[ex.paidBy || ex.userId]?.firstName || t('unknown'));
 
                     return {
                         _date: safeDate(ex.date),
@@ -20461,7 +20408,7 @@
                         [t('expenseName') || 'Name']: ex.expenseName || ex.description,
                         [t('description')]: ex.description,
                         [t('category')]: ex.category || '',
-                        [t('paidBy')]: `${payer.firstName} ${payer.lastName || ''}`,
+                        [t('paidBy')]: payerLabel,
                         [t('split')]: t(ex.splitType?.toLowerCase() || 'equal'),
                         [t('amount')]: amt,
                         [t('totalYourShare')]: myShare,
