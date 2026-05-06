@@ -7371,66 +7371,58 @@
 
         function initMedianPushToken() {
             const handleToken = async (token) => {
-                if (!token || typeof token !== 'string') return;
+                if (!token || typeof token !== 'string') {
+                    showToast('Push Debug', 'Received invalid token: ' + token);
+                    return;
+                }
+                showToast('Push Success', 'Got Token: ' + token.substring(0, 15) + '...');
                 await linkPushTokenToCurrentUser(token);
             };
 
             // ── OneSignal v5 events (Legacy Mode OFF) ──────────────────────
-            // Fired when subscription ID is ready
             document.addEventListener('median_onesignal_subscription_id', async (e) => {
+                showToast('Push Event', 'Fired median_onesignal_subscription_id');
                 await handleToken(
-                    e.detail?.subscriptionId ||
-                    e.detail?.id ||
-                    e.subscriptionId
+                    e.detail?.subscriptionId || e.detail?.id || e.subscriptionId
                 );
             });
 
-            // Fired when subscription changes (e.g. token refresh)
             document.addEventListener('median_onesignal_subscription_changed', async (e) => {
+                showToast('Push Event', 'Fired median_onesignal_subscription_changed');
                 await handleToken(
-                    e.detail?.subscriptionId ||
-                    e.detail?.id ||
-                    e.subscriptionId
+                    e.detail?.subscriptionId || e.detail?.id || e.subscriptionId
                 );
             });
 
-            // ── OneSignal v4 events (Legacy Mode ON — kept as fallback) ────
             document.addEventListener('median_onesignal_player_id', async (e) => {
+                showToast('Push Event', 'Fired median_onesignal_player_id');
                 await handleToken(
-                    e.detail?.playerId ||
-                    e.detail?.userId ||
-                    e.playerId
+                    e.detail?.playerId || e.detail?.userId || e.playerId
                 );
             });
 
-            // ── Direct JS Bridge calls (works when already registered) ─────
-            if (window.median?.onesignal) {
-                // Using the official Median JS Bridge info callback
-                window.onesignalInfoCallback = function (info) {
-                    if (!info) return;
-                    const token = info.oneSignalSubscriptionId || info.oneSignalUserId || info.oneSignalPlayerId || info.oneSignalPushToken;
-                    if (token) handleToken(token);
-                };
+            // ── Direct JS Bridge calls ─────
+            // We use a small delay to ensure Median bridge is fully injected
+            setTimeout(() => {
+                if (window.median?.onesignal) {
+                    showToast('Push Debug', 'Median bridge found, requesting info...');
 
-                try {
-                    window.median.onesignal.onesignalInfo({ 'callback': 'onesignalInfoCallback' });
-                } catch (e) {
-                    console.warn('[Push] Median onesignalInfo error:', e);
-                }
+                    window.onesignalInfoCallback = function (info) {
+                        showToast('Push Callback', 'Info: ' + JSON.stringify(info));
+                        if (!info) return;
+                        const token = info.oneSignalSubscriptionId || info.oneSignalUserId || info.oneSignalPlayerId || info.oneSignalPushToken;
+                        if (token) handleToken(token);
+                    };
 
-                // v5 SDK method fallback
-                if (typeof window.median.onesignal.getSubscriptionId === 'function') {
-                    window.median.onesignal.getSubscriptionId()
-                        .then(id => { if (id) handleToken(id); })
-                        .catch(() => { });
+                    try {
+                        window.median.onesignal.onesignalInfo({ 'callback': 'onesignalInfoCallback' });
+                    } catch (e) {
+                        showToast('Push Error', e.message);
+                    }
+                } else {
+                    showToast('Push Debug', 'No window.median.onesignal found');
                 }
-                // v4 SDK method (fallback)
-                if (typeof window.median.onesignal.getPlayerId === 'function') {
-                    window.median.onesignal.getPlayerId()
-                        .then(id => { if (id) handleToken(id); })
-                        .catch(() => { });
-                }
-            }
+            }, 1500);
         }
 
         async function flushPendingPushToken() {
@@ -14805,7 +14797,6 @@
                                     <option value="Other" ${expense.mode === 'Other' ? 'selected' : ''}>Other</option>
                                 </select>
                             </div>
-
                             <div class="form-group">
                                 <label class="form-label">${t('amount')}</label>
                                 <input type="number" step="0.01" class="form-input" value="${escapeHTML(String(expense.amount))}" id="edit-amount-${id}" required>
@@ -17376,13 +17367,14 @@
                                 </div>
                             ` : ''}
                         </td>
-                        <td><span class="badge badge-secondary">${payer.firstName}</span></td>
+                        <td><span class="badge badge-secondary">${expense.isMultiPayer ? 'Multiple Payers' : escapeHTML(payer.firstName)}</span></td>
                         <td style="color: var(--danger); font-weight: 600;">
                             <div style="font-size: 0.8rem; color: var(--text-gray);">${t('totalExpense')}</div>
                             ${formatCurrency(parseFloat(expense.amount))}
                             ${(() => {
-                            if (payerId === currentUser.uid && displayAmount > 0.01) {
-                                return `<div style="font-size: 0.7rem; color: var(--success); margin-top: 2px;">${t('receivable')}: ${formatCurrency(displayAmount)}</div>`;
+                            const rem = expenseBreakdown?.remainingBalances?.[currentUser.uid] || 0;
+                            if (rem > 0.01) {
+                                return `<div style="font-size: 0.7rem; color: var(--success); margin-top: 2px;">${t('receivable')}: ${formatCurrency(rem)}</div>`;
                             }
                             return '';
                         })()}
@@ -17431,25 +17423,29 @@
                                         <h5 style="color: var(--primary); margin-bottom: 1rem;">Individual Balances</h5>
                                         ${(() => {
                             if (!expenseBreakdown) return '<p>No balance data available</p>';
-                            const pId = expense.paidBy || expense.userId;
-                            return Object.entries(expenseBreakdown.individualBalances || {})
-                                .filter(([mId, amt]) => amt !== 0)
-                                .map(([mId, _]) => {
-                                    const member = memberMap[mId] || { firstName: mId.startsWith('guest:') ? mId.split(':')[1] : 'Unknown', lastName: mId.startsWith('guest:') ? '(Guest)' : '' };
-                                    const isP = mId === pId;
+                            return Object.keys(expenseBreakdown.individualBalances || {})
+                                .map(mId => {
+                                    const netBal = expenseBreakdown.individualBalances[mId] || 0;
                                     const remainingBalance = expenseBreakdown.remainingBalances[mId] || 0;
+                                    if (Math.abs(netBal) < 0.01 && Math.abs(remainingBalance) < 0.01 && expenseBreakdown.contributions[mId] === 0) return '';
+
+                                    const member = memberMap[mId] || { firstName: mId.startsWith('guest:') ? mId.split(':')[1] : 'Unknown', lastName: mId.startsWith('guest:') ? '(Guest)' : '' };
+                                    const isP = expense.isMultiPayer ? (expense.multiPayers && parseFloat(expense.multiPayers[mId]) > 0) : (mId === (expense.paidBy || expense.userId));
+
                                     let displayStatus = '';
                                     let balanceColor = 'var(--text-gray)';
-                                    if (isP) {
-                                        displayStatus = 'Payer';
-                                        balanceColor = 'var(--primary)';
-                                    } else if (Math.abs(remainingBalance) < 0.01) {
+
+                                    if (Math.abs(remainingBalance) < 0.01) {
                                         displayStatus = 'Settled';
+                                        balanceColor = 'var(--success)';
+                                    } else if (remainingBalance > 0) {
+                                        displayStatus = `Receives ${formatCurrency(remainingBalance)}`;
                                         balanceColor = 'var(--success)';
                                     } else {
                                         displayStatus = `Owes ${formatCurrency(Math.abs(remainingBalance))}`;
                                         balanceColor = 'var(--danger)';
                                     }
+
                                     return `
                                                         <div id="individual-balance-${expense.id}-${mId}" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; margin-bottom: 0.25rem; border-radius: 4px; background: var(--bg-card);">
                                                             <div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -17464,8 +17460,8 @@
                                                                     <button class="btn btn-sm btn-outline-primary" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="editIndividualBalance('${expense.id}', '${mId}', ${remainingBalance}, '${groupId}')">
                                                                         <i class="fas fa-edit"></i>
                                                                     </button>
-                                                                    ${!isP && Math.abs(remainingBalance) > 0.01 ? `
-                                                                    <button class="btn btn-sm btn-outline-success" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="settleIndividualBalance('${expense.id}', '${mId}', ${remainingBalance}, '${groupId}')">
+                                                                    ${Math.abs(remainingBalance) > 0.01 ? `
+                                                                    <button class="btn btn-sm btn-outline-success" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="settleIndividualBalance('${expense.id}', '${mId}', ${Math.abs(remainingBalance)}, '${groupId}')">
                                                                         <i class="fas fa-check-circle"></i>
                                                                     </button>
                                                                     ` : ''}
@@ -19134,24 +19130,62 @@
                 if (expense.allPaidIndividually || expense.category === 'Settlement' || expense.isSettlement) return;
 
                 const amount = parseFloat(expense.amount);
-                const payer = expense.paidBy || expense.userId;
                 const splits = expense.splits || expense.splitDetails || {};
 
-                if (Object.keys(splits).length > 0) {
-                    // Use normalized splits
-                    for (const [memberId, owed] of Object.entries(splits)) {
-                        if (memberId !== payer && debtMatrix[memberId] && debtMatrix[memberId][payer] !== undefined) {
-                            debtMatrix[memberId][payer] += parseFloat(owed) || 0;
-                        }
+                // Determine paid amounts
+                const paidAmounts = {};
+                if (expense.isMultiPayer) {
+                    for (const [uid, amt] of Object.entries(expense.multiPayers || {})) {
+                        paidAmounts[uid] = parseFloat(amt) || 0;
                     }
                 } else {
-                    // Fallback: Equal split
+                    const payer = expense.paidBy || expense.userId;
+                    paidAmounts[payer] = amount;
+                }
+
+                // Determine owed amounts (shares)
+                const owedAmounts = {};
+                if (Object.keys(splits).length > 0) {
+                    for (const [memberId, owed] of Object.entries(splits)) {
+                        owedAmounts[memberId] = parseFloat(owed) || 0;
+                    }
+                } else {
                     const splitAmount = amount / memberIds.length;
                     memberIds.forEach(memberId => {
-                        if (memberId !== payer && debtMatrix[memberId] && debtMatrix[memberId][payer] !== undefined) {
-                            debtMatrix[memberId][payer] += splitAmount;
-                        }
+                        owedAmounts[memberId] = splitAmount;
                     });
+                }
+
+                // Calculate Net Balances for this expense
+                const creditors = [];
+                const debtors = [];
+
+                memberIds.forEach(memberId => {
+                    const paid = paidAmounts[memberId] || 0;
+                    const owed = owedAmounts[memberId] || 0;
+                    const net = paid - owed;
+
+                    if (net > 0.01) creditors.push({ id: memberId, amount: net });
+                    else if (net < -0.01) debtors.push({ id: memberId, amount: Math.abs(net) });
+                });
+
+                // Assign debts greedily for this expense
+                let c = 0, d = 0;
+                while (c < creditors.length && d < debtors.length) {
+                    const creditor = creditors[c];
+                    const debtor = debtors[d];
+
+                    const settleAmount = Math.min(creditor.amount, debtor.amount);
+
+                    if (debtMatrix[debtor.id] && debtMatrix[debtor.id][creditor.id] !== undefined) {
+                        debtMatrix[debtor.id][creditor.id] += settleAmount;
+                    }
+
+                    creditor.amount -= settleAmount;
+                    debtor.amount -= settleAmount;
+
+                    if (creditor.amount < 0.01) c++;
+                    if (debtor.amount < 0.01) d++;
                 }
             });
 
@@ -19179,8 +19213,6 @@
                 // If From owes To, reduce that debt
                 if (debtMatrix[from] && debtMatrix[from][to] !== undefined) {
                     debtMatrix[from][to] -= amount;
-                } else {
-                    // If not tracked (e.g. users removed), ignore or handle gracefully
                 }
             });
 
@@ -19188,7 +19220,6 @@
             const debts = [];
 
             // Iterate unique pairs to net them out
-            // We can iterate all and if bond (A->B) > (B->A), result is A->B (diff)
             for (let i = 0; i < memberIds.length; i++) {
                 for (let j = i + 1; j < memberIds.length; j++) {
                     const A = memberIds[i];
@@ -19222,78 +19253,85 @@
             expenses.forEach(expense => {
                 const expenseId = expense.id;
                 const amount = parseFloat(expense.amount);
-                const payer = expense.paidBy || expense.userId;
+                const isMultiPayer = expense.isMultiPayer === true;
+                const payer = isMultiPayer ? 'multi' : (expense.paidBy || expense.userId);
+
                 expenseBreakdowns[expenseId] = {
                     expense: expense,
                     payer: payer,
                     totalAmount: amount,
                     contributions: {}, // What each member should pay (their share)
-                    individualBalances: {}, // For display: everyone shows negative (their contribution)
-                    remainingBalances: {}, // Actual debt after settlements
+                    individualBalances: {}, // Net Balance (Paid - Share)
+                    remainingBalances: {}, // Tracking remaining debt after settlements
                     settlements: {},
-                    isSettled: false
+                    isSettled: false,
+                    multiPayers: expense.multiPayers || {}
                 };
-                // Calculate contributions using normalized splits format
-                // Use splits if available, otherwise fall back to splitDetails for backward compatibility
+
                 const splits = expense.splits || expense.splitDetails || {};
 
-                // For "All paid individually", we still calculate contributions for tracking
-                // but mark it as settled.
-                if (Object.keys(splits).length === 0) {
-                    // Equal split among all members (fallback)
-                    const sharePerPerson = amount / memberIds.length;
-                    memberIds.forEach(memberId => {
-                        // What this member should contribute
-                        expenseBreakdowns[expenseId].contributions[memberId] = sharePerPerson;
-                        // For display: everyone shows their share as negative
-                        expenseBreakdowns[expenseId].individualBalances[memberId] = -sharePerPerson;
-                        // For debt tracking: payer starts at 0 (they don't owe themselves)
-                        // Others start owing their share (negative)
-                        expenseBreakdowns[expenseId].remainingBalances[memberId] =
-                            (expense.allPaidIndividually || memberId === payer) ? 0 : -sharePerPerson;
-                    });
+                // Determine paid amounts
+                const paidAmounts = {};
+                if (isMultiPayer) {
+                    for (const [uid, amt] of Object.entries(expense.multiPayers || {})) {
+                        paidAmounts[uid] = parseFloat(amt) || 0;
+                    }
                 } else {
-                    // Use normalized splits (already in rupees)
-                    memberIds.forEach(memberId => {
-                        const share = parseFloat(splits[memberId] || 0);
-                        // What this member should contribute
-                        expenseBreakdowns[expenseId].contributions[memberId] = share;
-                        // For display: everyone shows their share as negative (if they're part of split)
-                        expenseBreakdowns[expenseId].individualBalances[memberId] = share > 0 ? -share : 0;
-                        // For debt tracking
-                        expenseBreakdowns[expenseId].remainingBalances[memberId] =
-                            (expense.allPaidIndividually || memberId === payer) ? 0 : (share > 0 ? -share : 0);
-                    });
+                    paidAmounts[payer] = amount;
                 }
+
+                // Determine owed amounts (shares)
+                const owedAmounts = {};
+                if (Object.keys(splits).length === 0) {
+                    const sharePerPerson = amount / memberIds.length;
+                    memberIds.forEach(memberId => owedAmounts[memberId] = sharePerPerson);
+                } else {
+                    memberIds.forEach(memberId => owedAmounts[memberId] = parseFloat(splits[memberId] || 0));
+                }
+
+                // Calculate Net Balances
+                memberIds.forEach(memberId => {
+                    const paid = paidAmounts[memberId] || 0;
+                    const owed = owedAmounts[memberId] || 0;
+                    const net = paid - owed;
+
+                    expenseBreakdowns[expenseId].contributions[memberId] = owed;
+                    expenseBreakdowns[expenseId].individualBalances[memberId] = net;
+                    expenseBreakdowns[expenseId].remainingBalances[memberId] = expense.allPaidIndividually ? 0 : net;
+                });
 
                 if (expense.allPaidIndividually) {
                     expenseBreakdowns[expenseId].isSettled = true;
                 }
             });
+
             // Calculate net balances after settlements stored within expenses
             expenses.forEach(expense => {
                 if (expense.settlements && expense.settlements.length > 0) {
                     // Apply settlements stored within this expense
                     expense.settlements.forEach(settlement => {
-                        const fromUser = settlement.fromUser;
-                        const toUser = settlement.toUser;
+                        const fromUser = settlement.fromUser; // debtor
+                        const toUser = settlement.toUser;     // creditor
                         const settledAmount = parseFloat(settlement.amount);
-                        // Apply settlement to this expense's REMAINING balances (not individual balances)
-                        // Individual balances always show the original contribution
+
                         if (expenseBreakdowns[expense.id]) {
-                            // Reduce the debt for the person who settled
+                            // Debtor's net balance moves closer to 0 (increases)
                             if (expenseBreakdowns[expense.id].remainingBalances[fromUser] !== undefined) {
                                 expenseBreakdowns[expense.id].remainingBalances[fromUser] += settledAmount;
                             }
-                            // Note: We don't change toUser's balance because settlements reduce debts owed TO them
-                            // The debt reduction is reflected in the fromUser's balance moving toward 0
+                            // Creditor's net balance moves closer to 0 (decreases)
+                            if (expenseBreakdowns[expense.id].remainingBalances[toUser] !== undefined) {
+                                expenseBreakdowns[expense.id].remainingBalances[toUser] -= settledAmount;
+                            }
+
                             // Store settlement record in the breakdown for display
                             if (!expenseBreakdowns[expense.id].settlements[fromUser]) {
                                 expenseBreakdowns[expense.id].settlements[fromUser] = {};
                             }
                             expenseBreakdowns[expense.id].settlements[fromUser][toUser] =
                                 (expenseBreakdowns[expense.id].settlements[fromUser][toUser] || 0) + settledAmount;
-                            // Check if this expense is now settled
+
+                            // Check if this expense is now settled (sum of absolute balances < 0.01)
                             const totalRemaining = Object.values(expenseBreakdowns[expense.id].remainingBalances)
                                 .reduce((sum, balance) => sum + Math.abs(balance), 0);
                             if (totalRemaining < 0.01) {
@@ -19313,6 +19351,43 @@
          */
         function openAddGroupExpenseModal(groupId, groupName) {
             window.uploadedFiles = []; // Initialize upload queue
+
+            window.toggleMultiPayerInputs = function () {
+                const paidBy = document.getElementById('groupExpensePaidBy').value;
+                const container = document.getElementById('multi-payer-container');
+                if (container) {
+                    container.style.display = paidBy === 'multi' ? 'block' : 'none';
+                }
+                updateMultiPayerTotal();
+            };
+
+            window.updateMultiPayerTotal = function () {
+                const amount = parseFloat(document.getElementById('groupExpenseAmount').value) || 0;
+                const inputs = document.querySelectorAll('.multi-payer-amount-input');
+                const warning = document.getElementById('multi-payer-warning');
+                const display = document.getElementById('multi-payer-total-display');
+
+                if (!inputs.length || !display) return;
+
+                let sum = 0;
+                inputs.forEach(input => {
+                    sum += parseFloat(input.value) || 0;
+                });
+
+                display.textContent = formatCurrency(sum);
+
+                if (document.getElementById('groupExpensePaidBy').value === 'multi') {
+                    if (Math.abs(sum - amount) > 0.01 && amount > 0) {
+                        warning.style.display = 'block';
+                        display.style.color = 'var(--danger)';
+                    } else {
+                        warning.style.display = 'none';
+                        display.style.color = 'var(--success)';
+                    }
+                } else {
+                    warning.style.display = 'none';
+                }
+            };
 
             // Helper to render new attachment previews
             window.renderNewAttachments = function () {
@@ -19380,11 +19455,30 @@
                         <input type="text" class="form-input" id="groupExpenseDescription" required>
                     </div>
                     <div class="form-group">
+                    <div class="form-group">
                         <label class="form-label">Paid By</label>
-                        <select class="form-select" id="groupExpensePaidBy">
+                        <select class="form-select" id="groupExpensePaidBy" onchange="toggleMultiPayerInputs()">
                             <option value="all_paid_individually">${t('allHavePaidIndividually')}</option>
+                            <option value="multi">Multiple People</option>
                             ${memberOptions}
                         </select>
+                    </div>
+                    <div class="form-group" id="multi-payer-container" style="display: none;">
+                        <label class="form-label">Multi-Payer Amounts</label>
+                        <div style="border: 1px solid var(--border); padding: 10px; border-radius: 4px; background: var(--bg-hover);">
+                            <p style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 10px;">Enter amounts paid by each member. The total must equal the expense amount.</p>
+                            ${currentGroupMembers.map(m => `
+                                <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                                    <span style="flex: 1; font-weight: 500;">${escapeHTML(m.firstName)} ${escapeHTML(m.lastName || '')}</span>
+                                    <input type="number" class="form-input multi-payer-amount-input" data-member-id="${m.id}" placeholder="0" style="width: 100px;" min="0" step="0.01" oninput="updateMultiPayerTotal()">
+                                </div>
+                            `).join('')}
+                            <div style="display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); font-weight: 600;">
+                                <span>Total Paid:</span>
+                                <span id="multi-payer-total-display">$0.00</span>
+                            </div>
+                        </div>
+                        <small id="multi-payer-warning" style="color: var(--danger); display: none; margin-top: 5px;">Total paid must match expense amount!</small>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Split Type</label>
@@ -19572,8 +19666,23 @@
                     throw new Error(`Split calculation error: splits sum (${formatCurrency(splitsSum)}) does not match amount (${formatCurrency(amount)})`);
                 }
                 const paidByValue = document.getElementById('groupExpensePaidBy').value;
+                let isMultiPayer = false;
+                let multiPayers = {};
                 // Validate paidBy is an existing member id (if not "all paid individually")
-                if (paidByValue !== 'all_paid_individually') {
+                if (paidByValue === 'multi') {
+                    isMultiPayer = true;
+                    let sum = 0;
+                    document.querySelectorAll('.multi-payer-amount-input').forEach(input => {
+                        const amt = parseFloat(input.value) || 0;
+                        if (amt > 0) {
+                            multiPayers[input.dataset.memberId] = amt;
+                            sum += amt;
+                        }
+                    });
+                    if (Math.abs(sum - amount) > 0.01) {
+                        throw new Error(`Total multi-payer amount (${formatCurrency(sum)}) must match expense amount (${formatCurrency(amount)})`);
+                    }
+                } else if (paidByValue !== 'all_paid_individually') {
                     const memberIds = currentGroupMembers.map(m => m.id);
                     if (!memberIds.includes(paidByValue)) {
                         throw new Error('Paid by must be an existing member.');
@@ -19586,8 +19695,10 @@
                     category: document.getElementById('groupExpenseCategory').value,
                     mode: document.getElementById('groupExpenseMode').value,
                     amount: amount,
-                    paidBy: paidByValue === 'all_paid_individually' ? null : paidByValue,
+                    paidBy: paidByValue === 'all_paid_individually' || isMultiPayer ? null : paidByValue,
                     allPaidIndividually: paidByValue === 'all_paid_individually',
+                    isMultiPayer: isMultiPayer,
+                    multiPayers: multiPayers,
                     splitType: splitType,
                     splits: splits, // Normalized format: { memberId: owedAmount }
                     // Keep splitDetails for backward compatibility, but use splits as primary
@@ -19755,7 +19866,19 @@
                 document.getElementById('groupExpenseDescription').value = expense.description;
                 document.getElementById('groupExpenseCategory').value = expense.category;
                 document.getElementById('groupExpenseMode').value = expense.mode;
-                document.getElementById('groupExpensePaidBy').value = expense.paidBy || expense.userId;
+                if (expense.isMultiPayer) {
+                    document.getElementById('groupExpensePaidBy').value = 'multi';
+                    toggleMultiPayerInputs();
+                    Object.keys(expense.multiPayers || {}).forEach(uid => {
+                        const input = document.querySelector(`.multi-payer-amount-input[data-member-id="${uid}"]`);
+                        if (input) input.value = expense.multiPayers[uid];
+                    });
+                    updateMultiPayerTotal();
+                } else if (expense.allPaidIndividually) {
+                    document.getElementById('groupExpensePaidBy').value = 'all_paid_individually';
+                } else {
+                    document.getElementById('groupExpensePaidBy').value = expense.paidBy || expense.userId;
+                }
                 document.getElementById('groupExpenseRemarks').value = expense.remarks || '';
                 // Split Logic - use splits if available, otherwise fall back to splitDetails
                 const splits = expense.splits || expense.splitDetails || {};
