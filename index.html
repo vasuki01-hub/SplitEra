@@ -18728,6 +18728,7 @@
                     if (!expenseDoc.exists) {
                         throw new Error('Expense not found');
                     }
+                    const expenseData = { id: expenseDoc.id, ...expenseDoc.data() };
                     const expense = expenseDoc.data();
 
                     // To handle multi-payer correctly, we need the breakdown to find who is owed/owes
@@ -18735,7 +18736,7 @@
                     const groupData = groupDoc.data();
                     const allMemberIds = [...(groupData.members || []), ...(groupData.guestMembers || []).map(g => `guest:${g}`)];
                     const memberMap = allMemberIds.reduce((acc, id) => { acc[id] = { id }; return acc; }, {});
-                    const breakdowns = calculateExpenseBreakdown([expenseDoc.data()], allMemberIds, memberMap);
+                    const breakdowns = calculateExpenseBreakdown([expenseData], allMemberIds, memberMap);
                     const breakdown = breakdowns[expenseId];
 
                     let fromUser, toUser;
