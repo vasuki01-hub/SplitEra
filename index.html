@@ -17262,43 +17262,16 @@
 
                 displayExpenses.forEach(expense => {
                     const breakdown = breakdowns[expense.id];
-                    const payerId = expense.paidBy || expense.userId;
-                    const splits = expense.splits || expense.splitDetails || {};
-                    const settlements = expense.settlements || [];
-
-                    let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-
-                    // Guest fallback
-                    if (myShare === 0) {
-                        const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                        myShare = breakdown?.contributions?.[guestKey] || 0;
+                    if (!breakdown) {
+                        activeExpenses.push(expense);
+                        return;
                     }
 
-                    // Equal split fallback only when really appropriate
-                    if (myShare === 0 && Object.keys(splits).length === 0) {
-                        const splitType = (expense.splitType || 'equal').toLowerCase();
-                        if (splitType === 'equal') {
-                            myShare = parseFloat(expense.amount) / allMembers.length;
-                        }
-                    }
+                    // Source of truth: remaining balance from the engine
+                    const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
 
-                    let displayAmount = 0;
-                    let isFullySettledForUser = true;
-
-                    if (payerId === currentUser.uid) {
-                        const totalReceived = settlements.reduce((sum, s) =>
-                            sum + (s.toUser === currentUser.uid ? parseFloat(s.amount) : 0), 0);
-                        displayAmount = parseFloat(expense.amount) - myShare - totalReceived;
-                    } else {
-                        const totalPaid = settlements.reduce((sum, s) =>
-                            sum + (s.fromUser === currentUser.uid ? parseFloat(s.amount) : 0), 0);
-                        displayAmount = myShare - totalPaid;
-                    }
-
-                    displayAmount = Math.max(0, displayAmount);
-                    isFullySettledForUser = displayAmount <= 0.01;
-
-                    if (isFullySettledForUser) {
+                    // If my remaining balance is near zero, it's settled FOR ME
+                    if (Math.abs(remaining) <= 0.01) {
                         settledExpenses.push(expense);
                     } else {
                         activeExpenses.push(expense);
@@ -17311,41 +17284,11 @@
                     const expenseBreakdown = breakdowns[expense.id];
                     const settlements = expense.settlements || [];
 
-                    let displayAmount = 0;
-                    let amountColor = 'var(--danger)'; // ← always red for total amount as requested
-                    let totalExpenseForUser = 0;
-                    let myShare = expenseBreakdown?.contributions?.[currentUser.uid] || 0;
+                    // Use engine's remaining balance for current user
+                    const remainingForMe = expenseBreakdown?.remainingBalances?.[currentUser.uid] || 0;
+                    const myShare = expenseBreakdown?.contributions?.[currentUser.uid] || 0;
 
-                    // Guest fallback for share display
-                    if (myShare === 0) {
-                        const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                        myShare = expenseBreakdown?.contributions?.[guestKey] || 0;
-                    }
-
-                    // Equal fallback only for real equal splits
-                    if (myShare === 0 && Object.keys(expense.splits || expense.splitDetails || {}).length === 0) {
-                        const splitType = (expense.splitType || 'equal').toLowerCase();
-                        if (splitType === 'equal') {
-                            myShare = parseFloat(expense.amount) / allMembers.length;
-                        }
-                    }
-
-                    if (payerId === currentUser.uid) {
-                        const totalReceived = settlements.reduce((sum, s) =>
-                            sum + (s.toUser === currentUser.uid ? parseFloat(s.amount) : 0), 0);
-                        displayAmount = parseFloat(expense.amount) - myShare - totalReceived;
-                        totalExpenseForUser = displayAmount;
-                        // amountColor remains red (total expense), receivable shown separately in green
-                    } else if (myShare > 0) {
-                        const totalPaid = settlements.reduce((sum, s) =>
-                            sum + (s.fromUser === currentUser.uid ? parseFloat(s.amount) : 0), 0);
-                        displayAmount = myShare - totalPaid;
-                        totalExpenseForUser = myShare;
-                        // amountColor remains red for what they owe
-                    }
-
-                    displayAmount = Math.max(0, displayAmount);
-                    const isFullySettledForMe = displayAmount <= 0.01;
+                    const isFullySettledForMe = Math.abs(remainingForMe) <= 0.01;
                     const isExpenseSettled = expenseBreakdown?.isSettled || false;
 
                     return `
@@ -17461,7 +17404,7 @@
                                                                         <i class="fas fa-edit"></i>
                                                                     </button>
                                                                     ${Math.abs(remainingBalance) > 0.01 ? `
-                                                                    <button class="btn btn-sm btn-outline-success" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="settleIndividualBalance('${expense.id}', '${mId}', ${Math.abs(remainingBalance)}, '${groupId}')">
+                                                                    <button class="btn btn-sm btn-outline-success" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;" onclick="settleIndividualBalance('${expense.id}', '${mId}', ${remainingBalance}, '${groupId}')">
                                                                         <i class="fas fa-check-circle"></i>
                                                                     </button>
                                                                     ` : ''}
@@ -18786,10 +18729,13 @@
                         throw new Error('Expense not found');
                     }
                     const expense = expenseDoc.data();
+                    // Fallback to expense creator if no single payer (for multi-payer context)
                     const payerId = expense.paidBy || expense.userId;
-                    // Determine correct settlement direction (fixed condition)
-                    // If currentBalance < 0, member owes (from member to payer)
-                    // If currentBalance > 0, member is owed (from payer to member)
+
+                    // Determine correct settlement direction based on the SIGNED balance
+                    // If currentBalance < 0, member owes (from member to someone)
+                    // If currentBalance > 0, member is owed (from someone to member)
+                    // We record it against the payerId for consistency
                     const fromUser = currentBalance < 0 ? memberId : payerId;
                     const toUser = currentBalance < 0 ? payerId : memberId;
                     const amount = Math.abs(currentBalance);
@@ -18898,25 +18844,42 @@
                     const batchSettlementId = `settlement_batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
                     // 2. RECONCILE: Find original expenses to mark them as settled
-                    // This is what removes the row from the "Total Balances" table
                     const expensesSnapshot = await db.collection('group_expenses')
                         .where('groupId', '==', groupId)
                         .get();
+
+                    const allExpenses = expensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                    // Use the existing breakdown engine for robust reconciliation
+                    const groupDoc = await db.collection('groups').doc(groupId).get();
+                    const groupData = groupDoc.data();
+                    const memberIds = groupData.members || [];
+                    const allMemberIds = [...memberIds, ...(groupData.guestMembers || []).map(g => `guest:${g}`)];
+
+                    // Minimal member map for calculation
+                    const memberMap = allMemberIds.reduce((acc, id) => { acc[id] = { id }; return acc; }, {});
+                    const breakdowns = calculateExpenseBreakdown(allExpenses, allMemberIds, memberMap);
+
                     let remainingToSettle = amountVal;
-                    expensesSnapshot.docs.forEach(doc => {
-                        const exp = doc.data();
-                        // Skip if it's already a settlement or we've finished the amount
-                        if (exp.category === 'Settlement' || remainingToSettle <= 0) return;
-                        const payerId = exp.paidBy || exp.userId;
-                        const splits = exp.splits || exp.splitDetails || {};
-                        // If the 'fromUid' owes 'toUid' in this specific expense
-                        if (payerId === toUid && splits[fromUid] > 0) {
-                            const alreadySettled = (exp.settlements || [])
-                                .filter(s => s.fromUser === fromUid)
-                                .reduce((sum, s) => sum + parseFloat(s.amount), 0);
-                            const stillOwed = splits[fromUid] - alreadySettled;
-                            if (stillOwed > 0) {
-                                const amountToApply = Math.min(remainingToSettle, stillOwed);
+
+                    for (const doc of expensesSnapshot.docs) {
+                        if (remainingToSettle <= 0) break;
+                        const exp = { id: doc.id, ...doc.data() };
+                        if (exp.category === 'Settlement' || exp.isSettlement) continue;
+
+                        const breakdown = breakdowns[exp.id];
+                        if (!breakdown) continue;
+
+                        const remFrom = breakdown.remainingBalances[fromUid] || 0;
+                        const remTo = breakdown.remainingBalances[toUid] || 0;
+
+                        // Check if fromUid owes and toUid is owed in THIS specific expense
+                        if (remFrom < -0.01 && remTo > 0.01) {
+                            const stillOwedByFrom = Math.abs(remFrom);
+                            const stillOwedToTo = remTo;
+                            const amountToApply = Math.min(remainingToSettle, stillOwedByFrom, stillOwedToTo);
+
+                            if (amountToApply > 0.01) {
                                 batch.update(doc.ref, {
                                     settlements: firebase.firestore.FieldValue.arrayUnion({
                                         id: `settlement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -18931,7 +18894,7 @@
                                 remainingToSettle -= amountToApply;
                             }
                         }
-                    });
+                    }
                     await batch.commit();
                     showToast('Success', 'Settlement recorded and balances updated!');
 
