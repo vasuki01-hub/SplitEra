@@ -18729,16 +18729,37 @@
                         throw new Error('Expense not found');
                     }
                     const expense = expenseDoc.data();
-                    // Fallback to expense creator if no single payer (for multi-payer context)
-                    const payerId = expense.paidBy || expense.userId;
 
-                    // Determine correct settlement direction based on the SIGNED balance
-                    // If currentBalance < 0, member owes (from member to someone)
-                    // If currentBalance > 0, member is owed (from someone to member)
-                    // We record it against the payerId for consistency
-                    const fromUser = currentBalance < 0 ? memberId : payerId;
-                    const toUser = currentBalance < 0 ? payerId : memberId;
+                    // To handle multi-payer correctly, we need the breakdown to find who is owed/owes
+                    const groupDoc = await db.collection('groups').doc(groupId).get();
+                    const groupData = groupDoc.data();
+                    const allMemberIds = [...(groupData.members || []), ...(groupData.guestMembers || []).map(g => `guest:${g}`)];
+                    const memberMap = allMemberIds.reduce((acc, id) => { acc[id] = { id }; return acc; }, {});
+                    const breakdowns = calculateExpenseBreakdown([expenseDoc.data()], allMemberIds, memberMap);
+                    const breakdown = breakdowns[expenseId];
+
+                    let fromUser, toUser;
                     const amount = Math.abs(currentBalance);
+
+                    if (currentBalance < 0) {
+                        // memberId OWES money. We need to find a CREDITOR to receive it.
+                        fromUser = memberId;
+                        // Find someone with a positive remaining balance
+                        const creditors = Object.entries(breakdown.remainingBalances)
+                            .filter(([id, bal]) => bal > 0.01)
+                            .sort((a, b) => b[1] - a[1]); // Most owed first
+
+                        toUser = creditors.length > 0 ? creditors[0][0] : (expense.paidBy || expense.userId);
+                    } else {
+                        // memberId IS OWED money. We need to find a DEBTOR to pay them.
+                        toUser = memberId;
+                        // Find someone with a negative remaining balance
+                        const debtors = Object.entries(breakdown.remainingBalances)
+                            .filter(([id, bal]) => bal < -0.01)
+                            .sort((a, b) => a[1] - b[1]); // Most owing first
+
+                        fromUser = debtors.length > 0 ? debtors[0][0] : (expense.paidBy || expense.userId);
+                    }
 
                     // 1. Create Settlement Record (Embedded only)
                     const uniqueId = `settlement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
