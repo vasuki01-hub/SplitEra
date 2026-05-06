@@ -17568,17 +17568,12 @@
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('receivable')}:</span>
-                                                <strong style="color: var(--success);">${formatCurrency(Math.max(0, displayExpenses.reduce((sum, e) => {
+                                                <strong style="color: var(--success);">${formatCurrency(displayExpenses.reduce((sum, e) => {
                                 const breakdown = breakdowns[e.id];
                                 if (!breakdown) return sum;
                                 const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
                                 return sum + Math.max(0, remaining);
-                            }, 0) - displayExpenses.reduce((sum, e) => {
-                                const breakdown = breakdowns[e.id];
-                                if (!breakdown) return sum;
-                                const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                                return sum + Math.max(0, -remaining);
-                            }, 0)))}</strong>
+                            }, 0))}</strong>
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('totalYourShare') || 'Total Your Share'}:</span>
@@ -17594,26 +17589,12 @@
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
     <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
-    <strong style="color: var(--danger);">${(() => {
-                                        const totalYourShare = displayExpenses.reduce((sum, e) => {
-                                            const breakdown = breakdowns[e.id];
-                                            let s = breakdown?.contributions?.[currentUser.uid] || 0;
-                                            if (s === 0) {
-                                                const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                                                s = breakdown?.contributions?.[guestKey] || 0;
-                                            }
-                                            return sum + s;
-                                        }, 0);
-
-                                        const netOwed = displayExpenses.reduce((sum, e) => {
-                                            const breakdown = breakdowns[e.id];
-                                            if (!breakdown) return sum;
-                                            const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                                            return sum - remaining; // If remaining is negative (owes), this adds to sum
-                                        }, 0);
-
-                                        return formatCurrency(Math.max(0, netOwed));
-                                    })()}</strong>
+    <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                                const breakdown = breakdowns[e.id];
+                                if (!breakdown) return sum;
+                                const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                                return sum + Math.max(0, -remaining);
+                            }, 0))}</strong>
 </div>
                                         </div>
                                     ` } `}
@@ -17630,28 +17611,28 @@
                                         </div>
                                         <div style="display: flex; flex-direction: column; gap: 10px;">
                                             ${currentGroupMembers.map(m => {
-                                        // Collect settlement lines FROM this member's perspective
-                                        const giveLines = debts
-                                            .filter(d => d.from === m.id && d.amount > 0.01)
-                                            .map(d => {
-                                                const toMember = memberMap[d.to] || { firstName: d.to.startsWith('guest:') ? d.to.split(':')[1] : d.to };
-                                                return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--danger);font-weight:500;">
+                                // Collect settlement lines FROM this member's perspective
+                                const giveLines = debts
+                                    .filter(d => d.from === m.id && d.amount > 0.01)
+                                    .map(d => {
+                                        const toMember = memberMap[d.to] || { firstName: d.to.startsWith('guest:') ? d.to.split(':')[1] : d.to };
+                                        return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--danger);font-weight:500;">
                                         <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i>
                                         <span>${(t('hasToGive') || 'has to give {amount} to <strong>{name}</strong>').replace('{amount}', formatCurrency(d.amount)).replace('{name}', escapeHTML(toMember.firstName))}</span>
                                     </div>`;
-                                            });
-                                        const receiveLines = debts
-                                            .filter(d => d.to === m.id && d.amount > 0.01)
-                                            .map(d => {
-                                                const fromMember = memberMap[d.from] || { firstName: d.from.startsWith('guest:') ? d.from.split(':')[1] : d.from };
-                                                return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--success);font-weight:500;">
+                                    });
+                                const receiveLines = debts
+                                    .filter(d => d.to === m.id && d.amount > 0.01)
+                                    .map(d => {
+                                        const fromMember = memberMap[d.from] || { firstName: d.from.startsWith('guest:') ? d.from.split(':')[1] : d.from };
+                                        return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--success);font-weight:500;">
                                         <i class="fas fa-arrow-left" style="font-size:0.65rem;"></i>
                                         <span>${(t('hasToReceive') || 'has to receive {amount} from <strong>{name}</strong>').replace('{amount}', formatCurrency(d.amount)).replace('{name}', escapeHTML(fromMember.firstName))}</span>
                                     </div>`;
-                                            });
-                                        const allLines = [...giveLines, ...receiveLines];
-                                        const isSettled = allLines.length === 0;
-                                        return `
+                                    });
+                                const allLines = [...giveLines, ...receiveLines];
+                                const isSettled = allLines.length === 0;
+                                return `
                                                 <div style="background:var(--bg-card);border-radius:8px;padding:8px 10px;border:1px solid var(--border);${!isSettled ? (giveLines.length > 0 && receiveLines.length === 0 ? 'border-left:3px solid var(--danger);' : receiveLines.length > 0 && giveLines.length === 0 ? 'border-left:3px solid var(--success);' : 'border-left:3px solid var(--primary);') : 'border-left:3px solid var(--success);'}">
                                                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:${isSettled ? '0' : '6px'};">
                                                         <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(m.firstName) + '+' + encodeURIComponent(m.lastName || '')}" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;">
@@ -17662,7 +17643,7 @@
                                                     </div>
                                                     ${allLines.length > 0 ? `<div style="display:flex;flex-direction:column;gap:3px;padding-left:36px;">${allLines.join('')}</div>` : ''}
                                                 </div>`;
-                                    }).join('')}
+                            }).join('')}
                                         </div>
                                     </div>
 
@@ -17676,16 +17657,16 @@
                                     ` : `
                                         <div class="debts-list">
                                             ${debts.map(debt => {
-                                        const from = memberMap[debt.from] || { firstName: 'Unknown' };
-                                        const to = memberMap[debt.to] || { firstName: 'Unknown' };
-                                        const isDebtor = debt.from === currentUser.uid;
-                                        const isCreditor = debt.to === currentUser.uid;
-                                        let actionIcons = '';
-                                        let statusText = '';
-                                        let cardClass = 'debt-card';
+                                const from = memberMap[debt.from] || { firstName: 'Unknown' };
+                                const to = memberMap[debt.to] || { firstName: 'Unknown' };
+                                const isDebtor = debt.from === currentUser.uid;
+                                const isCreditor = debt.to === currentUser.uid;
+                                let actionIcons = '';
+                                let statusText = '';
+                                let cardClass = 'debt-card';
 
-                                        if (isDebtor) {
-                                            actionIcons = `
+                                if (isDebtor) {
+                                    actionIcons = `
                                                         <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
                                                             <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
                                                                 <i class="fas fa-check"></i>
@@ -17695,10 +17676,10 @@
                                                             </button>
                                                         </div>
                                                     `;
-                                            statusText = `<span style="color: var(--danger); font-size: 0.8rem;">${t('youOwe')}</span>`;
-                                            cardClass = 'debt-card debtor';
-                                        } else if (isCreditor) {
-                                            actionIcons = `
+                                    statusText = `<span style="color: var(--danger); font-size: 0.8rem;">${t('youOwe')}</span>`;
+                                    cardClass = 'debt-card debtor';
+                                } else if (isCreditor) {
+                                    actionIcons = `
                                                         <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
                                                             <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
                                                                 <i class="fas fa-check"></i>
@@ -17708,13 +17689,13 @@
                                                             </button>
                                                         </div>
                                                     `;
-                                            statusText = `<span style="color: var(--success); font-size: 0.8rem;">${t('owesYou')}</span>`;
-                                            cardClass = 'debt-card creditor';
-                                        } else {
-                                            statusText = `<span class="text-secondary" style="font-size: 0.8rem;">${t('pending')}</span>`;
-                                        }
+                                    statusText = `<span style="color: var(--success); font-size: 0.8rem;">${t('owesYou')}</span>`;
+                                    cardClass = 'debt-card creditor';
+                                } else {
+                                    statusText = `<span class="text-secondary" style="font-size: 0.8rem;">${t('pending')}</span>`;
+                                }
 
-                                        return `
+                                return `
                                             <div class="${cardClass}" id="debt-card-${groupId}-${debt.from}-${debt.to}" style="background: var(--bg-card); padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border); font-size: 0.9rem; ${isDebtor ? 'border-left: 4px solid var(--danger);' : isCreditor ? 'border-left: 4px solid var(--success);' : ''}">
                                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                                     <div style="flex: 1;">
@@ -17730,7 +17711,7 @@
                                                 </div>
                                             </div>
                                         `;
-                                    }).join('')}
+                            }).join('')}
                                 </div>
                                 `}
                             </div>
@@ -17845,17 +17826,12 @@
                                         </div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                             <span class="text-secondary">${t('receivable')}:</span>
-                                            <strong style="color: var(--success);">${formatCurrency(Math.max(0, displayExpenses.reduce((sum, e) => {
+                                            <strong style="color: var(--success);">${formatCurrency(displayExpenses.reduce((sum, e) => {
                         const breakdown = breakdowns[e.id];
                         if (!breakdown) return sum;
                         const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
                         return sum + Math.max(0, remaining);
-                    }, 0) - displayExpenses.reduce((sum, e) => {
-                        const breakdown = breakdowns[e.id];
-                        if (!breakdown) return sum;
-                        const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                        return sum + Math.max(0, -remaining);
-                    }, 0)))}</strong>
+                    }, 0))}</strong>
                                         </div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                             <span class="text-secondary">${t('totalYourShare') || 'Total Your Share'}:</span>
@@ -17871,45 +17847,12 @@
                                         </div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
     <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
-    <strong style="color: var(--danger);">${(() => {
-                                const totalYourShare = displayExpenses.reduce((sum, e) => {
-                                    const breakdown = breakdowns[e.id];
-                                    let s = breakdown?.contributions?.[currentUser.uid] || 0;
-                                    if (s === 0) {
-                                        const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                                        s = breakdown?.contributions?.[guestKey] || 0;
-                                    }
-                                    return sum + s;
-                                }, 0);
-
-                                const netOwed = displayExpenses.reduce((sum, e) => {
-                                    const payerId = e.paidBy || e.userId;
-                                    const breakdown = breakdowns[e.id];
-                                    const settlements = e.settlements || [];
-
-                                    let myShare = breakdown?.contributions?.[currentUser.uid] || 0;
-                                    if (myShare === 0) {
-                                        const guestKey = `guest:${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
-                                        myShare = breakdown?.contributions?.[guestKey] || 0;
-                                    }
-
-                                    if (payerId === currentUser.uid) {
-                                        const totalReceived = settlements.reduce((s, settlement) => {
-                                            return s + (settlement.toUser === currentUser.uid ? parseFloat(settlement.amount) || 0 : 0);
-                                        }, 0);
-                                        const receivableThisExpense = parseFloat(e.amount) - myShare - totalReceived;
-                                        return sum - Math.max(0, receivableThisExpense);
-                                    } else {
-                                        const totalPaidByMe = settlements.reduce((s, settlement) => {
-                                            return s + (settlement.fromUser === currentUser.uid ? parseFloat(settlement.amount) || 0 : 0);
-                                        }, 0);
-                                        const stillOweThisExpense = myShare - totalPaidByMe;
-                                        return sum + Math.max(0, stillOweThisExpense);
-                                    }
-                                }, 0);
-
-                                return formatCurrency(Math.max(0, netOwed));
-                            })()}</strong>
+    <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
+                        const breakdown = breakdowns[e.id];
+                        if (!breakdown) return sum;
+                        const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                        return sum + Math.max(0, -remaining);
+                    }, 0))}</strong>
 </div>
                                         </div>
                                     ` } `}
@@ -17926,28 +17869,28 @@
                                     </div>
                                     <div style="display: flex; flex-direction: column; gap: 10px;">
                                         ${currentGroupMembers.map(m => {
-                                // Collect settlement lines FROM this member's perspective
-                                const giveLines = debts
-                                    .filter(d => d.from === m.id && d.amount > 0.01)
-                                    .map(d => {
-                                        const toMember = memberMap[d.to] || { firstName: d.to.startsWith('guest:') ? d.to.split(':')[1] : d.to };
-                                        return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--danger);font-weight:500;">
+                        // Collect settlement lines FROM this member's perspective
+                        const giveLines = debts
+                            .filter(d => d.from === m.id && d.amount > 0.01)
+                            .map(d => {
+                                const toMember = memberMap[d.to] || { firstName: d.to.startsWith('guest:') ? d.to.split(':')[1] : d.to };
+                                return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--danger);font-weight:500;">
                                     <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i>
                                     <span>${(t('hasToGive') || 'has to give {amount} to <strong>{name}</strong>').replace('{amount}', formatCurrency(d.amount)).replace('{name}', escapeHTML(toMember.firstName))}</span>
                                 </div>`;
-                                    });
-                                const receiveLines = debts
-                                    .filter(d => d.to === m.id && d.amount > 0.01)
-                                    .map(d => {
-                                        const fromMember = memberMap[d.from] || { firstName: d.from.startsWith('guest:') ? d.from.split(':')[1] : d.from };
-                                        return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--success);font-weight:500;">
+                            });
+                        const receiveLines = debts
+                            .filter(d => d.to === m.id && d.amount > 0.01)
+                            .map(d => {
+                                const fromMember = memberMap[d.from] || { firstName: d.from.startsWith('guest:') ? d.from.split(':')[1] : d.from };
+                                return `<div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--success);font-weight:500;">
                                     <i class="fas fa-arrow-left" style="font-size:0.65rem;"></i>
                                     <span>${(t('hasToReceive') || 'has to receive {amount} from <strong>{name}</strong>').replace('{amount}', formatCurrency(d.amount)).replace('{name}', escapeHTML(fromMember.firstName))}</span>
                                 </div>`;
-                                    });
-                                const allLines = [...giveLines, ...receiveLines];
-                                const isSettled = allLines.length === 0;
-                                return `
+                            });
+                        const allLines = [...giveLines, ...receiveLines];
+                        const isSettled = allLines.length === 0;
+                        return `
                                             <div style="background:var(--bg-card);border-radius:8px;padding:8px 10px;border:1px solid var(--border);${!isSettled ? (giveLines.length > 0 && receiveLines.length === 0 ? 'border-left:3px solid var(--danger);' : receiveLines.length > 0 && giveLines.length === 0 ? 'border-left:3px solid var(--success);' : 'border-left:3px solid var(--primary);') : 'border-left:3px solid var(--success);'}">
                                                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:${isSettled ? '0' : '6px'};">
                                                     <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(m.firstName) + '+' + encodeURIComponent(m.lastName || '')}" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;">
@@ -17958,7 +17901,7 @@
                                                 </div>
                                                 ${allLines.length > 0 ? `<div style="display:flex;flex-direction:column;gap:3px;padding-left:36px;">${allLines.join('')}</div>` : ''}
                                             </div>`;
-                            }).join('')}
+                    }).join('')}
                                     </div>
                                 </div>
 
@@ -17972,16 +17915,16 @@
                                 ` : `
                                     <div class="debts-list">
                                         ${debts.map(debt => {
-                                const from = memberMap[debt.from] || { firstName: 'Unknown' };
-                                const to = memberMap[debt.to] || { firstName: 'Unknown' };
-                                const isDebtor = debt.from === currentUser.uid;
-                                const isCreditor = debt.to === currentUser.uid;
-                                let actionIcons = '';
-                                let statusText = '';
-                                let cardClass = 'debt-card';
+                        const from = memberMap[debt.from] || { firstName: 'Unknown' };
+                        const to = memberMap[debt.to] || { firstName: 'Unknown' };
+                        const isDebtor = debt.from === currentUser.uid;
+                        const isCreditor = debt.to === currentUser.uid;
+                        let actionIcons = '';
+                        let statusText = '';
+                        let cardClass = 'debt-card';
 
-                                if (isDebtor) {
-                                    actionIcons = `
+                        if (isDebtor) {
+                            actionIcons = `
                                                     <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
                                                         <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
                                                             <i class="fas fa-check"></i>
@@ -17991,10 +17934,10 @@
                                                         </button>
                                                     </div>
                                                 `;
-                                    statusText = `<span style="color: var(--danger); font-size: 0.8rem;">${t('youOwe')}</span>`;
-                                    cardClass = 'debt-card debtor';
-                                } else if (isCreditor) {
-                                    actionIcons = `
+                            statusText = `<span style="color: var(--danger); font-size: 0.8rem;">${t('youOwe')}</span>`;
+                            cardClass = 'debt-card debtor';
+                        } else if (isCreditor) {
+                            actionIcons = `
                                                     <div style="display: flex; gap: 4px; align-items: center; margin-left: auto;">
                                                         <button class="action-btn" onclick="settleDebt('${groupId}', '${debt.from}', '${debt.to}', ${debt.amount})" title="${t('markAsSettled')}" style="padding: 4px 8px; border-radius: 4px; background: var(--primary); color: white; border: none; cursor: pointer; font-size: 0.8rem;">
                                                             <i class="fas fa-check"></i>
@@ -18004,13 +17947,13 @@
                                                         </button>
                                                     </div>
                                                 `;
-                                    statusText = `<span style="color: var(--success); font-size: 0.8rem;">${t('owesYou')}</span>`;
-                                    cardClass = 'debt-card creditor';
-                                } else {
-                                    statusText = `<span class="text-secondary" style="font-size: 0.8rem;">${t('pending')}</span>`;
-                                }
+                            statusText = `<span style="color: var(--success); font-size: 0.8rem;">${t('owesYou')}</span>`;
+                            cardClass = 'debt-card creditor';
+                        } else {
+                            statusText = `<span class="text-secondary" style="font-size: 0.8rem;">${t('pending')}</span>`;
+                        }
 
-                                return `
+                        return `
                                         <div class="${cardClass}" id="debt-card-${groupId}-${debt.from}-${debt.to}" style="background: var(--bg-card); padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border); font-size: 0.9rem; ${isDebtor ? 'border-left: 4px solid var(--danger);' : isCreditor ? 'border-left: 4px solid var(--success);' : ''}">
                                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                                 <div style="flex: 1;">
@@ -18026,7 +17969,7 @@
                                             </div>
                                         </div>
                                     `;
-                            }).join('')}
+                    }).join('')}
                                     </div>
                                 `}
                             </div>
