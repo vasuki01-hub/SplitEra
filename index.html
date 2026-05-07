@@ -790,6 +790,44 @@
             background: var(--bg-light);
         }
 
+        .expandable-detail-row {
+            display: none;
+            background: var(--bg-light);
+        }
+
+        .expandable-detail-row.is-open {
+            display: table-row;
+            animation: fadeSlideDown 0.22s ease;
+        }
+
+        tr.is-expanded {
+            background: var(--bg-hover);
+        }
+
+        .compact-table th,
+        .compact-table td {
+            padding: 0.55rem 0.45rem;
+            vertical-align: middle;
+        }
+
+        .details-muted {
+            font-size: 0.78rem;
+            color: var(--text-gray);
+            margin-top: 0.2rem;
+        }
+
+        @keyframes fadeSlideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         .expense-expansion-content {
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -8352,22 +8390,42 @@
                 return;
             }
             if (section === 'credits') {
-                editCredit(id);
+                toggleCreditRowDetails(id);
                 return;
             }
             if (section === 'personal') {
-                editPersonal(id);
+                togglePersonalRowDetails(id);
                 return;
             }
             if (section === 'details') {
                 const itemType = row.dataset.itemType || '';
-                const canEdit = row.dataset.canEdit === 'true';
-                if (canEdit) editDetailsRow(itemType, id);
+                toggleDetailsRowDetails(itemType, id);
                 return;
             }
             if (section === 'groupExpenses') {
                 toggleExpenseExpansion(id);
             }
+        }
+
+        function toggleExpandableRow(detailsRowId, triggerRowId) {
+            const detailsRow = document.getElementById(detailsRowId);
+            const triggerRow = document.getElementById(triggerRowId);
+            if (!detailsRow || !triggerRow) return;
+            const isOpen = detailsRow.classList.contains('is-open');
+            detailsRow.classList.toggle('is-open', !isOpen);
+            triggerRow.classList.toggle('is-expanded', !isOpen);
+        }
+
+        function toggleCreditRowDetails(id) {
+            toggleExpandableRow(`credit-details-${id}`, `credit-row-${id}`);
+        }
+
+        function togglePersonalRowDetails(id) {
+            toggleExpandableRow(`personal-details-${id}`, `personal-row-${id}`);
+        }
+
+        function toggleDetailsRowDetails(itemType, id) {
+            toggleExpandableRow(`details-expanded-${itemType}-${id}`, `details-row-${itemType}-${id}`);
         }
 
         function openRowActionSheet(section, id, itemType = '', canEdit = true) {
@@ -8464,9 +8522,12 @@
             if (!container) return;
 
             const monthGroups = Array.from(container.querySelectorAll('.month-group'));
+            const now = new Date();
+            const currentMonthText = `${getMonthName(now.getMonth())} ${now.getFullYear()}`;
             monthGroups.forEach((monthGroup, monthIndex) => {
                 const monthKey = `${section}-${monthIndex}`;
                 const header = monthGroup.querySelector('.month-header');
+                const tableWrapper = monthGroup.querySelector('.table-wrapper');
                 if (header && !header.querySelector(`[data-month-header-section="${section}"]`)) {
                     const monthSelect = document.createElement('label');
                     monthSelect.style.display = 'flex';
@@ -8474,6 +8535,24 @@
                     monthSelect.style.gap = '0.35rem';
                     monthSelect.innerHTML = `<input type="checkbox" data-month-header-section="${section}" data-month-header-key="${monthKey}" onchange="toggleMonthSelection('${section}', '${monthKey}', this.checked)"> <small>Select all</small>`;
                     header.prepend(monthSelect);
+                }
+
+                if (header && tableWrapper && !header.dataset.accordionBound) {
+                    header.dataset.accordionBound = '1';
+                    header.style.cursor = 'pointer';
+                    const monthTitle = header.querySelector('span')?.textContent?.trim() || '';
+                    const openByDefault = monthTitle === currentMonthText;
+                    monthGroup.classList.toggle('month-open', openByDefault);
+                    tableWrapper.style.maxHeight = openByDefault ? `${tableWrapper.scrollHeight + 30}px` : '0px';
+                    tableWrapper.style.overflow = 'hidden';
+                    tableWrapper.style.transition = 'max-height 260ms ease';
+
+                    header.addEventListener('click', (evt) => {
+                        if (evt.target.closest('input, label, button, .action-btn')) return;
+                        const isOpen = monthGroup.classList.contains('month-open');
+                        monthGroup.classList.toggle('month-open', !isOpen);
+                        tableWrapper.style.maxHeight = isOpen ? '0px' : `${tableWrapper.scrollHeight + 30}px`;
+                    });
                 }
 
                 const table = monthGroup.querySelector('table');
@@ -13180,6 +13259,8 @@
 
                 // Render each month
                 let html = '';
+                const now = new Date();
+                const currentCalendarMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
                 Object.keys(months).sort().reverse().forEach(monthKey => {
                     const [year, month] = monthKey.split('-');
                     const monthName = getMonthName(parseInt(month));
@@ -13187,10 +13268,14 @@
                     const lastDay = new Date(year, parseInt(month) + 1, 0);
                     const startDay = firstDay.getDay();
 
+                    const isOpen = monthKey === currentCalendarMonthKey;
                     html += `
-                <div class="calendar-month">
-                    <h3 class="calendar-month-title">${monthName} ${year}</h3>
-                    <div class="calendar-grid">
+                <div class="calendar-month ${isOpen ? 'month-open' : ''}">
+                    <h3 class="calendar-month-title" onclick="toggleCalendarMonth(this)">
+                        <span>${monthName} ${year}</span>
+                        <i class="fas fa-chevron-${isOpen ? 'up' : 'down'}"></i>
+                    </h3>
+                    <div class="calendar-grid" style="max-height:${isOpen ? '2000px' : '0px'}; overflow:hidden; transition:max-height 260ms ease;">
                         <div class="calendar-header">${t('sunday')}</div>
                         <div class="calendar-header">${t('monday')}</div>
                         <div class="calendar-header">${t('tuesday')}</div>
@@ -13332,6 +13417,35 @@
         </div>
     `;
             document.body.appendChild(modal);
+        }
+
+        function toggleCalendarMonth(headerEl) {
+            const monthCard = headerEl.closest('.calendar-month');
+            const grid = monthCard?.querySelector('.calendar-grid');
+            const icon = headerEl.querySelector('i');
+            if (!monthCard || !grid || !icon) return;
+            const isOpen = monthCard.classList.contains('month-open');
+            monthCard.classList.toggle('month-open', !isOpen);
+            grid.style.maxHeight = isOpen ? '0px' : '2000px';
+            icon.className = `fas fa-chevron-${isOpen ? 'down' : 'up'}`;
+        }
+
+        function toggleMemberCardDetails(groupId, memberId) {
+            const body = document.getElementById(`member-card-body-${groupId}-${memberId}`);
+            const icon = document.getElementById(`member-card-icon-${groupId}-${memberId}`);
+            if (!body || !icon) return;
+            const isOpen = body.style.display !== 'none';
+            body.style.display = isOpen ? 'none' : 'flex';
+            icon.className = `fas fa-chevron-${isOpen ? 'down' : 'up'}`;
+        }
+
+        function toggleMemberCardDetails(groupId, memberId) {
+            const body = document.getElementById(`member-card-body-${groupId}-${memberId}`);
+            const icon = document.getElementById(`member-card-icon-${groupId}-${memberId}`);
+            if (!body || !icon) return;
+            const isOpen = body.style.display !== 'none';
+            body.style.display = isOpen ? 'none' : 'flex';
+            icon.className = `fas fa-chevron-${isOpen ? 'down' : 'up'}`;
         }
 
         // Details Page
@@ -13675,15 +13789,12 @@
                                     <span style="font-size: 0.9em; font-weight: 600; color: var(--success);">${formatCurrency(monthTotal)}</span>
                                 </div>
                                 <div class="table-wrapper">
-                                    <table class="table">
+                                    <table class="table compact-table">
                                         <thead>
                                             <tr>
                                                 <th>${t('date')}</th>
-                                                <th>${t('description')}</th>
-                                                <th>${t('source')}</th>
                                                 <th>${t('mode')}</th>
                                                 <th>${t('amount')}</th>
-                                                <th>${t('attachments')}</th>
                                                 <th>${t('actions')}</th>
                                             </tr>
                                         </thead>
@@ -13691,29 +13802,39 @@
                                             ${grouped[month].map(credit => `
                                                 <tr id="credit-row-${credit.id}" data-row-id="${credit.id}">
                                                     <td>${credit.date.toDate().toLocaleDateString()}</td>
-                                                    <td>${escapeHTML(credit.description)}</td>
-                                                    <td>${escapeHTML(credit.source || '-')}</td>
                                                     <td>${escapeHTML(credit.mode)}</td>
                                                     <td style="color: var(--success); font-weight: 600;">${formatCurrency(credit.amount)}</td>
                                                     <td>
-                                                        ${credit.attachments && credit.attachments.length > 0 ? `
-                                                            <div class="attachments">
-                                                                ${credit.attachments.map((url, idx) => `
-                                                                    <div class="attachment" onclick="viewAttachment(this.dataset.url)" data-url="${escapeHTML(url)}">
-                                                                        <img src="${escapeHTML(url)}" alt="Attachment ${idx + 1}">
-                                                                    </div>
-                                                                `).join('')}
-                                                            </div>
-                                                        ` : '-'}
-                                                    </td>
-                                                    <td>
                                                         <div class="actions">
+                                                            <button class="action-btn" onclick="event.stopPropagation(); toggleCreditRowDetails('${credit.id}')" title="Expand">
+                                                                <i class="fas fa-chevron-down"></i>
+                                                            </button>
                                                             <button class="action-btn" onclick="editCredit('${credit.id}')">
                                                                 <i class="fas fa-edit"></i>
                                                             </button>
                                                             <button class="action-btn danger" onclick="deleteCredit('${credit.id}')">
                                                                 <i class="fas fa-trash"></i>
                                                             </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                <tr id="credit-details-${credit.id}" class="expandable-detail-row">
+                                                    <td colspan="5">
+                                                        <div style="padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
+                                                            <div><strong>${t('description')}:</strong> ${escapeHTML(credit.description || '-')}</div>
+                                                            <div><strong>${t('source')}:</strong> ${escapeHTML(credit.source || '-')}</div>
+                                                            <div style="margin-top: 0.5rem;">
+                                                                <strong>${t('attachments')}:</strong>
+                                                                ${credit.attachments && credit.attachments.length > 0 ? `
+                                                                    <div class="attachments" style="margin-top:0.4rem;">
+                                                                        ${credit.attachments.map((url, idx) => `
+                                                                            <div class="attachment" onclick="viewAttachment(this.dataset.url)" data-url="${escapeHTML(url)}">
+                                                                                <img src="${escapeHTML(url)}" alt="Attachment ${idx + 1}">
+                                                                            </div>
+                                                                        `).join('')}
+                                                                    </div>
+                                                                ` : ' -'}
+                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -14510,16 +14631,12 @@
                                     <span style="font-size: 0.9em; font-weight: 600; color: var(--danger);">${formatCurrency(monthTotal)}</span>
                                 </div>
                                 <div class="table-wrapper">
-                                    <table class="table">
+                                    <table class="table compact-table">
                                         <thead>
                                             <tr>
                                                 <th>${t('date')}</th>
-                                                <th>${t('description')}</th>
-                                                <th>${t('category')}</th>
                                                 <th>${t('mode')}</th>
-                                                <th>${t('remarks')}</th>
                                                 <th>${t('amount')}</th>
-                                                <th>${t('attachments')}</th>
                                                 <th>${t('actions')}</th>
                                             </tr>
                                         </thead>
@@ -14527,30 +14644,40 @@
                                             ${grouped[month].map(expense => `
                                                 <tr id="personal-row-${expense.id}" data-id="${expense.id}">
                                                     <td>${expense.date.toDate().toLocaleDateString()}</td>
-                                                    <td>${escapeHTML(expense.description)}</td>
-                                                    <td>${escapeHTML(expense.category) || '-'}</td>
                                                     <td>${escapeHTML(expense.mode)}</td>
-                                                    <td>${escapeHTML(expense.remarks) || '-'}</td>
                                                     <td style="color: var(--danger); font-weight: 600;">${formatCurrency(expense.amount)}</td>
                                                     <td>
-                                                        ${expense.attachments && expense.attachments.length > 0 ? `
-                                                            <div class="attachments">
-                                                                ${expense.attachments.map((url, idx) => `
-                                                                    <div class="attachment" onclick="viewAttachment(this.dataset.url)" data-url="${escapeHTML(url)}">
-                                                                        <img src="${escapeHTML(url)}" alt="Attachment ${idx + 1}">
-                                                                    </div>
-                                                                `).join('')}
-                                                            </div>
-                                                        ` : '-'}
-                                                    </td>
-                                                    <td>
                                                         <div class="actions">
+                                                            <button class="action-btn" onclick="event.stopPropagation(); togglePersonalRowDetails('${expense.id}')" title="Expand">
+                                                                <i class="fas fa-chevron-down"></i>
+                                                            </button>
                                                             <button class="action-btn" onclick="editPersonal('${expense.id}')">
                                                                 <i class="fas fa-edit"></i>
                                                             </button>
                                                             <button class="action-btn danger" onclick="deletePersonal('${expense.id}')">
                                                                 <i class="fas fa-trash"></i>
                                                             </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                <tr id="personal-details-${expense.id}" class="expandable-detail-row">
+                                                    <td colspan="5">
+                                                        <div style="padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
+                                                            <div><strong>${t('category')}:</strong> ${escapeHTML(expense.category || '-')}</div>
+                                                            <div><strong>${t('description')}:</strong> ${escapeHTML(expense.description || '-')}</div>
+                                                            <div><strong>${t('remarks')}:</strong> ${escapeHTML(expense.remarks || '-')}</div>
+                                                            <div style="margin-top: 0.5rem;">
+                                                                <strong>${t('attachments')}:</strong>
+                                                                ${expense.attachments && expense.attachments.length > 0 ? `
+                                                                    <div class="attachments" style="margin-top:0.4rem;">
+                                                                        ${expense.attachments.map((url, idx) => `
+                                                                            <div class="attachment" onclick="viewAttachment(this.dataset.url)" data-url="${escapeHTML(url)}">
+                                                                                <img src="${escapeHTML(url)}" alt="Attachment ${idx + 1}">
+                                                                            </div>
+                                                                        `).join('')}
+                                                                    </div>
+                                                                ` : ' -'}
+                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -17299,17 +17426,6 @@
                         <td>
                              <div style="font-weight: 600; color: var(--primary);">${escapeHTML(expense.expenseName || expense.description)}</div>
                         </td>
-                        <td>
-                             <div style="font-weight: 500;">${escapeHTML(expense.description)}</div>
-                             <div style="font-size: 0.75rem; color: var(--text-gray);">${escapeHTML(expense.category) || 'Group'}</div>
-                            ${expense.attachments && expense.attachments.length > 0 ? `
-                                <div class="attachments-mini" style="display: flex; gap: 4px; margin-top: 4px;">
-                                    ${expense.attachments.map(url => `
-                                        <i class="fas fa-paperclip" style="cursor: pointer; color: var(--primary);" onclick="viewAttachment('${url}')"></i>
-                                    `).join('')}
-                                </div>
-                            ` : ''}
-                        </td>
                         <td><span class="badge badge-secondary">${expense.isMultiPayer ? 'Multiple Payers' : escapeHTML(payer.firstName)}</span></td>
                         <td style="color: var(--danger); font-weight: 600;">
                             <div style="font-size: 0.8rem; color: var(--text-gray);">${t('totalExpense')}</div>
@@ -17326,25 +17442,6 @@
                             ${formatCurrency(myShare)}
                         </td>
                         <td>
-                            <small class="text-secondary">${(() => {
-                            const st = expense.splitType || 'equal';
-                            const normalized = st.toLowerCase();
-                            if (normalized === 'equal') return t('equal');
-                            if (normalized === 'exact' || normalized === 'custom') return t('exact') || 'Exact';
-                            if (normalized === 'percent') return t('percent') || 'Percent';
-                            if (normalized === 'shares') return t('shares') || 'Shares';
-                            return t(st) || st;
-                        })()}</small>
-                        </td>
-                        <td>
-                             ${escapeHTML(expense.remarks) || '-'}
-                        </td>
-                        <td>
-                            ${isExpenseSettled ?
-                            '<span style="color: var(--success); font-weight: 600;">✓ ' + t('settled') + '</span>' :
-                            (isFullySettledForMe ? '<span style="color: var(--success);">✓ ' + t('paid') + '</span>' : '<span style="color: var(--warning);">⏳ ' + t('pending') + '</span>')}
-                        </td>
-                        <td>
                             <div class="actions">
                                 <button class="action-btn" onclick="toggleExpenseExpansion('${expense.id}')" title="Expand Details">
                                     <i class="fas fa-chevron-down" id="expand-icon-${expense.id}"></i>
@@ -17359,8 +17456,24 @@
                         </td>
                     </tr>
                     <tr id="expense-details-${expense.id}" class="expense-details-row" style="display: none;">
-                        <td colspan="11" style="padding: 0;">
+                        <td colspan="8" style="padding: 0;">
                             <div class="expense-expansion-content" style="background: var(--bg-light); padding: 1rem; border-radius: 8px; margin: 0.5rem 0;">
+                                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:0.6rem; margin-bottom:0.9rem;">
+                                    <div><strong>${t('description')}:</strong> ${escapeHTML(expense.description || '-')}</div>
+                                    <div><strong>${t('split')}:</strong> ${(() => {
+                            const st = expense.splitType || 'equal';
+                            const normalized = st.toLowerCase();
+                            if (normalized === 'equal') return t('equal');
+                            if (normalized === 'exact' || normalized === 'custom') return t('exact') || 'Exact';
+                            if (normalized === 'percent') return t('percent') || 'Percent';
+                            if (normalized === 'shares') return t('shares') || 'Shares';
+                            return t(st) || st;
+                        })()}</div>
+                                    <div><strong>${t('remarks') || 'Remarks'}:</strong> ${escapeHTML(expense.remarks) || '-'}</div>
+                                    <div><strong>${t('status')}:</strong> ${isExpenseSettled ?
+                            '<span style="color: var(--success); font-weight: 600;">✓ ' + t('settled') + '</span>' :
+                            (isFullySettledForMe ? '<span style="color: var(--success);">✓ ' + t('paid') + '</span>' : '<span style="color: var(--warning);">⏳ ' + t('pending') + '</span>')}</div>
+                                </div>
                                 <div class="row" style="margin: 0;">
                                     <div class="col-md-6">
                                         <h5 style="color: var(--primary); margin-bottom: 1rem;">Individual Balances</h5>
@@ -17523,18 +17636,14 @@
                                         </div>
                                     ` : `
                                         <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
-                                            <table class="table">
+                                            <table class="table compact-table">
                                                 <thead>
                                                     <tr>
                                                         <th>${t('date')}</th>
                                                         <th>${t('expenseName') || 'Name'}</th>
-                                                        <th>${t('description')}</th>
                                                         <th>${t('paidBy')}</th>
                                                         <th>${t('amount')}</th>
                                                         <th>${t('yourShare') || 'Your Share'}</th>
-                                                        <th>${t('split')}</th>
-                                                        <th>${t('remarks') || 'Remarks'}</th>
-                                                        <th>${t('status')}</th>
                                                         <th>${t('actions')}</th>
                                                     </tr>
                                                 </thead>
@@ -17543,7 +17652,7 @@
                                                     <tbody>
                                                         <tr style="background: var(--bg-light); cursor: pointer;"
                                                             onclick="this.closest('table').querySelectorAll('.settled-expense-row-${groupId}').forEach(el => el.classList.toggle('hidden'))">
-                                                            <td colspan="11" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
+                                                            <td colspan="8" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
                                                                 <i class="fas fa-history"></i> Show ${settledExpenses.length} Settled Expense${settledExpenses.length > 1 ? 's' : ''}
                                                             </td>
                                                         </tr>
@@ -17632,16 +17741,20 @@
                                     });
                                 const allLines = [...giveLines, ...receiveLines];
                                 const isSettled = allLines.length === 0;
+                                const isOpenByDefault = m.id === currentUser.uid;
                                 return `
-                                                <div style="background:var(--bg-card);border-radius:8px;padding:8px 10px;border:1px solid var(--border);${!isSettled ? (giveLines.length > 0 && receiveLines.length === 0 ? 'border-left:3px solid var(--danger);' : receiveLines.length > 0 && giveLines.length === 0 ? 'border-left:3px solid var(--success);' : 'border-left:3px solid var(--primary);') : 'border-left:3px solid var(--success);'}">
-                                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:${isSettled ? '0' : '6px'};">
+                                                <div id="member-card-${groupId}-${m.id}" onclick="toggleMemberCardDetails('${groupId}', '${m.id}')" style="cursor:pointer;background:var(--bg-card);border-radius:8px;padding:8px 10px;border:1px solid var(--border);${!isSettled ? (giveLines.length > 0 && receiveLines.length === 0 ? 'border-left:3px solid var(--danger);' : receiveLines.length > 0 && giveLines.length === 0 ? 'border-left:3px solid var(--success);' : 'border-left:3px solid var(--primary);') : 'border-left:3px solid var(--success);'}">
+                                                    <div style="display:flex;align-items:center;gap:8px;">
                                                         <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(m.firstName) + '+' + encodeURIComponent(m.lastName || '')}" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;">
                                                         <span style="font-size:0.88rem;font-weight:600;color:var(--text-dark);flex:1;">${escapeHTML(m.firstName)} ${escapeHTML(m.lastName || '')}</span>
                                                         ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size:0.75rem;"></i>' : ''}
                                                         ${m.id === currentUser.uid ? '<span style="font-size:0.65rem;background:var(--primary);color:#fff;border-radius:4px;padding:1px 5px;">You</span>' : ''}
                                                         ${isSettled ? '<span style="font-size:0.68rem;color:var(--success);font-weight:600;margin-left:auto;">✓ Settled</span>' : ''}
+                                                        <i id="member-card-icon-${groupId}-${m.id}" class="fas fa-chevron-${isOpenByDefault ? 'up' : 'down'}" style="font-size:0.75rem;color:var(--text-gray);"></i>
                                                     </div>
-                                                    ${allLines.length > 0 ? `<div style="display:flex;flex-direction:column;gap:3px;padding-left:36px;">${allLines.join('')}</div>` : ''}
+                                                    <div id="member-card-body-${groupId}-${m.id}" style="display:${isOpenByDefault ? 'flex' : 'none'};flex-direction:column;gap:3px;padding-left:36px;margin-top:${isSettled ? '0' : '6px'};">
+                                                        ${allLines.length > 0 ? allLines.join('') : '<div style="font-size:0.72rem;color:var(--success);font-weight:500;">No pending settlements</div>'}
+                                                    </div>
                                                 </div>`;
                             }).join('')}
                                         </div>
@@ -17781,18 +17894,14 @@
                                     </div>
                                 ` : `
                                     <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
-                                        <table class="table">
+                                        <table class="table compact-table">
                                             <thead>
                                                 <tr>
                                                     <th>${t('date')}</th>
                                                     <th>${t('expenseName') || 'Name'}</th>
-                                                    <th>${t('description')}</th>
                                                     <th>${t('paidBy')}</th>
                                                     <th>${t('amount')}</th>
                                                     <th>${t('yourShare') || 'Your Share'}</th>
-                                                    <th>${t('split')}</th>
-                                                    <th>${t('remarks') || 'Remarks'}</th>
-                                                    <th>${t('status')}</th>
                                                     <th>${t('actions')}</th>
                                                 </tr>
                                             </thead>
@@ -17801,7 +17910,7 @@
                                                 <tbody>
                                                     <tr style="background: var(--bg-light); cursor: pointer;"
                                                         onclick="this.closest('table').querySelectorAll('.settled-expense-row-${groupId}').forEach(el => el.classList.toggle('hidden'))">
-                                                        <td colspan="11" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
+                                                        <td colspan="8" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
                                                             <i class="fas fa-history"></i> Show ${settledExpenses.length} Settled Expense${settledExpenses.length > 1 ? 's' : ''}
                                                         </td>
                                                     </tr>
@@ -17890,16 +17999,20 @@
                             });
                         const allLines = [...giveLines, ...receiveLines];
                         const isSettled = allLines.length === 0;
+                        const isOpenByDefault = m.id === currentUser.uid;
                         return `
-                                            <div style="background:var(--bg-card);border-radius:8px;padding:8px 10px;border:1px solid var(--border);${!isSettled ? (giveLines.length > 0 && receiveLines.length === 0 ? 'border-left:3px solid var(--danger);' : receiveLines.length > 0 && giveLines.length === 0 ? 'border-left:3px solid var(--success);' : 'border-left:3px solid var(--primary);') : 'border-left:3px solid var(--success);'}">
-                                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:${isSettled ? '0' : '6px'};">
+                                            <div id="member-card-${groupId}-${m.id}" onclick="toggleMemberCardDetails('${groupId}', '${m.id}')" style="cursor:pointer;background:var(--bg-card);border-radius:8px;padding:8px 10px;border:1px solid var(--border);${!isSettled ? (giveLines.length > 0 && receiveLines.length === 0 ? 'border-left:3px solid var(--danger);' : receiveLines.length > 0 && giveLines.length === 0 ? 'border-left:3px solid var(--success);' : 'border-left:3px solid var(--primary);') : 'border-left:3px solid var(--success);'}">
+                                                <div style="display:flex;align-items:center;gap:8px;">
                                                     <img src="${m.photoUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(m.firstName) + '+' + encodeURIComponent(m.lastName || '')}" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;">
                                                     <span style="font-size:0.88rem;font-weight:600;color:var(--text-dark);flex:1;">${escapeHTML(m.firstName)} ${escapeHTML(m.lastName || '')}</span>
                                                     ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size:0.75rem;"></i>' : ''}
                                                     ${m.id === currentUser.uid ? '<span style="font-size:0.65rem;background:var(--primary);color:#fff;border-radius:4px;padding:1px 5px;">You</span>' : ''}
                                                     ${isSettled ? '<span style="font-size:0.68rem;color:var(--success);font-weight:600;margin-left:auto;">✓ Settled</span>' : ''}
+                                                    <i id="member-card-icon-${groupId}-${m.id}" class="fas fa-chevron-${isOpenByDefault ? 'up' : 'down'}" style="font-size:0.75rem;color:var(--text-gray);"></i>
                                                 </div>
-                                                ${allLines.length > 0 ? `<div style="display:flex;flex-direction:column;gap:3px;padding-left:36px;">${allLines.join('')}</div>` : ''}
+                                                <div id="member-card-body-${groupId}-${m.id}" style="display:${isOpenByDefault ? 'flex' : 'none'};flex-direction:column;gap:3px;padding-left:36px;margin-top:${isSettled ? '0' : '6px'};">
+                                                    ${allLines.length > 0 ? allLines.join('') : '<div style="font-size:0.72rem;color:var(--success);font-weight:500;">No pending settlements</div>'}
+                                                </div>
                                             </div>`;
                     }).join('')}
                                     </div>
@@ -18348,15 +18461,12 @@
                                     </span>
                                 </div>
                                 <div class="table-wrapper">
-                                    <table class="table">
+                                    <table class="table compact-table">
                                         <thead>
                                             <tr>
                                                 <th>${t('date')}</th>
                                                 <th>${t('section')}</th>
-                                                <th>${t('description')}</th>
                                                 <th>${t('mode')}</th>
-                                                <th>${t('remarks')}</th>
-                                                <th>${t('attachments')}</th>
                                                 <th>${t('amount')}</th>
                                                 <th>${t('actions')}</th>
                                             </tr>
@@ -18365,26 +18475,21 @@
                                             ${grouped[month].map(item => `
                                                 <tr id="details-row-${item.sectionType}-${item.id}" data-row-id="${item.id}" data-item-type="${item.sectionType}" data-can-edit="${item.canEdit ? 'true' : 'false'}">
                                                     <td>${safeDate(item.date).toLocaleDateString()}</td>
-                                                    <td><span class="badge badge-${item.sectionType === 'credit' ? 'success' : item.sectionType === 'personal' ? 'warning' : 'info'}">${item.section}</span></td>
-                                                    <td>${escapeHTML(item.description)}</td>
-                                                    <td><span class="badge badge-secondary">${item.mode}</span></td>
-                                                    <td>${escapeHTML(item.remarks) || '-'}</td>
                                                     <td>
-                                                        ${item.attachments?.length > 0 ? `
-                                                            <div class="attachments">
-                                                                ${item.attachments.map((url, idx) => `
-                                                                    <div class="attachment" onclick="viewAttachment('${url}')">
-                                                                        <img src="${url}" alt="Attachment ${idx + 1}">
-                                                                    </div>
-                                                                `).join('')}
-                                                            </div>
-                                                        ` : '-'}
+                                                        <span class="badge badge-${item.sectionType === 'credit' ? 'success' : item.sectionType === 'personal' ? 'warning' : 'info'}">${item.section}</span>
+                                                        ${(item.sectionType === 'group' && (item.groupName || item.groupTitle || item.group)) ? `
+                                                            <div class="details-muted">${escapeHTML(item.groupName || item.groupTitle || item.group)}</div>
+                                                        ` : ''}
                                                     </td>
+                                                    <td><span class="badge badge-secondary">${item.mode}</span></td>
                                                     <td style="color: ${item.sectionType === 'credit' ? 'var(--success)' : 'var(--danger)'}; font-weight: 600;">
                                                         ${item.sectionType === 'credit' ? '+' : '-'}${formatCurrency(item.amount)}
                                                     </td>
                                                     <td>
                                                         <div class="actions">
+                                                            <button class="action-btn" onclick="event.stopPropagation(); toggleDetailsRowDetails('${item.sectionType}', '${item.id}')" title="Expand">
+                                                                <i class="fas fa-chevron-down"></i>
+                                                            </button>
                                                             ${item.canEdit ? `
                                                                 <button class="action-btn" onclick="editDetailsRow('${item.sectionType}', '${item.id}')">
                                                                     <i class="fas fa-edit"></i>
@@ -18393,6 +18498,26 @@
                                                             <button class="action-btn danger" onclick="deleteDetailsRow('${item.sectionType}', '${item.id}')">
                                                                 <i class="fas fa-trash"></i>
                                                             </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                <tr id="details-expanded-${item.sectionType}-${item.id}" class="expandable-detail-row">
+                                                    <td colspan="6">
+                                                        <div style="padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
+                                                            <div><strong>${t('description')}:</strong> ${escapeHTML(item.description || '-')}</div>
+                                                            <div><strong>${t('remarks')}:</strong> ${escapeHTML(item.remarks || '-')}</div>
+                                                            <div style="margin-top: 0.5rem;">
+                                                                <strong>${t('attachments')}:</strong>
+                                                                ${item.attachments?.length > 0 ? `
+                                                                    <div class="attachments" style="margin-top:0.4rem;">
+                                                                        ${item.attachments.map((url, idx) => `
+                                                                            <div class="attachment" onclick="viewAttachment('${url}')">
+                                                                                <img src="${url}" alt="Attachment ${idx + 1}">
+                                                                            </div>
+                                                                        `).join('')}
+                                                                    </div>
+                                                                ` : ' -'}
+                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -22780,7 +22905,11 @@
                 padding: 1rem;
                 margin: 0;
                 font-size: 1.25rem;
-                text-align: center;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                text-align: left;
+                cursor: pointer;
             }
 
             .calendar-grid {
