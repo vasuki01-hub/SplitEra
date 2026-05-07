@@ -13788,7 +13788,7 @@
                                     <span>${monthName} ${year}</span>
                                     <span style="font-size: 0.9em; font-weight: 600; color: var(--success);">${formatCurrency(monthTotal)}</span>
                                 </div>
-                                <div class="table-wrapper">
+                                <div class="table-wrapper" style="max-height: 255px;overflow: auto;transition: max-height 260ms;">
                                     <table class="table compact-table">
                                         <thead>
                                             <tr>
@@ -13820,7 +13820,8 @@
                                                 </tr>
                                                 <tr id="credit-details-${credit.id}" class="expandable-detail-row">
                                                     <td colspan="5">
-                                                        <div style="padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
+                                                        <div style="margin-right: 2rem;
+    overflow: auto; padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
                                                             <div><strong>${t('description')}:</strong> ${escapeHTML(credit.description || '-')}</div>
                                                             <div><strong>${t('source')}:</strong> ${escapeHTML(credit.source || '-')}</div>
                                                             <div style="margin-top: 0.5rem;">
@@ -14630,7 +14631,7 @@
                                     <span>${monthName} ${year}</span>
                                     <span style="font-size: 0.9em; font-weight: 600; color: var(--danger);">${formatCurrency(monthTotal)}</span>
                                 </div>
-                                <div class="table-wrapper">
+                                <div class="table-wrapper" style="max-height: 255px;overflow: auto;transition: max-height 260ms;">
                                     <table class="table compact-table">
                                         <thead>
                                             <tr>
@@ -14662,7 +14663,8 @@
                                                 </tr>
                                                 <tr id="personal-details-${expense.id}" class="expandable-detail-row">
                                                     <td colspan="5">
-                                                        <div style="padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
+                                                        <div style="    margin-right: 2rem;
+    overflow: auto; padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
                                                             <div><strong>${t('category')}:</strong> ${escapeHTML(expense.category || '-')}</div>
                                                             <div><strong>${t('description')}:</strong> ${escapeHTML(expense.description || '-')}</div>
                                                             <div><strong>${t('remarks')}:</strong> ${escapeHTML(expense.remarks || '-')}</div>
@@ -17893,7 +17895,7 @@
                                         <div class="empty-message">${t('addPersonalPrompt')}</div>
                                     </div>
                                 ` : `
-                                    <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+                                    <div class="table-wrapper" style="max-height: 500px; overflow: auto;">
                                         <table class="table compact-table">
                                             <thead>
                                                 <tr>
@@ -18460,7 +18462,7 @@
                                         Net: ${monthTotal >= 0 ? '+' : ''}${formatCurrency(monthTotal)}
                                     </span>
                                 </div>
-                                <div class="table-wrapper">
+                                <div class="table-wrapper" style="max-height: 255px;overflow: auto;transition: max-height 260ms;">
                                     <table class="table compact-table">
                                         <thead>
                                             <tr>
