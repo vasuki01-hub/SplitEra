@@ -13277,7 +13277,7 @@
                         <span>${monthName} ${year}</span>
                         <i class="fas fa-chevron-${isOpen ? 'up' : 'down'}"></i>
                     </h3>
-                    <div class="calendar-grid" style="max-height:${isOpen ? '2000px' : '0px'}; overflow:hidden; transition:max-height 260ms ease;">
+                    <div class="calendar-grid" style="max-height:${isOpen ? '2000px' : '0px'}; overflow:auto; transition:max-height 260ms ease;">
                         <div class="calendar-header">${t('sunday')}</div>
                         <div class="calendar-header">${t('monday')}</div>
                         <div class="calendar-header">${t('tuesday')}</div>
@@ -17675,12 +17675,22 @@
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('receivable')}:</span>
-                                                <strong style="color: var(--success);">${formatCurrency(displayExpenses.reduce((sum, e) => {
-                                const breakdown = breakdowns[e.id];
-                                if (!breakdown) return sum;
-                                const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                                return sum + Math.max(0, remaining);
-                            }, 0))}</strong>
+                                                <strong style="color: var(--success);">${(() => {
+                                const totalReceivable = displayExpenses.reduce((sum, e) => {
+                                    const breakdown = breakdowns[e.id];
+                                    if (!breakdown) return sum;
+                                    const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                                    return sum + Math.max(0, remaining);
+                                }, 0);
+                                const totalOwed = displayExpenses.reduce((sum, e) => {
+                                    const breakdown = breakdowns[e.id];
+                                    if (!breakdown) return sum;
+                                    const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                                    return sum + Math.max(0, -remaining);
+                                }, 0);
+                                // Net receivable after subtracting what I still owe
+                                return formatCurrency(Math.max(0, totalReceivable - totalOwed));
+                            })()}</strong>
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('totalYourShare') || 'Total Your Share'}:</span>
@@ -17696,12 +17706,22 @@
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
     <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
-    <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
-                                const breakdown = breakdowns[e.id];
-                                if (!breakdown) return sum;
-                                const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                                return sum + Math.max(0, -remaining);
-                            }, 0))}</strong>
+    <strong style="color: var(--danger);">${(() => {
+                                const totalReceivable = displayExpenses.reduce((sum, e) => {
+                                    const breakdown = breakdowns[e.id];
+                                    if (!breakdown) return sum;
+                                    const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                                    return sum + Math.max(0, remaining);
+                                }, 0);
+                                const totalOwed = displayExpenses.reduce((sum, e) => {
+                                    const breakdown = breakdowns[e.id];
+                                    if (!breakdown) return sum;
+                                    const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                                    return sum + Math.max(0, -remaining);
+                                }, 0);
+                                // Net owed after subtracting receivable side
+                                return formatCurrency(Math.max(0, totalOwed - totalReceivable));
+                            })()}</strong>
 </div>
                                         </div>
                                     ` } `}
@@ -17933,12 +17953,21 @@
                                         </div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                             <span class="text-secondary">${t('receivable')}:</span>
-                                            <strong style="color: var(--success);">${formatCurrency(displayExpenses.reduce((sum, e) => {
-                        const breakdown = breakdowns[e.id];
-                        if (!breakdown) return sum;
-                        const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                        return sum + Math.max(0, remaining);
-                    }, 0))}</strong>
+                                            <strong style="color: var(--success);">${(() => {
+                        const totalReceivable = displayExpenses.reduce((sum, e) => {
+                            const breakdown = breakdowns[e.id];
+                            if (!breakdown) return sum;
+                            const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                            return sum + Math.max(0, remaining);
+                        }, 0);
+                        const totalOwed = displayExpenses.reduce((sum, e) => {
+                            const breakdown = breakdowns[e.id];
+                            if (!breakdown) return sum;
+                            const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                            return sum + Math.max(0, -remaining);
+                        }, 0);
+                        return formatCurrency(Math.max(0, totalReceivable - totalOwed));
+                    })()}</strong>
                                         </div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                             <span class="text-secondary">${t('totalYourShare') || 'Total Your Share'}:</span>
@@ -17954,12 +17983,21 @@
                                         </div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
     <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
-    <strong style="color: var(--danger);">${formatCurrency(displayExpenses.reduce((sum, e) => {
-                        const breakdown = breakdowns[e.id];
-                        if (!breakdown) return sum;
-                        const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                        return sum + Math.max(0, -remaining);
-                    }, 0))}</strong>
+    <strong style="color: var(--danger);">${(() => {
+                        const totalReceivable = displayExpenses.reduce((sum, e) => {
+                            const breakdown = breakdowns[e.id];
+                            if (!breakdown) return sum;
+                            const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                            return sum + Math.max(0, remaining);
+                        }, 0);
+                        const totalOwed = displayExpenses.reduce((sum, e) => {
+                            const breakdown = breakdowns[e.id];
+                            if (!breakdown) return sum;
+                            const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                            return sum + Math.max(0, -remaining);
+                        }, 0);
+                        return formatCurrency(Math.max(0, totalOwed - totalReceivable));
+                    })()}</strong>
 </div>
                                         </div>
                                     ` } `}
@@ -18786,7 +18824,15 @@
          * @param {string} groupId - The ID of the group.
          */
         window.settleIndividualBalance = async function (expenseId, memberId, currentBalance, groupId) {
-            showConfirmation('Settle Balance', `Mark this balance as settled?`, async () => {
+            const suggestedAmount = Math.abs(parseFloat(currentBalance) || 0);
+            const enteredAmount = await promptSettlementAmount({
+                title: 'Settle Balance',
+                suggestedAmount,
+                maxAmount: suggestedAmount
+            });
+            if (enteredAmount === null) return;
+
+            showConfirmation('Settle Balance', `${t('recordPaymentOf')} ${formatCurrency(enteredAmount)}?`, async () => {
                 showLoading();
                 try {
                     const batch = db.batch();
@@ -18808,7 +18854,7 @@
                     const breakdown = breakdowns[expenseId];
 
                     let fromUser, toUser;
-                    const amount = Math.abs(currentBalance);
+                    const amount = enteredAmount;
 
                     if (currentBalance < 0) {
                         // memberId OWES money. We need to find a CREDITOR to receive it.
@@ -18916,6 +18962,63 @@
             }
         }
 
+        /**
+         * Prompt user with editable settlement amount (prefilled with suggested value).
+         * Returns number if confirmed, or null if cancelled.
+         */
+        async function promptSettlementAmount({ title = 'Settle Up', suggestedAmount = 0, maxAmount = null } = {}) {
+            return new Promise((resolve) => {
+                const modal = document.createElement('div');
+                modal.className = 'modal-overlay show';
+                modal.innerHTML = `
+                    <div class="modal" style="max-width: 420px;">
+                        <div class="modal-header">
+                            <h3 class="modal-title">${escapeHTML(title)}</h3>
+                            <button class="modal-close" id="settleAmountCloseBtn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label class="form-label">${t('recordPaymentOf')}</label>
+                                <input type="number" step="0.01" min="0.01" class="form-input" id="settleAmountInput" value="${Number(suggestedAmount || 0).toFixed(2)}">
+                                <small class="text-secondary" style="display:block; margin-top: 0.4rem;">
+                                    Suggested: ${formatCurrency(suggestedAmount || 0)}${maxAmount ? ` | Max: ${formatCurrency(maxAmount)}` : ''}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" id="settleAmountCancelBtn">${t('cancel')}</button>
+                            <button class="btn btn-primary" id="settleAmountConfirmBtn">${t('confirm') || 'Confirm'}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                const cleanup = () => modal.remove();
+                const closeWith = (value) => {
+                    cleanup();
+                    resolve(value);
+                };
+
+                modal.querySelector('#settleAmountCloseBtn')?.addEventListener('click', () => closeWith(null));
+                modal.querySelector('#settleAmountCancelBtn')?.addEventListener('click', () => closeWith(null));
+                modal.querySelector('#settleAmountConfirmBtn')?.addEventListener('click', () => {
+                    const inputEl = modal.querySelector('#settleAmountInput');
+                    const entered = parseFloat(inputEl?.value || '0');
+                    if (!Number.isFinite(entered) || entered <= 0) {
+                        showToast('Error', 'Please enter a valid settlement amount', 'error');
+                        return;
+                    }
+                    if (maxAmount && entered - maxAmount > 0.01) {
+                        showToast('Error', `Amount cannot be greater than ${formatCurrency(maxAmount)}`, 'error');
+                        return;
+                    }
+                    closeWith(entered);
+                });
+            });
+        }
+
 
         /**
          * Records a settlement for a debt, creates a settlement expense, and reconciles original expenses.
@@ -18925,7 +19028,15 @@
          * @param {number} amount - The amount to settle.
          */
         async function settleDebt(groupId, fromUid, toUid, amount) {
-            const amountVal = parseFloat(amount);
+            const suggestedAmount = parseFloat(amount) || 0;
+            const enteredAmount = await promptSettlementAmount({
+                title: t('settleUp'),
+                suggestedAmount,
+                maxAmount: suggestedAmount
+            });
+            if (enteredAmount === null) return;
+            const amountVal = enteredAmount;
+
             showConfirmation(t('settleUp'), `${t('recordPaymentOf')} ${formatCurrency(amountVal)}?`, async () => {
                 showLoading();
                 try {
