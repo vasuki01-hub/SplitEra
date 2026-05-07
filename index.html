@@ -883,7 +883,7 @@
             min-width: 200px;
             z-index: 1000;
             display: none;
-            overflow: hidden;
+            overflow: auto;
         }
 
         .user-profile-dropdown.show {
@@ -1055,7 +1055,7 @@
         .dashboard-collapse {
             max-height: 0px;
             opacity: 0;
-            overflow: hidden;
+            overflow: auto;
             transition: max-height 0.35s ease, opacity 0.25s ease;
         }
 
@@ -1123,7 +1123,7 @@
             box-shadow: inset 0px 0px 3px black;
             border-radius: 2rem;
             border: 3rem;
-            overflow-x: auto;
+            overflow: auto;
         }
 
         .table {
@@ -1553,7 +1553,7 @@
             width: 4rem;
             height: 4rem;
             border-radius: 0.5rem;
-            overflow: hidden;
+            overflow: auto;
             border: 1px solid var(--border);
             cursor: pointer;
         }
@@ -1896,7 +1896,7 @@
 
         .file-input-wrapper {
             position: relative;
-            overflow: hidden;
+            overflow: auto;
             display: inline-block;
         }
 
@@ -8544,7 +8544,8 @@
                     const openByDefault = monthTitle === currentMonthText;
                     monthGroup.classList.toggle('month-open', openByDefault);
                     tableWrapper.style.maxHeight = openByDefault ? `${tableWrapper.scrollHeight + 30}px` : '0px';
-                    tableWrapper.style.overflow = 'hidden';
+                    tableWrapper.style.overflowX = 'auto';
+                    tableWrapper.style.overflowY = openByDefault ? 'auto' : 'hidden';
                     tableWrapper.style.transition = 'max-height 260ms ease';
 
                     header.addEventListener('click', (evt) => {
@@ -8552,6 +8553,7 @@
                         const isOpen = monthGroup.classList.contains('month-open');
                         monthGroup.classList.toggle('month-open', !isOpen);
                         tableWrapper.style.maxHeight = isOpen ? '0px' : `${tableWrapper.scrollHeight + 30}px`;
+                        tableWrapper.style.overflowY = isOpen ? 'hidden' : 'auto';
                     });
                 }
 
@@ -9148,7 +9150,7 @@
                     .ug-root {
                         min-height: 100vh;
                         font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-                        overflow: hidden;
+                        overflow: auto;
                         position: relative;
                         background: #0f0c29;
                     }
@@ -9229,7 +9231,7 @@
                         align-items: center;
                         justify-content: center;
                         padding: 90px 1rem 100px;
-                        overflow: hidden;
+                        overflow: auto;
                     }
 
                     .ug-slide {
@@ -9245,7 +9247,7 @@
                     .ug-slide-inner {
                         width: 100%;
                         border-radius: 2rem;
-                        overflow: hidden;
+                        overflow: auto;
                         box-shadow: 0 30px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07);
                         position: relative;
                     }
@@ -9254,7 +9256,7 @@
                     .ug-card-top {
                         padding: 2.5rem 2.5rem 2rem;
                         position: relative;
-                        overflow: hidden;
+                        overflow: auto;
                         min-height: 220px;
                         display: flex;
                         align-items: flex-start;
@@ -13788,7 +13790,7 @@
                                     <span>${monthName} ${year}</span>
                                     <span style="font-size: 0.9em; font-weight: 600; color: var(--success);">${formatCurrency(monthTotal)}</span>
                                 </div>
-                                <div class="table-wrapper" style="max-height: 255px;overflow: auto;transition: max-height 260ms;">
+                                <div class="table-wrapper" style="max-height: 255px; overflow: auto; transition: max-height 260ms;">
                                     <table class="table compact-table">
                                         <thead>
                                             <tr>
@@ -13820,8 +13822,7 @@
                                                 </tr>
                                                 <tr id="credit-details-${credit.id}" class="expandable-detail-row">
                                                     <td colspan="5">
-                                                        <div style="margin-right: 2rem;
-    overflow: auto; padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
+                                                        <div style="margin-right: 2rem; overflow: auto; padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
                                                             <div><strong>${t('description')}:</strong> ${escapeHTML(credit.description || '-')}</div>
                                                             <div><strong>${t('source')}:</strong> ${escapeHTML(credit.source || '-')}</div>
                                                             <div style="margin-top: 0.5rem;">
@@ -13947,10 +13948,8 @@
                                     <option value="Cash">Cash</option>
                                     <option value="Online">Online</option>
                                     <option value="GPay">GPay</option>
-                                    <option value="Card">Card</option>
                                     <option value="Credit Card">Credit Card</option>
                                     <option value="Bank Transfer">Bank Transfer</option>
-                                    <option value="Other">Other</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -14663,8 +14662,7 @@
                                                 </tr>
                                                 <tr id="personal-details-${expense.id}" class="expandable-detail-row">
                                                     <td colspan="5">
-                                                        <div style="    margin-right: 2rem;
-    overflow: auto; padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
+                                                        <div style=" margin-right: 2rem; overflow: auto; padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
                                                             <div><strong>${t('category')}:</strong> ${escapeHTML(expense.category || '-')}</div>
                                                             <div><strong>${t('description')}:</strong> ${escapeHTML(expense.description || '-')}</div>
                                                             <div><strong>${t('remarks')}:</strong> ${escapeHTML(expense.remarks || '-')}</div>
@@ -14756,10 +14754,8 @@
                                     <option value="Cash">${t('cash')}</option>
                                     <option value="Online">${t('online')}</option>
                                     <option value="GPay">${t('gpay')}</option>
-                                    <option value="Card">${t('card')}</option>
                                     <option value="Credit Card">${t('creditCard')}</option>
                                     <option value="Bank Transfer">${t('bankTransfer')}</option>
-                                    <option value="Other">${t('other')}</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -18462,7 +18458,7 @@
                                         Net: ${monthTotal >= 0 ? '+' : ''}${formatCurrency(monthTotal)}
                                     </span>
                                 </div>
-                                <div class="table-wrapper" style="max-height: 255px;overflow: auto;transition: max-height 260ms;">
+                                <div class="table-wrapper" style="max-height: 255px; overflow: auto;transition: max-height 260ms;">
                                     <table class="table compact-table">
                                         <thead>
                                             <tr>
@@ -18531,6 +18527,8 @@
                         `;
                     });
                     container.innerHTML = html;
+                    // Enable month accordion + row click expansion for details
+                    enhanceMonthGroupedRows('details', 'detailsTableContainer');
                 }
                 container.classList.remove('loading-state');
             } catch (error) {
@@ -22898,7 +22896,7 @@
             .calendar-month {
                 border: 1px solid var(--border);
                 border-radius: 8px;
-                overflow: hidden;
+                overflow: auto;
             }
 
             .calendar-month-title {
@@ -23211,7 +23209,7 @@
                 width: 60px;
                 height: 60px;
                 border-radius: 4px;
-                overflow: hidden;
+                overflow: auto;
                 border: 1px solid var(--border);
                 cursor: pointer;
                 transition: all 0.2s ease;
