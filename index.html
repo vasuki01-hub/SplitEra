@@ -33,6 +33,7 @@
         }
 
         :root {
+            --text-icon: #878785;
             --primary: #FF8C42;
             --primary-dark: #E67A33;
             --success: #10B981;
@@ -612,7 +613,7 @@
 
         .mobile-nav-item:hover,
         .mobile-nav-item.active {
-            color: var(--primary);
+            color: #ff7500;
         }
 
 
@@ -637,12 +638,15 @@
         }
 
         .mobile-nav-item {
+            margin: 1px;
+            border-radius: 1rem;
+            background: #98dad46e;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             flex: 1;
-            color: var(--text-gray);
+            color: #000000;
             text-decoration: none;
             padding: 0.25rem;
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -658,14 +662,14 @@
 
         .mobile-nav-item span {
             font-size: 0.75rem;
-            font-weight: 500;
-            opacity: 0.8;
+            font-weight: 700;
+            opacity: 0;
         }
 
 
 
         .mobile-nav-item.active span {
-            font-weight: 600;
+            font-weight: 900;
             opacity: 1;
         }
 
@@ -2166,6 +2170,7 @@
         }
 
         .notif-body {
+            font-weight: 700;
             flex: 1;
             min-width: 0;
         }
@@ -7663,7 +7668,7 @@
                 </div>
                 <div class="notif-body">
                     <p class="notif-msg">${escapeHTML(n.message)}</p>
-                    ${n.groupName ? `<p class="notif-time" style="color:var(--primary);font-weight:600;">${escapeHTML(n.groupName)}</p>` : ''}
+                    ${n.groupName ? `<p class="notif-time" style="color:var(--primary);font-weight:900;">${escapeHTML(n.groupName)}</p>` : ''}
                     <p class="notif-time">${time}</p>
                 </div>
             </div>`;
