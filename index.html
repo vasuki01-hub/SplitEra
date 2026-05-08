@@ -1779,7 +1779,7 @@
         }
 
         .month-header {
-            border-radius: 2rem;
+            border-radius: 1.2rem;
             font-size: 1.125rem;
             font-weight: 600;
             margin-bottom: 1rem;
@@ -2171,8 +2171,9 @@
 
         .notif-body {
             overflow: auto;
-            padding-left: 2rem;
-            border-radius: 2rem;
+            padding-left: 1.2rem;
+            padding-right: 2rem;
+            border-radius: 1.2rem;
             background: #faebd763;
             font-weight: 700;
             flex: 1;
@@ -13798,7 +13799,7 @@
                             <div class="month-group">
                                 <div class="month-header">
                                     <span>${monthName} ${year}</span>
-                                    <span style="font-size: 0.9em; font-weight: 600; color: var(--success);">${formatCurrency(monthTotal)}</span>
+                                    <span style="font-size: 0.9em; font-weight: 900; color: var(--success);">${formatCurrency(monthTotal)}</span>
                                 </div>
                                 <div class="table-wrapper" style="max-height: 255px; overflow: auto; transition: max-height 260ms;">
                                     <table class="table compact-table">
@@ -14638,7 +14639,7 @@
                             <div class="month-group">
                                 <div class="month-header">
                                     <span>${monthName} ${year}</span>
-                                    <span style="font-size: 0.9em; font-weight: 600; color: var(--danger);">${formatCurrency(monthTotal)}</span>
+                                    <span style="font-size: 0.9em; font-weight: 900; color: var(--danger);">${formatCurrency(monthTotal)}</span>
                                 </div>
                                 <div class="table-wrapper" style="max-height: 255px;overflow: auto;transition: max-height 260ms;">
                                     <table class="table compact-table">
@@ -23127,13 +23128,13 @@
             }
 
             .month-header {
-                    display: flex;
-    justify-content: space-between;
-    align-items: center;
-                background: #160901;
-                color: white;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                background: #faf8d6;
+                color: #000000;
                 padding: 0.75rem 1rem;
-                border-radius: 8px;
+                border-radius: 1.2rem;
                 font-size: 1.1rem;
                 font-weight: 600;
                 margin-bottom: 1rem;
