@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 
 <head>
@@ -16069,6 +16069,17 @@
                     });
                 }
 
+                // Fetch member names for all active groups to show in balance summaries
+                const allMemberUids = new Set();
+                activeGroups.forEach(g => {
+                    (g.members || []).forEach(uid => allMemberUids.add(uid));
+                });
+                const fetchedUsers = await fetchUsersBatched(Array.from(allMemberUids));
+                const memberNamesMap = {};
+                fetchedUsers.forEach(u => {
+                    memberNamesMap[u.id] = `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || u.phone || t('unknown');
+                });
+
                 // Update banner with user's total group expenses (their share)
                 document.getElementById('totalGroupAmount').innerHTML = `
                     <div style="font-size: 1.9rem; color: #ffffff;">
@@ -16133,9 +16144,9 @@
 
                             const resolveMemberName = (uid) => {
                                 if (uid === currentUser.uid) return t('you');
-                                if (group.guestMembers && group.guestMembers.includes(uid)) return uid;
-                                const u = dataState.users?.find(user => user.id === uid);
-                                if (u) return `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || u.phone || t('unknown');
+                                if (memberNamesMap[uid]) return memberNamesMap[uid];
+                                // Handle guest member string "Name|Phone"
+                                if (typeof uid === 'string' && uid.includes('|')) return uid.split('|')[0];
                                 return uid;
                             };
 
