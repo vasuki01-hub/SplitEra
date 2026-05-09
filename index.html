@@ -16119,17 +16119,79 @@
                             `;
                         }
 
+                        // Get pending invites count for the group from dataState
+                        const pendingInvitesCount = dataState.allGroupInvites ? dataState.allGroupInvites.filter(inv => inv.groupId === group.id && inv.status === 'pending').length : 0;
+                        const pendingReqCount = group.pendingRequests ? group.pendingRequests.length : 0;
+                        const totalPending = pendingInvitesCount + pendingReqCount;
+
+                        // Calculate group balances for current user
+                        const allMemberIds = [...(group.members || []), ...(group.guestMembers || [])];
+                        let balancesHtml = '';
+                        if (allMemberIds.length > 1) {
+                            const debts = calculateGroupDebts(groupExpensesList, allMemberIds, group.settlements || null);
+                            let balanceSummaries = [];
+
+                            const resolveMemberName = (uid) => {
+                                if (uid === currentUser.uid) return t('you');
+                                if (group.guestMembers && group.guestMembers.includes(uid)) return uid;
+                                const u = dataState.users?.find(user => user.id === uid);
+                                if (u) return `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || u.phone || t('unknown');
+                                return uid;
+                            };
+
+                            debts.forEach(d => {
+                                if (d.amount > 0.01) {
+                                    if (d.from === currentUser.uid) {
+                                        // User owes someone
+                                        const toName = resolveMemberName(d.to);
+                                        balanceSummaries.push({ text: `${t('youOwe')} ${toName} ${formatCurrency(d.amount)}`, type: 'owe' });
+                                    } else if (d.to === currentUser.uid) {
+                                        // Someone owes user
+                                        const fromName = resolveMemberName(d.from);
+                                        balanceSummaries.push({ text: `${fromName} ${t('owesYou')} ${formatCurrency(d.amount)}`, type: 'get' });
+                                    }
+                                }
+                            });
+
+                            if (balanceSummaries.length > 0) {
+                                balancesHtml += `<div class="group-balances" style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.03); border-radius: 12px; border: 1px solid var(--border);">`;
+                                const displayCount = Math.min(4, balanceSummaries.length);
+                                for (let i = 0; i < displayCount; i++) {
+                                    const b = balanceSummaries[i];
+                                    const color = b.type === 'owe' ? 'var(--danger)' : 'var(--success)';
+                                    balancesHtml += `<div style="font-size: 0.9rem; color: ${color}; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                                        <i class="fas ${b.type === 'owe' ? 'fa-arrow-up' : 'fa-arrow-down'}" style="font-size: 0.7rem;"></i>
+                                        <strong>${b.text}</strong>
+                                    </div>`;
+                                }
+                                if (balanceSummaries.length > 4) {
+                                    balancesHtml += `<div style="font-size: 0.8rem; color: var(--text-gray); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">+${balanceSummaries.length - 4} ${t('more')}</div>`;
+                                }
+                                balancesHtml += '</div>';
+                            }
+                        }
+
                         html += `
                             <div class="group-card">
                                 <div class="group-header">
                                     <h3>${escapeHTML(group.name)}</h3>
-                                    <span class="badge badge-info">${(group.members?.length || 0) + (group.guestMembers?.length || 0)} ${t('membersCount')}</span>
+                                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
+                                        <span class="badge badge-info" onclick="openDetailedMemberList('${group.id}')" style="cursor: pointer; transition: all 0.2s;" title="${t('viewMembers')}">
+                                            <i class="fas fa-users"></i> ${(group.members?.length || 0) + (group.guestMembers?.length || 0)} ${t('membersCount')}
+                                        </span>
+                                        ${totalPending > 0 ? `
+                                            <span class="badge badge-warning" onclick="openPendingMembersModal('${group.id}')" style="cursor: pointer; font-size: 0.75rem; transition: all 0.2s;" title="View Pending">
+                                                <i class="fas fa-user-clock"></i> ${totalPending} pending
+                                            </span>
+                                        ` : ''}
+                                    </div>
                                 </div>
                                 <div class="group-body">
                                     <p><strong>${t('groupCode')}:</strong> <span class="badge badge-secondary">${escapeHTML(group.code)}</span></p>
                                     <p><strong>${t('totalExpensesLabel')}:</strong> ${formatCurrency(totalExpenses)}</p>
-                                    <p><strong>${t('created')}:</strong> ${group.creationDate ? safeDate(group.creationDate).toLocaleDateString() : group.createdAt.toDate().toLocaleDateString()}</p>
+                                    <p><strong>${t('created')}:</strong> ${group.creationDate ? safeDate(group.creationDate).toLocaleDateString() : (group.createdAt ? group.createdAt.toDate().toLocaleDateString() : '')}</p>
                                     ${group.description ? `<p><small>${escapeHTML(group.description)}</small></p>` : ''}
+                                    ${balancesHtml}
                                     ${requestsHtml}
                                 </div>
                                 <div class="group-footer">
@@ -16153,6 +16215,7 @@
                                 </div>
                             </div>
                         `;
+
                     }
                     html += '</div>';
                 }
@@ -16434,7 +16497,160 @@
         }
 
 
+        async function openDetailedMemberList(groupId) {
+            const group = dataState.groups.find(g => g.id === groupId);
+            if (!group) return;
+
+            showLoading();
+            try {
+                // Fetch user data for all members
+                const memberIds = group.members || [];
+                const membersData = [];
+
+                // Get from dataState.users first
+                memberIds.forEach(id => {
+                    const u = dataState.users?.find(user => user.id === id);
+                    if (u) membersData.push(u);
+                });
+
+                // If any missing, fetch from Firestore (unlikely if dataState is complete)
+                const missingIds = memberIds.filter(id => !membersData.find(u => u.id === id));
+                if (missingIds.length > 0) {
+                    const snap = await db.collection('users').where(firebase.firestore.FieldPath.documentId(), 'in', missingIds).get();
+                    snap.forEach(doc => membersData.push({ id: doc.id, ...doc.data() }));
+                }
+
+                const modal = document.createElement('div');
+                modal.className = 'modal-overlay show';
+                modal.innerHTML = `
+                    <div class="modal">
+                        <div class="modal-header">
+                            <h3 class="modal-title">${t('groupMembers')}</h3>
+                            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="member-list">
+                                ${membersData.map(m => `
+                                    <div class="member-item" style="display: flex; align-items: center; gap: 12px; padding: 10px; border-bottom: 1px solid var(--border);">
+                                        <div class="member-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                                            ${(m.firstName || 'U')[0].toUpperCase()}
+                                        </div>
+                                        <div class="member-info">
+                                            <div style="font-weight: 600;">${m.firstName} ${m.lastName || ''}</div>
+                                            <div style="font-size: 0.8rem; color: var(--text-gray);">${m.email || m.phone || ''}</div>
+                                        </div>
+                                        ${m.id === group.createdBy ? '<span class="badge badge-primary" style="margin-left: auto; font-size: 0.7rem;">Admin</span>' : ''}
+                                    </div>
+                                `).join('')}
+                                ${(group.guestMembers || []).map(name => `
+                                    <div class="member-item" style="display: flex; align-items: center; gap: 12px; padding: 10px; border-bottom: 1px solid var(--border);">
+                                        <div class="member-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: var(--text-gray); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                                            ${name[0].toUpperCase()}
+                                        </div>
+                                        <div class="member-info">
+                                            <div style="font-weight: 600;">${name}</div>
+                                            <div style="font-size: 0.8rem; color: var(--text-gray);">Guest Member</div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
+                                ${t('close')}
+                            </button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            } catch (error) {
+                showToast('Error', 'Failed to load member list: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function openPendingMembersModal(groupId) {
+            const group = dataState.groups.find(g => g.id === groupId);
+            if (!group) return;
+
+            showLoading();
+            try {
+                // Fetch pending invites
+                const invitesSnap = await db.collection('group_invites')
+                    .where('groupId', '==', groupId)
+                    .where('status', '==', 'pending')
+                    .get();
+
+                const pendingInvites = [];
+                invitesSnap.forEach(doc => pendingInvites.push({ id: doc.id, ...doc.data() }));
+
+                const modal = document.createElement('div');
+                modal.className = 'modal-overlay show';
+                modal.innerHTML = `
+                    <div class="modal">
+                        <div class="modal-header">
+                            <h3 class="modal-title">Pending Members</h3>
+                            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            ${pendingInvites.length > 0 ? `
+                                <h4 style="margin-bottom: 10px; font-size: 0.9rem; color: var(--text-gray);">Pending Invitations</h4>
+                                <div class="pending-list" style="margin-bottom: 20px;">
+                                    ${pendingInvites.map(inv => `
+                                        <div class="pending-item" style="padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: var(--bg-light);">
+                                            <div style="font-weight: 600;">${inv.toEmail || inv.toPhone || 'Unknown'}</div>
+                                            <div style="font-size: 0.8rem; color: var(--text-gray);">Invited by ${inv.invitedByName || 'Admin'}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                            
+                            ${group.pendingRequests && group.pendingRequests.length > 0 ? `
+                                <h4 style="margin-bottom: 10px; font-size: 0.9rem; color: var(--text-gray);">Join Requests</h4>
+                                <div class="pending-list">
+                                    ${group.pendingRequests.map(req => `
+                                        <div class="pending-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: var(--bg-light);">
+                                            <div>
+                                                <div style="font-weight: 600;">${req.userName || req.userEmail || 'User'}</div>
+                                                <div style="font-size: 0.8rem; color: var(--text-gray);">Requested to join via code</div>
+                                            </div>
+                                            ${group.createdBy === currentUser.uid ? `
+                                                <button class="btn btn-sm btn-primary" onclick="manageGroupRequests('${groupId}')">Review</button>
+                                            ` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                            
+                            ${pendingInvites.length === 0 && (!group.pendingRequests || group.pendingRequests.length === 0) ? `
+                                <div class="empty-state" style="padding: 20px;">
+                                    <div style="font-size: 2rem; color: var(--text-gray); margin-bottom: 10px;"><i class="fas fa-user-clock"></i></div>
+                                    <p>No pending members found.</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
+                                ${t('close')}
+                            </button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            } catch (error) {
+                showToast('Error', 'Failed to load pending list: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
         function openCreateGroupModal() {
+
             const modal = document.createElement('div');
             modal.className = 'modal-overlay show';
             modal.innerHTML = `
