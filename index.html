@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 
 <head>
@@ -16056,7 +16056,8 @@
                     const groupExpenses = allGroupExpenses.filter(e => e.groupId === group.id);
 
                     // Calculate user's share in this group
-                    const breakdowns = calculateExpenseBreakdown(groupExpenses, [...(group.members || []), ...(group.guestMembers || [])], {});
+                    const allGroupMemberIds = [...(group.members || []), ...(group.guestMembers || []).map(g => `guest:${g}`)];
+                    const breakdowns = calculateExpenseBreakdown(groupExpenses, allGroupMemberIds, {});
                     groupExpenses.forEach(expense => {
                         const breakdown = breakdowns[expense.id];
                         if (breakdown?.contributions?.[currentUser.uid]) {
@@ -16136,7 +16137,7 @@
                         const totalPending = pendingInvitesCount + pendingReqCount;
 
                         // Calculate group balances for current user
-                        const allMemberIds = [...(group.members || []), ...(group.guestMembers || [])];
+                        const allMemberIds = [...(group.members || []), ...(group.guestMembers || []).map(g => `guest:${g}`)];
                         let balancesHtml = '';
                         if (allMemberIds.length > 1) {
                             const debts = calculateGroupDebts(groupExpensesList, allMemberIds, group.settlements || null);
@@ -16145,7 +16146,17 @@
                             const resolveMemberName = (uid) => {
                                 if (uid === currentUser.uid) return t('you');
                                 if (memberNamesMap[uid]) return memberNamesMap[uid];
-                                // Handle guest member string "Name|Phone"
+
+                                // Handle guest member strings
+                                if (typeof uid === 'string' && uid.startsWith('guest:')) {
+                                    const guestEntry = uid.split(':')[1];
+                                    if (guestEntry && guestEntry.includes('|')) {
+                                        return guestEntry.split('|')[0];
+                                    }
+                                    return guestEntry || uid;
+                                }
+
+                                // Fallback for raw guest string or unknown UID
                                 if (typeof uid === 'string' && uid.includes('|')) return uid.split('|')[0];
                                 return uid;
                             };
@@ -16172,7 +16183,7 @@
                                     const color = b.type === 'owe' ? 'var(--danger)' : 'var(--success)';
                                     balancesHtml += `<div style="font-size: 0.9rem; color: ${color}; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                                         <i class="fas ${b.type === 'owe' ? 'fa-arrow-up' : 'fa-arrow-down'}" style="font-size: 0.7rem;"></i>
-                                        <strong>${b.text}</strong>
+                                        <strong style="font-size: small;">${b.text}</strong>
                                     </div>`;
                                 }
                                 if (balanceSummaries.length > 4) {
