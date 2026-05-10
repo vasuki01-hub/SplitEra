@@ -2269,7 +2269,10 @@
                 // Set up the listener ONLY after initialization
                 setupAuthListener();
 
-                // 🔥 IMPORTANT: Run Google redirect AFTER init
+                // Median native Social Login returns here with ?idToken=&type=google — handle before Firebase redirect
+                await handleMedianGoogleAuthCallback();
+
+                // 🔥 IMPORTANT: Run Google redirect AFTER init (browser / non-Median)
                 await handleGoogleAuthRedirect();
 
             } catch (error) {
@@ -8976,7 +8979,8 @@
                             <i class="fab fa-google"></i>
                             ${t('signInWithGoogle')}
                         </button>
-                        <div style="text-align: center; margin-top: 1rem;">
+                        <div style="text-align: center; margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: center;">
+                            <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: none; font-size: 0.875rem;">Privacy Policy</a>
                             <a href="#" onclick="renderUserGuidePage(); return false;" style="color: var(--text-gray); text-decoration: none; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.5rem; transition: color 0.3s;">
                                 <i class="fas fa-home"></i> ${t('backToHome')}
                             </a>
@@ -9052,7 +9056,8 @@
                             <i class="fab fa-google"></i>
                             ${t('signUpWithGoogle')}
                         </button>
-                        <div style="text-align: center; margin-top: 1rem;">
+                        <div style="text-align: center; margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: center;">
+                            <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: none; font-size: 0.875rem;">Privacy Policy</a>
                             <a href="#" onclick="renderUserGuidePage(); return false;" style="color: var(--text-gray); text-decoration: none; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.5rem; transition: color 0.3s;">
                                 <i class="fas fa-home"></i> ${t('backToHome')}
                             </a>
@@ -9698,6 +9703,8 @@
                         backdrop-filter: blur(12px);
                         font-size: 0.72rem; color: rgba(255,255,255,0.4);
                     }
+                    .ug-footer a { color: rgba(255,255,255,0.7); text-decoration: underline; }
+                    .ug-footer a:hover { color: #fff; }
 
                     /* Responsive */
                     @media (max-width: 640px) {
@@ -9794,7 +9801,7 @@
                 </div>
 
                 <!-- Footer -->
-                <div class="ug-footer">© 2026 SplitEra · ${t('buildWithTransparency') || 'Built with transparency'}</div>
+                <div class="ug-footer">© 2026 SplitEra · <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a> · ${t('buildWithTransparency') || 'Built with transparency'}</div>
             `;
 
             // Slide state management
@@ -10705,8 +10712,86 @@
             }
         }
 
-        // Google Authentication - Enhanced for Median/GoNative WebView
-        async function signInWithGoogle() {
+        /*
+         * Median Android/iOS + Firebase Google — console checklist (same Google Cloud project as Firebase):
+         * 1) Google Cloud: OAuth consent screen configured. Credentials: Web client ID, Android client ID
+         *    (package name + SHA-1 from Median App Studio; add debug SHA-1 / .debug package for sideload tests).
+         * 2) Firebase Console: Authentication → Google enabled; Settings → Authorized domains include your Vercel host.
+         * 3) Median App Studio: Native Plugins → Social Login → Web + Android (+ iOS) client IDs and iOS URL scheme; rebuild APK.
+         * Docs: https://median.co/docs/google-sign-in-configuration
+         *        https://median.co/docs/social-login-server-side-redirects
+         */
+        function isMedianApp() {
+            const ua = (navigator.userAgent || '').toLowerCase();
+            return ua.indexOf('median') >= 0 || ua.indexOf('gonative') >= 0;
+        }
+
+        /** URL Median redirects to after native Google Sign-In (query params are appended by Median). */
+        function getMedianGoogleRedirectUri() {
+            const url = new URL(window.location.href);
+            url.hash = '';
+            url.search = '';
+            return url.toString();
+        }
+
+        /**
+         * Median Social Login: WebView loads redirectUri with idToken, type=google, state.
+         * Firebase: signInWithCredential. Align OAuth clients in Google Cloud, Firebase, and Median App Studio.
+         */
+        async function handleMedianGoogleAuthCallback() {
+            if (window.location.protocol === 'file:' || !auth) {
+                return;
+            }
+
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('type') !== 'google') {
+                return;
+            }
+
+            const idToken = params.get('idToken');
+            const errParam = params.get('error');
+            const state = params.get('state') || '';
+
+            const stripMedianGoogleParams = () => {
+                params.delete('idToken');
+                params.delete('type');
+                params.delete('state');
+                params.delete('error');
+                const qs = params.toString();
+                const next = window.location.pathname + (qs ? '?' + qs : '') + window.location.hash;
+                window.history.replaceState({}, document.title, next);
+            };
+
+            if (errParam) {
+                stripMedianGoogleParams();
+                await handleAuthError({ message: errParam }, 'Google Sign-In');
+                return;
+            }
+
+            if (!idToken) {
+                return;
+            }
+
+            try {
+                const credential = firebase.auth.GoogleAuthProvider.credential(idToken);
+                const result = await auth.signInWithCredential(credential);
+                stripMedianGoogleParams();
+
+                if (state === 'g_signup') {
+                    await handleGoogleAuthSignUp(result.user);
+                } else if (state === 'g_signin') {
+                    await handleGoogleAuthSignIn(result.user);
+                } else {
+                    await handleGoogleAuthSuccess(result.user);
+                }
+            } catch (error) {
+                stripMedianGoogleParams();
+                await handleAuthError(error, 'Google Sign-In');
+            }
+        }
+
+        // Google Authentication — Median uses native Social Login; browsers use Firebase popup/redirect
+        async function signInWithGoogleFlow(medianMode) {
             showLoading();
             try {
                 sessionStorage.removeItem('googleAuthRedirectHandled');
@@ -10716,29 +10801,30 @@
                 provider.addScope('profile');
                 provider.setCustomParameters({ prompt: 'select_account' });
 
-                // --- DETECT MEDIAN WEBVIEW ---
-                const isMedianEnv =
-                    typeof window.median !== 'undefined' ||
-                    navigator.userAgent.includes('Median') ||
-                    navigator.userAgent.includes('gonative') ||
-                    (navigator.userAgent.includes('Android') && navigator.userAgent.includes('; wv)'));
-
-                if (isMedianEnv) {
-                    // In a Median WebView, signInWithPopup NEVER works.
-                    // We MUST use redirect. Android App Links (assetlinks.json) will
-                    // route the return URL back into the app instead of Chrome.
-                    await auth.signInWithRedirect(provider);
+                if (isMedianApp()) {
+                    if (window.median && window.median.socialLogin && window.median.socialLogin.google &&
+                        typeof window.median.socialLogin.google.login === 'function') {
+                        const state = medianMode === 'signup' ? 'g_signup' : 'g_signin';
+                        window.median.socialLogin.google.login({
+                            redirectUri: getMedianGoogleRedirectUri(),
+                            state: state
+                        });
+                        return;
+                    }
+                    showToast(
+                        'Google Sign-In',
+                        'Native sign-in is not available in this app build. Enable Social Login in Median and rebuild, or use email sign-in.',
+                        'error'
+                    );
                     return;
                 }
 
-                // Standard mobile browser (not a WebView) — also use redirect
                 const isMobileBrowser = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
                 if (isMobileBrowser) {
                     await auth.signInWithRedirect(provider);
                     return;
                 }
 
-                // Desktop: use popup
                 try {
                     const result = await auth.signInWithPopup(provider);
                     if (result.user) {
@@ -10756,12 +10842,19 @@
                         throw popupError;
                     }
                 }
-
             } catch (error) {
-                await handleAuthError(error, 'Sign-In Error');
+                await handleAuthError(error, medianMode === 'signup' ? 'Sign-Up Error' : 'Sign-In Error');
             } finally {
                 hideLoading();
             }
+        }
+
+        async function signInWithGoogle() {
+            return signInWithGoogleFlow('signin');
+        }
+
+        async function signUpWithGoogle() {
+            return signInWithGoogleFlow('signup');
         }
 
         // Handler for Google sign-in - check if account exists
