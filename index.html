@@ -10791,7 +10791,7 @@
             }
         }
 
-        // Google Authentication — Median uses native Social Login; browsers use Firebase popup/redirect
+        // Google Authentication — Median: native Social Login; browsers: signInWithRedirect (no popup / COOP issues)
         async function signInWithGoogleFlow(medianMode) {
             showLoading();
             try {
@@ -10820,29 +10820,9 @@
                     return;
                 }
 
-                const isMobileBrowser = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
-                if (isMobileBrowser) {
-                    await auth.signInWithRedirect(provider);
-                    return;
-                }
-
-                try {
-                    const result = await auth.signInWithPopup(provider);
-                    if (result.user) {
-                        await handleGoogleAuthSuccess(result.user);
-                    }
-                } catch (popupError) {
-                    console.warn('Popup failed:', popupError.code);
-                    if (
-                        popupError.code === 'auth/popup-blocked' ||
-                        popupError.code === 'auth/popup-closed-by-user' ||
-                        popupError.code === 'auth/operation-not-supported-in-this-environment'
-                    ) {
-                        await auth.signInWithRedirect(provider);
-                    } else {
-                        throw popupError;
-                    }
-                }
+                // Full-page redirect for all browsers (not Median). Avoids signInWithPopup + COOP:
+                // strict Cross-Origin-Opener-Policy blocks Firebase's window.closed polling (popup.ts noise / failures).
+                await auth.signInWithRedirect(provider);
             } catch (error) {
                 await handleAuthError(error, medianMode === 'signup' ? 'Sign-Up Error' : 'Sign-In Error');
             } finally {
