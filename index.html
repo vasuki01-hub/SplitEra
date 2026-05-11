@@ -2256,6 +2256,22 @@
             try {
                 const response = await fetch("/api/firebaseConfig");
                 const firebaseConfig = await response.json();
+                // Make available for diagnostics UI
+                window.firebaseConfig = firebaseConfig;
+
+                // Validate required keys early (most common cause of auth not working on both web + app).
+                const requiredKeys = ['apiKey', 'authDomain', 'projectId', 'appId'];
+                const missingKeys = requiredKeys.filter((k) => !firebaseConfig || !firebaseConfig[k]);
+                if (missingKeys.length) {
+                    console.error('❌ Firebase config missing keys:', missingKeys, firebaseConfig);
+                    showToast(
+                        'Config Error',
+                        'Firebase is not configured. Missing: ' + missingKeys.join(', ') +
+                        '. Set FIREBASE_* in Vercel Project Settings → Environment Variables, then redeploy.',
+                        'error'
+                    );
+                    return;
+                }
 
                 if (!firebase.apps.length) {
                     firebase.initializeApp(firebaseConfig);
@@ -10791,10 +10807,14 @@
             }
         }
 
-        // Google Authentication — Median: native Social Login; browsers: signInWithRedirect (no popup / COOP issues)
+        // Google Authentication — Median uses native Social Login; browsers use Firebase popup/redirect
         async function signInWithGoogleFlow(medianMode) {
             showLoading();
             try {
+                if (!auth) {
+                    showToast('Error', 'Auth is not initialized yet. Please refresh and try again.', 'error');
+                    return;
+                }
                 sessionStorage.removeItem('googleAuthRedirectHandled');
 
                 const provider = new firebase.auth.GoogleAuthProvider();
@@ -10820,9 +10840,11 @@
                     return;
                 }
 
-                // Full-page redirect for all browsers (not Median). Avoids signInWithPopup + COOP:
-                // strict Cross-Origin-Opener-Policy blocks Firebase's window.closed polling (popup.ts noise / failures).
+                // Non-Median (web): always use redirect in the same tab.
+                // This avoids popup-related COOP warnings and works consistently on desktop + mobile browsers.
+                sessionStorage.setItem('googleAuthIntent', medianMode === 'signup' ? 'signup' : 'signin');
                 await auth.signInWithRedirect(provider);
+                return;
             } catch (error) {
                 await handleAuthError(error, medianMode === 'signup' ? 'Sign-Up Error' : 'Sign-In Error');
             } finally {
@@ -11010,13 +11032,29 @@
                 if (result && result.user) {
 
                     sessionStorage.setItem('googleAuthRedirectHandled', 'true');
-                    await handleGoogleAuthSuccess(result.user);
+                    const intent = sessionStorage.getItem('googleAuthIntent');
+                    sessionStorage.removeItem('googleAuthIntent');
+                    if (intent === 'signin') {
+                        await handleGoogleAuthSignIn(result.user);
+                    } else if (intent === 'signup') {
+                        await handleGoogleAuthSignUp(result.user);
+                    } else {
+                        await handleGoogleAuthSuccess(result.user);
+                    }
                 } else {
                     // No result but still on the page? Check current auth state as fallback
                     const user = auth.currentUser;
                     if (user && !currentUser) {
 
-                        await handleGoogleAuthSuccess(user);
+                        const intent = sessionStorage.getItem('googleAuthIntent');
+                        sessionStorage.removeItem('googleAuthIntent');
+                        if (intent === 'signin') {
+                            await handleGoogleAuthSignIn(user);
+                        } else if (intent === 'signup') {
+                            await handleGoogleAuthSignUp(user);
+                        } else {
+                            await handleGoogleAuthSuccess(user);
+                        }
                     }
                 }
             } catch (error) {
