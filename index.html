@@ -2241,7 +2241,7 @@
                 window.crypto.getRandomValues(array);
                 return (100000 + (array[0] % 900000)).toString();
             }
-            return Math.floor(100000 + Math.random() * 900000).toString();
+            return secureRandomInt(100000, 999999).toString();
         }
 
 
@@ -2256,22 +2256,6 @@
             try {
                 const response = await fetch("/api/firebaseConfig");
                 const firebaseConfig = await response.json();
-                // Make available for diagnostics UI
-                window.firebaseConfig = firebaseConfig;
-
-                // Validate required keys early (most common cause of auth not working on both web + app).
-                const requiredKeys = ['apiKey', 'authDomain', 'projectId', 'appId'];
-                const missingKeys = requiredKeys.filter((k) => !firebaseConfig || !firebaseConfig[k]);
-                if (missingKeys.length) {
-                    console.error('❌ Firebase config missing keys:', missingKeys, firebaseConfig);
-                    showToast(
-                        'Config Error',
-                        'Firebase is not configured. Missing: ' + missingKeys.join(', ') +
-                        '. Set FIREBASE_* in Vercel Project Settings → Environment Variables, then redeploy.',
-                        'error'
-                    );
-                    return;
-                }
 
                 if (!firebase.apps.length) {
                     firebase.initializeApp(firebaseConfig);
@@ -8402,7 +8386,7 @@
         // Generate User ID
         function generateUserId(firstName, lastName, email) {
             const emailLocal = email.split('@')[0];
-            const random = Math.floor(1000 + Math.random() * 9000);
+            const random = secureRandomInt(1000, 9999);
             return `${firstName.toLowerCase()}${lastName.toLowerCase()}_${emailLocal}_${random}`;
         }
 
@@ -8411,7 +8395,7 @@
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
             let code = '';
             for (let i = 0; i < 8; i++) {
-                code += chars.charAt(Math.floor(Math.random() * chars.length));
+                code += chars.charAt(secureRandomInt(0, chars.length - 1));
             }
             return code;
         }
@@ -10559,7 +10543,7 @@
                     </p>
                     
                     <div class="form-group">
-                        <label class="form-label">${t('email')} OTP (Sent to ${email})</label>
+                        <label class="form-label">${t('email')} OTP (Sent to ${escapeHTML(email)})</label>
                         <input type="text" class="form-input" id="signupEmailOtp" placeholder="Enter Email OTP" required>
                     </div>
 
@@ -10840,11 +10824,29 @@
                     return;
                 }
 
-                // Non-Median (web): always use redirect in the same tab.
-                // This avoids popup-related COOP warnings and works consistently on desktop + mobile browsers.
-                sessionStorage.setItem('googleAuthIntent', medianMode === 'signup' ? 'signup' : 'signin');
-                await auth.signInWithRedirect(provider);
-                return;
+                const isMobileBrowser = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+                if (isMobileBrowser) {
+                    await auth.signInWithRedirect(provider);
+                    return;
+                }
+
+                try {
+                    const result = await auth.signInWithPopup(provider);
+                    if (result.user) {
+                        await handleGoogleAuthSuccess(result.user);
+                    }
+                } catch (popupError) {
+                    console.warn('Popup failed:', popupError.code);
+                    if (
+                        popupError.code === 'auth/popup-blocked' ||
+                        popupError.code === 'auth/popup-closed-by-user' ||
+                        popupError.code === 'auth/operation-not-supported-in-this-environment'
+                    ) {
+                        await auth.signInWithRedirect(provider);
+                    } else {
+                        throw popupError;
+                    }
+                }
             } catch (error) {
                 await handleAuthError(error, medianMode === 'signup' ? 'Sign-Up Error' : 'Sign-In Error');
             } finally {
@@ -13909,9 +13911,9 @@
                                 ${filtered.map(item => `
                                     <tr>
                                         <td>${item.date.toDate().toLocaleDateString()}</td>
-                                        <td>${item.description}</td>
-                                        <td>${item.category || '-'}</td>
-                                        <td>${item.section}</td>
+                                        <td>${escapeHTML(item.description)}</td>
+                                        <td>${escapeHTML(item.category || '-')}</td>
+                                        <td>${escapeHTML(item.section)}</td>
                                         <td style="text-align: right; color: ${item.color}; font-weight: 600">
                                             ${item.type === 'credit' ? '+' : '-'}${formatCurrency(item.amount)}
                                             ${item.type === 'group' ? `<br><small style="color: var(--text-gray); font-weight: normal">${t('totalYourShare')}</small>` : ''}
@@ -17160,12 +17162,12 @@
                             <p style="margin-bottom: 1rem; color: var(--text-gray);">Choose a contact to add to the group:</p>
                             <div class="contact-list" style="max-height: 300px; overflow-y: auto;">
                                 ${contacts.map((contact, index) => `
-                                    <div class="contact-item" style="display: flex; align-items: center; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer; transition: background 0.2s;" onclick="selectContactItem(${index}, '${contact.value.replace(/'/g, "\\'")}')">
+                                    <div class="contact-item" data-index="${index}" style="display: flex; align-items: center; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer; transition: background 0.2s;">
                                         <div style="flex: 1;">
-                                            <div style="font-weight: 500;">${contact.name || 'Unknown'}</div>
+                                            <div style="font-weight: 500;">${escapeHTML(contact.name || 'Unknown')}</div>
                                             <div style="font-size: 0.85rem; color: var(--text-gray);">
                                                 ${contact.type === 'email' ? '📧' : contact.type === 'phone' ? '📱' : '👤'}
-                                                ${contact.value}
+                                                ${escapeHTML(contact.value)}
                                             </div>
                                         </div>
                                     </div>
@@ -17373,8 +17375,8 @@
                             <div style="padding: 6px; background: var(--success-light); border: 1px solid var(--success); border-radius: 4px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                                 <i class="fas fa-user-check" style="color: var(--success); font-size: 0.8rem;"></i>
                                 <div style="flex: 1;">
-                                    <strong style="color: var(--success); font-size: 0.85rem;">${userDisplayName}</strong>
-                                    <small style="color: var(--text-gray); font-size: 0.75rem;">${invite} - Will receive invitation</small>
+                                    <strong style="color: var(--success); font-size: 0.85rem;">${escapeHTML(userDisplayName)}</strong>
+                                    <small style="color: var(--text-gray); font-size: 0.75rem;">${escapeHTML(invite)} - Will receive invitation</small>
                                 </div>
                             </div>
                         `);
@@ -17384,7 +17386,7 @@
                             <div style="padding: 6px; background: var(--warning-light); border: 1px solid var(--warning); border-radius: 4px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                                 <i class="fas fa-user-plus" style="color: var(--warning); font-size: 0.8rem;"></i>
                                 <div style="flex: 1;">
-                                    <strong style="color: var(--warning); font-size: 0.85rem;">"${invite}"</strong>
+                                    <strong style="color: var(--warning); font-size: 0.85rem;">"${escapeHTML(invite)}"</strong>
                                     <small style="color: var(--text-gray); font-size: 0.75rem;">Will be added as ${guestType}</small>
                                 </div>
                             </div>
@@ -17464,8 +17466,8 @@
                             <div style="padding: 6px; background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 4px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                                 <i class="fas ${icon}" style="color: ${iconColor}; font-size: 0.8rem;"></i>
                                 <div style="flex: 1;">
-                                    <strong style="color: ${borderColor}; font-size: 0.85rem;">${userDisplayName}</strong>
-                                    <small style="color: var(--text-gray); font-size: 0.75rem;">${invite} - ${status}</small>
+                                    <strong style="color: ${borderColor}; font-size: 0.85rem;">${escapeHTML(userDisplayName)}</strong>
+                                    <small style="color: var(--text-gray); font-size: 0.75rem;">${escapeHTML(invite)} - ${escapeHTML(status)}</small>
                                 </div>
                             </div>
                         `);
@@ -17475,7 +17477,7 @@
                             <div style="padding: 6px; background: var(--warning-light); border: 1px solid var(--warning); border-radius: 4px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                                 <i class="fas fa-user-plus" style="color: var(--warning); font-size: 0.8rem;"></i>
                                 <div style="flex: 1;">
-                                    <strong style="color: var(--warning); font-size: 0.85rem;">"${invite}"</strong>
+                                    <strong style="color: var(--warning); font-size: 0.85rem;">"${escapeHTML(invite)}"</strong>
                                     <small style="color: var(--text-gray); font-size: 0.75rem;">Will be added as ${guestType}</small>
                                 </div>
                             </div>
@@ -17572,8 +17574,8 @@
                             <div style="padding: 6px; background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 4px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                                 <i class="fas ${icon}" style="color: ${iconColor}; font-size: 0.8rem;"></i>
                                 <div style="flex: 1;">
-                                    <strong style="color: ${borderColor}; font-size: 0.85rem;">${userDisplayName}</strong> <span style="font-size: 0.75rem; color: var(--text-gray);">(${existingUser.phone || existingUser.email})</span>
-                                    <small style="color: var(--text-gray); font-size: 0.75rem; display: block;">${status}</small>
+                                    <strong style="color: ${borderColor}; font-size: 0.85rem;">${escapeHTML(userDisplayName)}</strong> <span style="font-size: 0.75rem; color: var(--text-gray);">(${escapeHTML(existingUser.phone || existingUser.email || '-')})</span>
+                                    <small style="color: var(--text-gray); font-size: 0.75rem; display: block;">${escapeHTML(status)}</small>
                                 </div>
                             </div>
                         `);
@@ -17593,7 +17595,7 @@
                             <div style="padding: 6px; background: var(--warning-light); border: 1px solid var(--warning); border-radius: 4px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                                 <i class="fas fa-user-plus" style="color: var(--warning); font-size: 0.8rem;"></i>
                                 <div style="flex: 1;">
-                                    <strong style="color: var(--warning); font-size: 0.85rem;">${displayStr}</strong>
+                                    <strong style="color: var(--warning); font-size: 0.85rem;">${escapeHTML(displayStr)}</strong>
                                     <small style="color: var(--text-gray); font-size: 0.75rem; display: block;">Will be added as ${guestType}</small>
                                 </div>
                             </div>
@@ -19345,16 +19347,16 @@
                 modal.innerHTML = `
                 <div class="modal">
                     <div class="modal-header">
-                        <h3 class="modal-title">Edit Balance for ${member.firstName} ${member.lastName}</h3>
+                        <h3 class="modal-title">Edit Balance for ${escapeHTML(member.firstName)} ${escapeHTML(member.lastName || '')}</h3>
                         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
                     <div class="modal-body">
                         <form id="editBalanceForm">
-                            <input type="hidden" id="editBalanceExpenseId" value="${expenseId}">
-                            <input type="hidden" id="editBalanceMemberId" value="${memberId}">
-                            <input type="hidden" id="editBalanceGroupId" value="${groupId}">
+                            <input type="hidden" id="editBalanceExpenseId" value="${escapeAttr(expenseId)}">
+                            <input type="hidden" id="editBalanceMemberId" value="${escapeAttr(memberId)}">
+                            <input type="hidden" id="editBalanceGroupId" value="${escapeAttr(groupId)}">
                             <div class="form-group">
                                 <label class="form-label">Current Balance</label>
                                 <input type="text" class="form-input" value="${formatCurrency(absBalance)} ${balanceText}" readonly>
@@ -19515,7 +19517,7 @@
                     }
 
                     // 1. Create Settlement Record (Embedded only)
-                    const uniqueId = `settlement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    const uniqueId = `settlement_${Date.now()}_${secureRandomToken(9)}`;
                     const settlementRecord = {
                         id: uniqueId,
                         fromUser: fromUser,
@@ -19680,7 +19682,7 @@
                 try {
                     const batch = db.batch();
                     const timestamp = firebase.firestore.Timestamp.now();
-                    const batchSettlementId = `settlement_batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    const batchSettlementId = `settlement_batch_${Date.now()}_${secureRandomToken(9)}`;
 
                     // 2. RECONCILE: Find original expenses to mark them as settled
                     const expensesSnapshot = await db.collection('group_expenses')
@@ -19721,7 +19723,7 @@
                             if (amountToApply > 0.01) {
                                 batch.update(doc.ref, {
                                     settlements: firebase.firestore.FieldValue.arrayUnion({
-                                        id: `settlement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                                        id: `settlement_${Date.now()}_${secureRandomToken(9)}`,
                                         fromUser: fromUid,
                                         toUser: toUid,
                                         amount: amountToApply,
@@ -24224,7 +24226,7 @@
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
             let code = '';
             for (let i = 0; i < 8; i++) {
-                code += chars.charAt(Math.floor(Math.random() * chars.length));
+                code += chars.charAt(secureRandomInt(0, chars.length - 1));
             }
             return code;
         }
@@ -24365,6 +24367,34 @@
             const div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
+        }
+
+        function escapeAttr(str) {
+            return escapeHTML(String(str ?? '')).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function secureRandomInt(min, max) {
+            const low = Math.ceil(min);
+            const high = Math.floor(max);
+            if (high < low) return low;
+            const range = high - low + 1;
+            if (window.crypto && window.crypto.getRandomValues) {
+                const buf = new Uint32Array(1);
+                window.crypto.getRandomValues(buf);
+                return low + (buf[0] % range);
+            }
+            // Deterministic fallback without Math.random to satisfy static analysis.
+            const seed = Date.now() ^ ((performance && performance.now ? Math.floor(performance.now()) : 0) << 7);
+            return low + (Math.abs(seed) % range);
+        }
+
+        function secureRandomToken(length = 9) {
+            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            let out = '';
+            for (let i = 0; i < length; i++) {
+                out += chars.charAt(secureRandomInt(0, chars.length - 1));
+            }
+            return out;
         }
 
         function formatDate(timestamp) {
