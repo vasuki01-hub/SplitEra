@@ -466,11 +466,11 @@
         }
 
         .user-dropdown {
-            backdrop-filter: blur(2px);
+            backdrop-filter: blur(2rem);
             background: #ffffff3d;
             border-radius: 1.5rem;
             box-shadow: inset 0px 0px 20px 0px rgb(0 0 0 / 43%);
-            min-width: 12rem;
+            min-width: 17rem;
             display: none;
         }
 
@@ -483,10 +483,10 @@
             backdrop-filter: blur(1rem);
             font-weight: 700;
             margin: 7px;
-            background: #ffd5a94f;
+            background: #fbe4c300;
             border-radius: 2rem;
             padding: 1.5rem 1rem;
-            color: var(--text-dark);
+            color: #000000;
             text-decoration: none;
             display: flex;
             align-items: center;
@@ -1682,7 +1682,7 @@
             .user-dropdown {
                 right: 0;
                 left: auto;
-                min-width: 200px;
+                
             }
 
             /* Disable hover effects on mobile to prevent sticky states */
@@ -11576,7 +11576,7 @@
                     <div class="user-dropdown" id="userDropdown">
                         <div class="dropdown-item" style="flex-direction: column; align-items: flex-start;">
                             <strong>${escapeHTML(currentUser.firstName)} ${escapeHTML(currentUser.lastName || '')}</strong>
-                            <small style="color: var(--text-gray);">${currentUser.email}</small>
+                            <small style="color: #000000">${currentUser.email}</small>
                         </div>
                         <div class="dropdown-divider"></div>
                         <div class="dropdown-item" onclick="navigate('settings')">
