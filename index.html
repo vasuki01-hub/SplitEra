@@ -475,6 +475,7 @@
         }
 
         .user-dropdown.show {
+                overflow: auto;    
             height: 27rem;
             display: block;
         }
@@ -633,6 +634,8 @@
         }
 
         .mobile-bottom-nav-content {
+            border-radius: 2rem;
+            backdrop-filter: blur(1rem);
             overflow: auto;
             display: flex;
             justify-content: space-between;
@@ -1682,7 +1685,7 @@
             .user-dropdown {
                 right: 0;
                 left: auto;
-                
+
             }
 
             /* Disable hover effects on mobile to prevent sticky states */
@@ -2006,7 +2009,7 @@
         }
 
         .notif-panel {
-            backdrop-filter: blur(1rem);
+            backdrop-filter: blur(2rem);
             border-radius: 2rem;
             position: fixed;
             top: 4rem;
@@ -2101,6 +2104,7 @@
 
         /* Individual notification item */
         .notif-item {
+            backdrop-filter: blur(2rem);
             background: #f5f5dc4d;
             border-radius: 8rem;
             display: flex;
@@ -2118,7 +2122,7 @@
         }
 
         .notif-item.unread {
-            background: rgb(255 145 73 / 18%);
+            background: rgb(255 145 73 / 38%);
         }
 
         .notif-item.unread::before {
@@ -2178,15 +2182,16 @@
             padding-left: 1.2rem;
             padding-right: 2rem;
             border-radius: 1.2rem;
-            background: #faebd763;
+            background: #fdceb8b5;
             font-weight: 700;
             flex: 1;
             min-width: 0;
         }
 
         .notif-msg {
+            font-weight: 700;
             font-size: 0.82rem;
-            color: var(--text-dark);
+            color: black;
             line-height: 1.45;
             margin: 0 0 3px;
             word-break: break-word;
@@ -2194,7 +2199,7 @@
 
         .notif-time {
             font-size: 1rem;
-            color: var(--text-gray);
+            color: black;
         }
     </style>
     <style>
@@ -11619,7 +11624,7 @@
                     </main>
 
                     <!-- Mobile Bottom Navigation (New 7-item layout) -->
-                    <div class="mobile-bottom-nav" id="mobileBottomNav" style="border-radius: 3.4rem; box-shadow: 0 0px 5px;">
+                    <div class="mobile-bottom-nav" id="mobileBottomNav" style="border-radius: 3.4rem; box-shadow: inset 0px -7px 20px;">
                         <div class="mobile-bottom-nav-content">
                             <a href="#" class="mobile-nav-item active" data-page="dashboard" onclick="mobileNavigate('dashboard'); return false;">
                                 <i class="fas fa-home"></i>
