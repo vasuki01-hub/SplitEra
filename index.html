@@ -2211,7 +2211,7 @@
     <script>
 
     </script>
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <!-- Chart.js, jsPDF, etc. -->
 
 
 
@@ -7527,6 +7527,15 @@
             try {
                 if (_oneSignalInitialized) return;
 
+                // Dynamically load OneSignal script to avoid conflicts in Median app and reduce console errors
+                if (!document.getElementById('onesignal-script')) {
+                    const script = document.createElement('script');
+                    script.id = 'onesignal-script';
+                    script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
+                    script.defer = true;
+                    document.head.appendChild(script);
+                }
+
                 let attempts = 0;
                 while (!window.OneSignal && attempts < 20) {
                     await new Promise(r => setTimeout(r, 300));
@@ -7571,7 +7580,7 @@
                 if (e?.message?.includes('already')) {
                     _oneSignalInitialized = true;
                 } else {
-                    console.warn('[Push] Web init error:', e?.message || e);
+                    console.warn('[Push] Web init error (Adblocker?):', e?.message || e);
                 }
             }
         }
@@ -7609,9 +7618,11 @@
             });
 
             // ── Direct JS Bridge calls ─────
-            // We use a small delay to ensure Median bridge is fully injected
-            setTimeout(() => {
+            // We use polling to ensure Median bridge is fully injected
+            let attempts = 0;
+            const checkMedian = setInterval(() => {
                 if (window.median?.onesignal) {
+                    clearInterval(checkMedian);
                     showToast('Push Debug', 'Median bridge found, requesting info...');
 
                     window.onesignalInfoCallback = function (info) {
@@ -7627,9 +7638,14 @@
                         showToast('Push Error', e.message);
                     }
                 } else {
-                    showToast('Push Debug', 'No window.median.onesignal found');
+                    attempts++;
+                    if (attempts >= 10) {
+                        clearInterval(checkMedian);
+                        showToast('Push Error', 'OneSignal plugin not found. Please enable it in Median App Studio.');
+                        console.warn('[Push] No window.median.onesignal found after 5 seconds.');
+                    }
                 }
-            }, 1500);
+            }, 500);
         }
 
         async function flushPendingPushToken() {
@@ -11624,7 +11640,7 @@
                     </main>
 
                     <!-- Mobile Bottom Navigation (New 7-item layout) -->
-                    <div class="mobile-bottom-nav" id="mobileBottomNav" style="border-radius: 3.4rem; box-shadow: inset 0px -4px 20px;">
+                    <div class="mobile-bottom-nav" id="mobileBottomNav" style="border-radius: 3.4rem; box-shadow: inset 0px -5px 20px;">
                         <div class="mobile-bottom-nav-content">
                             <a href="#" class="mobile-nav-item active" data-page="dashboard" onclick="mobileNavigate('dashboard'); return false;">
                                 <i class="fas fa-home"></i>
