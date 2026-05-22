@@ -8616,6 +8616,58 @@
             );
         }
 
+        // Helper: Get flag emoji from 2-letter ISO country code
+        function getFlagEmoji(countryCode) {
+            return countryCodeToFlag(countryCode);
+        }
+
+        // Helper: Get country flag emoji by country name
+        function getCountryFlag(countryName) {
+            if (!countryName) return '';
+            const country = COUNTRIES.find(c => c.name.toLowerCase() === countryName.toLowerCase());
+            return country ? getFlagEmoji(country.code) : '';
+        }
+
+        // Setup searchable dropdown sync with hidden native select
+        function setupSearchableDropdown(selectId, containerId, isCountry = false) {
+            const selectEl = document.getElementById(selectId);
+            const container = document.getElementById(containerId);
+            if (!selectEl || !container) return;
+
+            const options = Array.from(selectEl.options).map(opt => {
+                let label = opt.text;
+                let flag = '';
+                let value = opt.value;
+
+                if (isCountry) {
+                    flag = getCountryFlag(value);
+                    label = opt.text;
+                } else {
+                    // Currency dropdown option text has flag at start:
+                    // e.g. "🇺🇸 $ - US Dollar" (two regional indicator symbols)
+                    if (opt.text.length >= 4 && opt.text.charCodeAt(0) === 0xD83C && opt.text.charCodeAt(2) === 0xD83C) {
+                        flag = opt.text.substring(0, 4);
+                        label = opt.text.substring(4).trim();
+                    } else {
+                        label = opt.text;
+                    }
+                }
+
+                return {
+                    value: value,
+                    label: label,
+                    flag: flag
+                };
+            });
+
+            const selectedValue = selectEl.value;
+
+            initSearchableDropdown(containerId, options, selectedValue, (val) => {
+                selectEl.value = val;
+                selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
+
         // Searchable Dropdown Component
         function initSearchableDropdown(containerId, options, selectedValue, onSelect) {
             const container = document.getElementById(containerId);
@@ -22861,7 +22913,7 @@
                             </div>
                             <div class="form-group">
     <label class="form-label">${t('currency')}</label>
-    <select class="form-select" id="settingsCurrency">
+    <select class="form-select" id="settingsCurrency" style="display: none;">
         <option value="USD" ${settings.currency === 'USD' ? 'selected' : ''}>ðŸ‡ºðŸ‡¸ $ - US Dollar</option>
         <option value="EUR" ${settings.currency === 'EUR' ? 'selected' : ''}>ðŸ‡ªðŸ‡º â‚¬ - Euro</option>
         <option value="GBP" ${settings.currency === 'GBP' ? 'selected' : ''}>ðŸ‡¬ðŸ‡§ Â£ - British Pound</option>
@@ -23019,12 +23071,14 @@
         <option value="ZMW" ${settings.currency === 'ZMW' ? 'selected' : ''}>ðŸ‡¿ðŸ‡² K - Zambian Kwacha</option>
         <option value="ZWL" ${settings.currency === 'ZWL' ? 'selected' : ''}>ðŸ‡¿ðŸ‡¼ $ - Zimbabwean Dollar</option>
     </select>
+    <div class="searchable-dropdown" id="settingsCurrencyContainer"></div>
 </div>
                             <div class="form-group">
                                 <label class="form-label">${t('country')}</label>
-                                <select class="form-select" id="settingsCountry">
+                                <select class="form-select" id="settingsCountry" style="display: none;">
                                     ${getCountryNameOptions(settings.country)}
                                 </select>
+                                <div class="searchable-dropdown" id="settingsCountryContainer"></div>
                             </div>
 <div class="form-group">
                                 <label class="form-label">${t('darkMode')}</label>
@@ -23129,6 +23183,10 @@
                 e.preventDefault();
                 await saveProfile();
             });
+
+            // Initialize searchable dropdowns for currency and country settings
+            setupSearchableDropdown('settingsCurrency', 'settingsCurrencyContainer');
+            setupSearchableDropdown('settingsCountry', 'settingsCountryContainer', true);
         }
 
         // Initialize Phone Input for Profile Edit - call this when edit mode is activated
