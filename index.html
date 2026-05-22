@@ -9717,7 +9717,7 @@
                     avatarType: 'planner',
                     title: t('calendar') || 'Calendar View',
                     subtitle: t('calendarDescription') || 'Visualize your money over time.',
-                    badge: '05 Â· Calendar',
+                    badge: '06 · Calendar',
                     content: {
                         tip: { icon: '📌', label: t('viewByDate') || 'View by Date', text: t('viewByDateDescription') || 'Click any day to see the exact transactions that happened then.' },
                         chips: ['Monthly View', 'Daily Totals', 'Income Dots', 'Expense Dots']
@@ -9731,7 +9731,7 @@
                     avatarType: 'exporter',
                     title: t('exportReports') || 'Export Reports',
                     subtitle: t('exportReportsDescription') || 'Need your data for taxes or accounting? Export all your transactions.',
-                    badge: '06 · Export',
+                    badge: '07 · Export',
                     content: {
                         chips: ['PDF Report', 'Excel Export', 'JSON Data', 'Full History'],
                         formats: [{ label: 'PDF', color: '#ef4444', bg: '#fee2e2' }, { label: 'EXCEL', color: '#16a34a', bg: '#dcfce7' }, { label: 'JSON', color: '#2563eb', bg: '#dbeafe' }]
@@ -9745,7 +9745,7 @@
                     avatarType: 'detective',
                     title: t('details') || 'Transaction Details',
                     subtitle: t('detailsDescription') || 'Dive deep into your records. Search for specific transactions, filter by type or category.',
-                    badge: '07 Â· Details',
+                    badge: '08 · Details',
                     content: {
                         tip: { icon: '⚡', label: t('smartSearch') || 'Smart Search', text: t('smartSearchDescription') || 'Just start typing. Our filters work instantly to find what you\'re looking for.' },
                         chips: ['Search', 'Filter', 'Sort', 'Categories']
@@ -10481,7 +10481,7 @@
                     <!-- Handshake / link -->
                     <path d="M56 70 Q60 65 64 70" stroke="#7c3aed" stroke-width="3" fill="none" stroke-linecap="round"/>
                     <circle cx="60" cy="63" r="5" fill="#7c3aed"/>
-                    <text x="60" y="66" text-anchor="middle" font-size="6" fill="#fff">âœ“</text>
+                   <text x="60" y="66" text-anchor="middle" font-size="6" fill="#fff">✓</text>
                 </svg>`,
 
                 traveler: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
@@ -11541,44 +11541,44 @@
             try {
                 // 1. Protocol Check (CRITICAL)
                 if (window.location.protocol === 'file:') {
-                    report.push(`<span style="color: var(--danger);">âŒ <strong>CRITICAL:</strong> You are opening the file directly (file://). Google Sign-In will <strong>never</strong> work this way in an APK or browser.</span>`);
+                    report.push(`<span style="color: var(--danger);">❌ <strong>CRITICAL:</strong> You are opening the file directly (file://). Google Sign-In will <strong>never</strong> work this way in an APK or browser.</span>`);
                     issuesFound = true;
                 } else {
-                    report.push(`<span style="color: var(--success);">âœ… Protocol: ${window.location.protocol} (OK)</span>`);
+                    report.push(`<span style="color: var(--success);">✅ Protocol: ${window.location.protocol} (OK)</span>`);
                 }
 
                 // 2. Domain & Authorized Context
                 const domain = window.location.hostname;
-                report.push(`â„¹ï¸ Current Domain: <strong>${domain}</strong>`);
+                report.push(`ℹ️ Current Domain: <strong>${domain}</strong>`);
 
                 // 3. User Agent Analysis (WebView Check)
                 const appEnv = isAppEnvironment();
-                report.push(`â„¹ï¸ Environment: <strong>${appEnv ? 'Android/iOS App (WebView)' : 'Desktop/Mobile Browser'}</strong>`);
+                report.push(`ℹ️ Environment: <strong>${appEnv ? 'Android/iOS App (WebView)' : 'Desktop/Mobile Browser'}</strong>`);
                 if (appEnv && ua.includes('Version/')) {
-                    report.push(`<span style="color: var(--warning);">âš ï¸ <strong>Warning:</strong> Restricted User Agent detected. If Google blocks login, update your APK settings to use a custom User Agent (Chrome-like string).</span>`);
+                    report.push(`<span style="color: var(--warning);">⚠️ <strong>Warning:</strong> Restricted User Agent detected. If Google blocks login, update your APK settings to use a custom User Agent (Chrome-like string).</span>`);
                 }
 
                 // 4. Firebase Config Check
                 if (typeof firebaseConfig === 'undefined') {
-                    report.push(`<span style="color: var(--danger);">âŒ Firebase config not loaded yet.</span>`);
+                    report.push(`<span style="color: var(--danger);">❌ Firebase config not loaded yet.</span>`);
                     issuesFound = true;
                 } else if (firebaseConfig.apiKey.includes('YOUR_')) {
-                    report.push(`<span style="color: var(--danger);">âŒ <strong>CRITICAL:</strong> API Key is still a placeholder.</span>`);
+                    report.push(`<span style="color: var(--danger);">❌ <strong>CRITICAL:</strong> API Key is still a placeholder.</span>`);
                     issuesFound = true;
                 } else {
-                    report.push(`<span style="color: var(--success);">âœ… Firebase API Key (OK)</span>`);
+                    report.push(`<span style="color: var(--success);">✅ Firebase API Key (OK)</span>`);
                 }
 
                 if (firebaseConfig && firebaseConfig.authDomain !== 'animai-studio-jtpei.firebaseapp.com') {
-                    report.push(`<span style="color: var(--warning);">âš ï¸ Auth Domain mismatch? Expected: animai-studio-jtpei.firebaseapp.com</span>`);
+                    report.push(`<span style="color: var(--warning);">⚠️ Auth Domain mismatch? Expected: animai-studio-jtpei.firebaseapp.com</span>`);
                 }
 
                 // 5. Test Provider Initialization
                 try {
                     const provider = new firebase.auth.GoogleAuthProvider();
-                    report.push(`<span style="color: var(--success);">âœ… Google Auth Provider initialized (OK)</span>`);
+                    report.push(`<span style="color: var(--success);">✅ Google Auth Provider initialized (OK)</span>`);
                 } catch (e) {
-                    report.push(`<span style="color: var(--danger);">âŒ Failed to initialize Google Provider: ${e.message}</span>`);
+                    report.push(`<span style="color: var(--danger);">❌ Failed to initialize Google Provider: ${e.message}</span>`);
                     issuesFound = true;
                 }
 
@@ -18933,7 +18933,7 @@
                                                     <div style="flex: 1;">
                                                         <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 2px;">
                                                             <strong style="color: var(--text-dark);">${from.firstName}</strong>
-                                                            <span class="text-secondary" style="font-size: 0.8rem;">â†’</span>
+                                                            <span class="text-secondary" style="font-size: 0.8rem;">→</span>
                                                             <strong style="color: var(--text-dark);">${to.firstName}</strong>
                                                         </div>
                                                         ${statusText}
@@ -18962,7 +18962,7 @@
                         <div>
                             <h3 class="modal-title">${escapeHTML(group.name)}</h3>
                             <p class="text-secondary" style="margin: 0; font-size: 0.85rem;">
-                                ${(group.members?.length || 0) + (group.guestMembers?.length || 0)} ${t('membersCount')} â€¢ ${t('groupCode')}: ${group.code}
+                                ${(group.members?.length || 0) + (group.guestMembers?.length || 0)} ${t('membersCount')} • ${t('groupCode')}: ${group.code}
                             </p>
                         </div>
                         <button class="modal-close" onclick="closeGroupModal(this)">
@@ -19209,7 +19209,7 @@
                                                 <div style="flex: 1;">
                                                     <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 2px;">
                                                         <strong style="color: var(--text-dark);">${from.firstName}</strong>
-                                                        <span class="text-secondary" style="font-size: 0.8rem;">â†’</span>
+                                                        <span class="text-secondary" style="font-size: 0.8rem;">→</span>
                                                         <strong style="color: var(--text-dark);">${to.firstName}</strong>
                                                     </div>
                                                     ${statusText}
