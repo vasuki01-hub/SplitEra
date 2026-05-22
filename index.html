@@ -18557,7 +18557,7 @@
                     <tr id="expense-details-${expense.id}" class="expense-details-row" style="display: none;">
                         <td colspan="8" style="padding: 0;">
                             <div class="expense-expansion-content" style="background: var(--bg-light); padding: 1rem; border-radius: 8px; margin: 0.5rem 0;">
-                                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:0.6rem; margin-bottom:0.9rem;">
+                                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:0.6rem; margin-bottom:0.9rem;">
                                     <div><strong>${t('description')}:</strong> ${escapeHTML(expense.description || '-')}</div>
                                     <div><strong>${t('split')}:</strong> ${(() => {
                             const st = expense.splitType || 'equal';
@@ -18570,8 +18570,8 @@
                         })()}</div>
                                     <div><strong>${t('remarks') || 'Remarks'}:</strong> ${escapeHTML(expense.remarks) || '-'}</div>
                                     <div><strong>${t('status')}:</strong> ${isExpenseSettled ?
-                            '<span style="color: var(--success); font-weight: 600;">âœ“ ' + t('settled') + '</span>' :
-                            (isFullySettledForMe ? '<span style="color: var(--success);">âœ“ ' + t('paid') + '</span>' : '<span style="color: var(--warning);">â³ ' + t('pending') + '</span>')}</div>
+                            '<span style="color: var(--success); font-weight: 600;">✓ ' + t('settled') + '</span>' :
+                            (isFullySettledForMe ? '<span style="color: var(--success);">✓ ' + t('paid') + '</span>' : '<span style="color: var(--warning);">⏳ ' + t('pending') + '</span>')}</div>
                                 </div>
                                 <div class="row" style="margin: 0;">
                                     <div class="col-md-6">
@@ -18641,7 +18641,7 @@
                                 return `
                                                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; margin-bottom: 0.25rem; background: var(--success-light); border-radius: 4px; border-left: 3px solid var(--success);">
                                                         <div>
-                                                             <div style="font-weight: 600; color: var(--success);">${escapeHTML(sPayer.firstName)} ${escapeHTML(sPayer.lastName || '')} â†’ ${escapeHTML(sReceiver.firstName)} ${escapeHTML(sReceiver.lastName || '')}: ${formatCurrency(settlement.amount)} Settled</div>
+                                                             <div style="font-weight: 600; color: var(--success);">${escapeHTML(sPayer.firstName)} ${escapeHTML(sPayer.lastName || '')} → ${escapeHTML(sReceiver.firstName)} ${escapeHTML(sReceiver.lastName || '')}: ${formatCurrency(settlement.amount)} Settled</div>
                                                             <div style="font-size: 0.8rem; color: var(--text-gray);">${settlement.date.toDate().toLocaleDateString()}</div>
                                                         </div>
                                                         <div style="display: flex; gap: 0.25rem;">
