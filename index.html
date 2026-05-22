@@ -2557,7 +2557,7 @@
 
 
                 } catch (e) {
-                    console.error("âŒ OneSignal link error:", e);
+                    console.error("❌ OneSignal link error:", e);
                 }
             });
         }
@@ -9643,7 +9643,7 @@
                     subtitle: t('dashboardDescription') || 'Get an instant pulse on your financial health.',
                     badge: '01 · Dashboard',
                     content: {
-                        insight: { icon: 'ðŸ’¡', label: t('keyInsight') || 'Key Insight', text: t('netBalanceInsight') || '"Net Balance" shows exactly how much money you really have after considering all pending group debts and credit card bills.' },
+                        insight: { icon: '💡', label: t('keyInsight') || 'Key Insight', text: t('netBalanceInsight') || '"Net Balance" shows exactly how much money you really have after considering all pending group debts and credit card bills.' },
                         chips: ['Net Balance', 'Charts', 'Insights', 'Export']
                     }
                 },
@@ -9670,7 +9670,7 @@
                     subtitle: t('trackingExpensesDescription') || 'Never lose track of where your money goes. Log groceries, rent, travel, and more.',
                     badge: '03 · Expenses',
                     content: {
-                        tip: { icon: 'âœ¨', label: t('proTip') || 'Pro Tip', text: t('autoCategorizeTip') || 'Use "Keywords" in descriptions to auto-categorize repetitive expenses like "Starbucks" or "Netflix".' },
+                        tip: { icon: '✨', label: t('proTip') || 'Pro Tip', text: t('autoCategorizeTip') || 'Use "Keywords" in descriptions to auto-categorize repetitive expenses like "Starbucks" or "Netflix".' },
                         chips: ['Food', 'Transport', 'Shopping', 'Bills', 'Health']
                     }
                 },
@@ -9713,13 +9713,13 @@
                     id: 'calendar',
                     gradient: 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
                     accentColor: '#8b5cf6',
-                    icon: 'ðŸ“…',
+                    icon: '📅',
                     avatarType: 'planner',
                     title: t('calendar') || 'Calendar View',
                     subtitle: t('calendarDescription') || 'Visualize your money over time.',
                     badge: '05 Â· Calendar',
                     content: {
-                        tip: { icon: 'ðŸ“Œ', label: t('viewByDate') || 'View by Date', text: t('viewByDateDescription') || 'Click any day to see the exact transactions that happened then.' },
+                        tip: { icon: '📌', label: t('viewByDate') || 'View by Date', text: t('viewByDateDescription') || 'Click any day to see the exact transactions that happened then.' },
                         chips: ['Monthly View', 'Daily Totals', 'Income Dots', 'Expense Dots']
                     }
                 },
@@ -9741,13 +9741,13 @@
                     id: 'details',
                     gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
                     accentColor: '#ec4899',
-                    icon: 'ðŸ”',
+                    icon: '🔍',
                     avatarType: 'detective',
                     title: t('details') || 'Transaction Details',
                     subtitle: t('detailsDescription') || 'Dive deep into your records. Search for specific transactions, filter by type or category.',
                     badge: '07 Â· Details',
                     content: {
-                        tip: { icon: 'âš¡', label: t('smartSearch') || 'Smart Search', text: t('smartSearchDescription') || 'Just start typing. Our filters work instantly to find what you\'re looking for.' },
+                        tip: { icon: '⚡', label: t('smartSearch') || 'Smart Search', text: t('smartSearchDescription') || 'Just start typing. Our filters work instantly to find what you\'re looking for.' },
                         chips: ['Search', 'Filter', 'Sort', 'Categories']
                     }
                 },
@@ -9755,7 +9755,7 @@
                     id: 'getstarted',
                     gradient: 'linear-gradient(135deg, #667eea 0%, #f093fb 100%)',
                     accentColor: '#a78bfa',
-                    icon: 'ðŸŽ‰',
+                    icon: '🎉',
                     avatarType: 'celebrate',
                     title: t('readyToStartSplitting') || 'Ready to start splitting?',
                     subtitle: 'Join thousands of users who have mastered their finances with SplitEra.',
@@ -10985,7 +10985,7 @@
                     showToast('Success', 'Verification code sent to your email!', 'success');
 
                 } catch (error) {
-                    console.error('âŒ Signup Initiation Error:', error);
+                    console.error('❌ Signup Initiation Error:', error);
                     showToast('Error', error.message, 'error');
                     // Reset reCAPTCHA on error to allow retry
                     if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId));
@@ -11060,7 +11060,7 @@
                         await photoRef.put(blob);
                         photoUrl = await photoRef.getDownloadURL();
                     } catch (photoError) {
-                        console.error('ðŸ“· Photo upload error:', photoError);
+                        console.error('📷 Photo upload error:', photoError);
                         // Not critical, continue without photo
                     }
                 }
@@ -11097,7 +11097,7 @@
                 navigate('dashboard');
 
             } catch (error) {
-                console.error('âŒ Final Signup Error:', error);
+                console.error('❌ Final Signup Error:', error);
                 showToast('Error', error.code === 'auth/email-already-in-use' ? 'This email is already registered.' : error.message, 'error');
             } finally {
                 hideLoading();
@@ -11153,10 +11153,10 @@
             );
 
             if (!shouldSuppress) {
-                console.error(`âŒ Authentication ${customTitle}:`, error);
+                console.error(`❌ Authentication ${customTitle}:`, error);
 
                 if (error.code === 'auth/unauthorized-domain') {
-                    console.error('ðŸš¨ DOMAIN NOT AUTHORIZED ðŸš¨');
+                    console.error('🚨 DOMAIN NOT AUTHORIZED 🚨');
                     console.error('Current domain:', window.location.origin);
                     console.error('To fix: Add this domain to Authorized domains in Firebase Console and Google Cloud Console.');
                     showToast('Domain Error', 'This domain is not authorized. Check console for instructions.', 'error');
@@ -11704,7 +11704,7 @@
                     showToast('Success', `OTP sent to ${input}`, 'success');
                     return true;
                 } catch (error) {
-                    console.error('âŒ SMS Sending Error:', error);
+                    console.error('❌ SMS Sending Error:', error);
                     showToast('Error', 'Failed to send SMS OTP. ' + error.message, 'error');
                     if (window.recaptchaVerifier) {
                         window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId));
@@ -11960,7 +11960,7 @@
                         sessionStorage.removeItem('contactType');
 
                     } catch (error) {
-                        console.error('âŒ Password Reset Error:', error);
+                        console.error('❌ Password Reset Error:', error);
                         showToast('Error', error.name === 'FirebaseError' ? error.message : 'Failed to reset password. Please try again.', 'error');
                     } finally {
                         hideLoading();
@@ -13639,7 +13639,7 @@
                  }
              }
  
-             // â”€â”€ 5. Universal blob-URL fallback (desktop browsers) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+             // ------ 5. Universal blob-URL fallback (desktop browsers) -------
              try {
                  const url = URL.createObjectURL(blob);
                  const link = document.createElement('a');
@@ -17007,7 +17007,7 @@
                         { groupId, groupName: accGroupName, triggerUserName: accAdminName, targetItem: acceptedName },
                         [userId] // accepted user already notified above
                     );
-                    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    // ────────────────────────────────────────────────────────────────────────────
                 } catch (actErr) {
                     console.error('Error logging join activity:', actErr);
                 }
@@ -25350,7 +25350,7 @@
                         }
 
                     } catch (error) {
-                        console.error('âŒ Error loading user:', error);
+                        console.error('❌ Error loading user:', error);
                         showToast('Error', 'Failed to load user: ' + error.message, 'error');
                         await firebase.auth().signOut();
                         renderUserGuidePage();
