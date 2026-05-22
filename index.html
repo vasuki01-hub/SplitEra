@@ -10247,20 +10247,20 @@
                         </div>
 
                         <!-- Navigation -->
-                        <div class="ug-nav">
+                         <div class="ug-nav">
                             <button class="ug-nav-btn" id="ugPrevBtn" onclick="ugPrevSlide()" disabled>
-                                â† ${t('previous') || 'Previous'}
+                                ← ${t('previous') || 'Previous'}
                             </button>
                             <span class="ug-slide-counter" id="ugCounter">1 / ${slides.length}</span>
                             <button class="ug-nav-btn" id="ugNextBtn" onclick="ugNextSlide()">
-                                ${t('next') || 'Next'} â†’
+                                ${t('next') || 'Next'} →
                             </button>
                         </div>
                     </main>
                 </div>
 
                 <!-- Footer -->
-                <div class="ug-footer">Â© 2026 SplitEra Â· <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> Â· ${t('buildWithTransparency') || 'Built with transparency'}</div>
+                <div class="ug-footer">© 2026 SplitEra · <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> · ${t('buildWithTransparency') || 'Built with transparency'}</div>
             `;
 
             // Slide state management
@@ -10349,8 +10349,8 @@
                         <circle cx="0" cy="0" r="3" fill="#fff" opacity="0.6"/>
                     </g>
                     <!-- Stars -->
-                    <text x="12" y="22" font-size="10">â­</text>
-                    <text x="90" y="78" font-size="9">âœ¨</text>
+                    <text x="12" y="22" font-size="10">⭐</text>
+                    <text x="90" y="78" font-size="9">✨</text>
                 </svg>`,
 
                 analyst: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
@@ -10731,7 +10731,7 @@
             if (c.chips) {
                 html += `<div class="ug-chips">`;
                 c.chips.forEach(chip => {
-                    html += `<span class="ug-chip" style="--chip-bg:rgba(${hexToRgb(slide.accentColor || '#7c3aed')},0.08);--chip-color:${slide.accentColor || '#7c3aed'};--chip-border:rgba(${hexToRgb(slide.accentColor || '#7c3aed')},0.2);">âœ¦ ${chip}</span>`;
+                    html += `<span class="ug-chip" style="--chip-bg:rgba(${hexToRgb(slide.accentColor || '#7c3aed')},0.08);--chip-color:${slide.accentColor || '#7c3aed'};--chip-border:rgba(${hexToRgb(slide.accentColor || '#7c3aed')},0.2);">✦ ${chip}</span>`;
                 });
                 html += `</div>`;
             }
