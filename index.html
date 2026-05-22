@@ -2122,7 +2122,7 @@
         }
 
         .notif-item.unread {
-            background: rgb(255 122 43 / 52%);
+            background: rgb(147 69 23 / 88%);
         }
 
         .notif-item.unread::before {
@@ -9626,7 +9626,7 @@
                     id: 'welcome',
                     gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                     accentColor: '#a78bfa',
-                    icon: 'ðŸš€',
+                    icon: '🚀',
                     avatarType: 'welcome',
                     title: t('guideHeroTitle') || 'Master Your Finances',
                     subtitle: t('guideHeroSubtitle') || 'Learn how SplitEra helps you track personal spending and split group expenses effortlessly.',
@@ -9637,11 +9637,11 @@
                     id: 'dashboard',
                     gradient: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
                     accentColor: '#fb923c',
-                    icon: 'ðŸ“Š',
+                    icon: '📊',
                     avatarType: 'analyst',
                     title: t('dashboardTitle') || 'Powerful Dashboard',
                     subtitle: t('dashboardDescription') || 'Get an instant pulse on your financial health.',
-                    badge: '01 Â· Dashboard',
+                    badge: '01 · Dashboard',
                     content: {
                         insight: { icon: 'ðŸ’¡', label: t('keyInsight') || 'Key Insight', text: t('netBalanceInsight') || '"Net Balance" shows exactly how much money you really have after considering all pending group debts and credit card bills.' },
                         chips: ['Net Balance', 'Charts', 'Insights', 'Export']
@@ -9651,11 +9651,11 @@
                     id: 'credits',
                     gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
                     accentColor: '#10b981',
-                    icon: 'ðŸ’°',
+                    icon: '💰',
                     avatarType: 'banker',
                     title: t('managingIncomeTitle') || 'Managing Income',
                     subtitle: t('managingIncomeDescription') || 'Add your monthly salary, freelancing income, or cash gifts.',
-                    badge: '02 Â· Credits',
+                    badge: '02 · Credits',
                     content: {
                         chips: [t('salaryRecurring') || 'Salary: Recurring', t('ccAdjustment') || 'CC Adjustment', 'Business', 'Gifts']
                     }
@@ -9664,11 +9664,11 @@
                     id: 'expenses',
                     gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
                     accentColor: '#ef4444',
-                    icon: 'ðŸ›’',
+                    icon: '🛒',
                     avatarType: 'shopper',
                     title: t('expenses') || 'Track Expenses',
                     subtitle: t('trackingExpensesDescription') || 'Never lose track of where your money goes. Log groceries, rent, travel, and more.',
-                    badge: '03 Â· Expenses',
+                    badge: '03 · Expenses',
                     content: {
                         tip: { icon: 'âœ¨', label: t('proTip') || 'Pro Tip', text: t('autoCategorizeTip') || 'Use "Keywords" in descriptions to auto-categorize repetitive expenses like "Starbucks" or "Netflix".' },
                         chips: ['Food', 'Transport', 'Shopping', 'Bills', 'Health']
@@ -9678,11 +9678,11 @@
                     id: 'groups',
                     gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
                     accentColor: '#3b82f6',
-                    icon: 'ðŸ‘¥',
+                    icon: '👥',
                     avatarType: 'friends',
                     title: t('groups') || 'Split with Groups',
                     subtitle: t('splitDinnerBill') || '"Let\'s split the dinner bill..."',
-                    badge: '04 Â· Groups',
+                    badge: '04 · Groups',
                     content: {
                         steps: [
                             { num: '1', title: t('addExpenseStepTitle') || 'Add Expense', desc: t('addExpenseStepDescription') || 'You pay $120 for a group of 4 people.' },
@@ -9695,11 +9695,11 @@
                     id: 'casestudy',
                     gradient: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
                     accentColor: '#8b5cf6',
-                    icon: 'ðŸ—ºï¸',
+                    icon: '🗺️',
                     avatarType: 'traveler',
                     title: t('weekendRoadTripCaseStudy') || 'A Weekend Road Trip',
                     subtitle: t('caseStudyDescription') || 'See how SplitEra manages a complex weekend with multiple expenses and different payers.',
-                    badge: 'Case Study',
+                    badge: '05 · Case Study',
                     content: {
                         items: [
                             { label: t('petrolPaidByJohnLine') || 'Petrol: Paid by John', amount: '$80.00' },
@@ -9727,11 +9727,11 @@
                     id: 'export',
                     gradient: 'linear-gradient(135deg, #0ba360 0%, #3cba92 100%)',
                     accentColor: '#10b981',
-                    icon: 'ðŸ“¤',
+                    icon: '📤',
                     avatarType: 'exporter',
                     title: t('exportReports') || 'Export Reports',
                     subtitle: t('exportReportsDescription') || 'Need your data for taxes or accounting? Export all your transactions.',
-                    badge: '06 Â· Export',
+                    badge: '06 · Export',
                     content: {
                         chips: ['PDF Report', 'Excel Export', 'JSON Data', 'Full History'],
                         formats: [{ label: 'PDF', color: '#ef4444', bg: '#fee2e2' }, { label: 'EXCEL', color: '#16a34a', bg: '#dcfce7' }, { label: 'JSON', color: '#2563eb', bg: '#dbeafe' }]
@@ -10685,13 +10685,16 @@
             }
 
             if (c.tip) {
-                html += `<div class="ug-tip">
-                    <div class="ug-tip-icon">${c.tip.icon}</div>
-                    <div>
-                        <div class="ug-tip-label">${c.tip.label}</div>
-                        <div class="ug-tip-text">${c.tip.text}</div>
-                    </div>
-                </div>`;
+                html += `
+    <div class="ug-tip">
+        <div class="ug-tip-icon-container">
+            ${c.tip.icon}   <!-- This allows HTML icons, emoji, SVG, etc. -->
+        </div>
+        <div class="ug-tip-content">
+            <div class="ug-tip-label">${c.tip.label}</div>
+            <div class="ug-tip-text">${c.tip.text}</div>
+        </div>
+    </div>`;
             }
 
             if (c.steps) {
@@ -10716,7 +10719,7 @@
                 });
                 html += `</div>`;
                 if (c.result) {
-                    html += `<div class="ug-case-result">ðŸ† ${c.result}</div>`;
+                    html += `<div class="ug-case-result">🏆 ${c.result}</div>`;
                 }
             }
 
@@ -22894,23 +22897,26 @@
                         <h2 class="card-title">${t('appSettings')}</h2>
                     </div>
                     <div class="card-body">
-                        <div class="settings-grid">
-                            <div class="form-group">
-                                <label class="form-label">${t('language')}</label>
-                                <select class="form-select" id="settingsLanguage">
-    <option value="en" ${settings.language === 'en' ? 'selected' : ''}>English</option>
-    <option value="gu" ${settings.language === 'gu' ? 'selected' : ''}>ગુજરાતી (Gujarati)</option>
-    <option value="hi" ${settings.language === 'hi' ? 'selected' : ''}>हिंदी (Hindi)</option>
-    <option value="ta" ${settings.language === 'ta' ? 'selected' : ''}>தமிழ் (Tamil)</option>
-    <option value="te" ${settings.language === 'te' ? 'selected' : ''}>తెలుగు (Telugu)</option>
-    <option value="sa" ${settings.language === 'sa' ? 'selected' : ''}>संस्कृत (Sanskrit)</option>
-    <option value="mr" ${settings.language === 'mr' ? 'selected' : ''}>मराठी (Marathi)</option>
-    <option value="pa" ${settings.language === 'pa' ? 'selected' : ''}>ਪੰਜਾਬੀ (Punjabi)</option>
-    <option value="bn" ${settings.language === 'bn' ? 'selected' : ''}>বাংলা (Bengali)</option>
-    <option value="kn" ${settings.language === 'kn' ? 'selected' : ''}>ಕನ್ನಡ (Kannada)</option>
-    <option value="ml" ${settings.language === 'ml' ? 'selected' : ''}>മലയാളം (Malayalam)</option>
-</select>
-                            </div>
+    <div class="settings-grid">
+        <div class="form-group">
+            <label class="form-label">${t('language')}</label>
+            
+            <!-- Searchable Select with Flags -->
+            <select class="form-select" id="settingsLanguage">
+                <option value="en" ${settings.language === 'en' ? 'selected' : ''}>🇬🇧 English</option>
+                <option value="gu" ${settings.language === 'gu' ? 'selected' : ''}>🇮🇳 ગુજરાતી (Gujarati)</option>
+                <option value="hi" ${settings.language === 'hi' ? 'selected' : ''}>🇮🇳 हिंदी (Hindi)</option>
+                <option value="ta" ${settings.language === 'ta' ? 'selected' : ''}>🇮🇳 தமிழ் (Tamil)</option>
+                <option value="te" ${settings.language === 'te' ? 'selected' : ''}>🇮🇳 తెలుగు (Telugu)</option>
+                <option value="sa" ${settings.language === 'sa' ? 'selected' : ''}>🇮🇳 संस्कृत (Sanskrit)</option>
+                <option value="mr" ${settings.language === 'mr' ? 'selected' : ''}>🇮🇳 मराठी (Marathi)</option>
+                <option value="pa" ${settings.language === 'pa' ? 'selected' : ''}>🇮🇳 ਪੰਜਾਬੀ (Punjabi)</option>
+                <option value="bn" ${settings.language === 'bn' ? 'selected' : ''}>🇮🇳 বাংলা (Bengali)</option>
+                <option value="kn" ${settings.language === 'kn' ? 'selected' : ''}>🇮🇳 ಕನ್ನಡ (Kannada)</option>
+                <option value="ml" ${settings.language === 'ml' ? 'selected' : ''}>🇮🇳 മലയാളം (Malayalam)</option>
+            </select>
+            <div class="searchable-dropdown" id="settingsLanguageContainer"></div>
+        </div>
                             <div class="form-group">
     <label class="form-label">${t('currency')}</label>
     <select class="form-select" id="settingsCurrency" style="display: none;">
@@ -24289,6 +24295,7 @@
             }
 
             .profile-info {
+                padding-left: 2rem;
                 overflow: auto;
                 width: auto; 
                 flex: 1;
