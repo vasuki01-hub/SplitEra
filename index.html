@@ -428,7 +428,7 @@
             color: var(--text-gray);
             box-shadow: inset 0px 0px 20px 6px rgb(224 149 69 / 40%);
             width: auto;
-            background: bisque;
+            background: #ffe4c400;
             border-radius: 2rem;
             padding: 1rem;
             overflow: auto;
@@ -24295,9 +24295,9 @@
             }
 
             .calendar-month-title {
-                font-weight: 600;
+                font-weight: 700;
                 border-radius: 2rem;
-                background: #fbe4c3e6;
+                background: #fbe0cde3;
                 color: #000000;
                 padding: 1rem;
                 margin: 0;
@@ -24312,8 +24312,9 @@
             .calendar-grid {
                 overflow: auto;
                 display: grid;
+                padding: 2px;
                 grid-template-columns: repeat(7, 1fr);
-                gap: 0;
+                gap: 2px;
                 background: var(--card-bg);
             }
 
@@ -24321,9 +24322,10 @@
                 background: var(--bg-gray);
                 padding: 0.75rem;
                 text-align: center;
-                font-weight: 600;
-                font-size: 0.9rem;
+                font-weight: 700;
+                font-size: 1rem;
                 border: 1px solid var(--border);
+                border-radius: 1rem;
             }
 
             .calendar-day {
