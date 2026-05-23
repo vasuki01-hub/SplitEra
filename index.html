@@ -2122,7 +2122,7 @@
         }
 
         .notif-item.unread {
-            background: rgb(147 69 23 / 88%);
+            background: rgb(228 118 53 / 62%);
         }
 
         .notif-item.unread::before {
@@ -8668,6 +8668,135 @@
             });
         }
 
+        // Multi-select Dropdown Component for Details Type
+        function initMultiSelectDropdown(containerId, selectId, onSelectChange) {
+            const selectEl = document.getElementById(selectId);
+            const container = document.getElementById(containerId);
+            if (!selectEl || !container) return;
+
+            function getTriggerText() {
+                const selectedOpts = Array.from(selectEl.options).filter(opt => opt.selected && opt.value !== 'all');
+                const isAllSelected = selectEl.options[0].selected;
+                if (isAllSelected) {
+                    return 'All Types';
+                }
+                if (selectedOpts.length === 0) {
+                    return 'Select Types';
+                }
+                if (selectedOpts.length === selectEl.options.length - 1) {
+                    return 'All Types';
+                }
+                return selectedOpts.map(opt => opt.text).join(', ');
+            }
+
+            const triggerHTML = `
+                <div class="searchable-dropdown-trigger" id="${containerId}-trigger">
+                    <span class="selected-text">
+                        <span class="label-text">${getTriggerText()}</span>
+                    </span>
+                    <i class="fas fa-chevron-down dropdown-arrow"></i>
+                </div>
+                <div class="searchable-dropdown-overlay" id="${containerId}-overlay"></div>
+                <div class="searchable-dropdown-panel" id="${containerId}-panel">
+                    <div class="searchable-dropdown-list" id="${containerId}-list"></div>
+                </div>
+            `;
+
+            container.innerHTML = triggerHTML;
+
+            const trigger = document.getElementById(`${containerId}-trigger`);
+            const panel = document.getElementById(`${containerId}-panel`);
+            const overlay = document.getElementById(`${containerId}-overlay`);
+            const listEl = document.getElementById(`${containerId}-list`);
+
+            function renderList() {
+                listEl.innerHTML = Array.from(selectEl.options).map(o => {
+                    const isSelected = o.selected;
+                    return `
+                        <div class="searchable-dropdown-item ${isSelected ? 'selected' : ''}" data-value="${o.value}" style="display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="checkbox" class="multi-select-checkbox" ${isSelected ? 'checked' : ''} style="pointer-events: none;" />
+                                <span class="item-label">${o.text}</span>
+                            </div>
+                            <i class="fas fa-check item-check" style="margin-left: auto;"></i>
+                        </div>
+                    `;
+                }).join('');
+
+                // Attach click handlers
+                listEl.querySelectorAll('.searchable-dropdown-item').forEach(item => {
+                    item.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        const val = this.dataset.value;
+                        const option = Array.from(selectEl.options).find(o => o.value === val);
+                        if (!option) return;
+
+                        if (val === 'all') {
+                            const wasSelected = option.selected;
+                            Array.from(selectEl.options).forEach(o => {
+                                o.selected = !wasSelected;
+                            });
+                        } else {
+                            option.selected = !option.selected;
+
+                            const otherOptions = Array.from(selectEl.options).filter(o => o.value !== 'all');
+                            const allOthersSelected = otherOptions.every(o => o.selected);
+                            const allOption = Array.from(selectEl.options).find(o => o.value === 'all');
+                            if (allOption) {
+                                allOption.selected = allOthersSelected;
+                            }
+                        }
+
+                        renderList();
+                        trigger.querySelector('.label-text').textContent = getTriggerText();
+
+                        if (onSelectChange) onSelectChange();
+                    });
+                });
+            }
+
+            function openDropdown() {
+                trigger.classList.add('active');
+                panel.classList.add('open');
+                overlay.classList.add('active');
+                renderList();
+            }
+
+            function closeDropdown() {
+                trigger.classList.remove('active');
+                panel.classList.remove('open');
+                overlay.classList.remove('active');
+            }
+
+            trigger.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (panel.classList.contains('open')) {
+                    closeDropdown();
+                } else {
+                    document.querySelectorAll('.searchable-dropdown-panel.open').forEach(p => {
+                        p.classList.remove('open');
+                        p.previousElementSibling?.classList?.remove('active');
+                    });
+                    document.querySelectorAll('.searchable-dropdown-overlay.active').forEach(o => {
+                        o.classList.remove('active');
+                    });
+                    openDropdown();
+                }
+            });
+
+            overlay.addEventListener('click', closeDropdown);
+
+            renderList();
+        }
+
+        // Helper: Get all selected options from the Details Type multi-select dropdown
+        function getSelectedDetailsTypes() {
+            const typeSelect = document.getElementById('detailsType');
+            if (!typeSelect) return ['all'];
+            const selectedOpts = Array.from(typeSelect.selectedOptions).map(opt => opt.value);
+            return selectedOpts.length > 0 ? selectedOpts : ['all'];
+        }
+
         // Searchable Dropdown Component
         function initSearchableDropdown(containerId, options, selectedValue, onSelect) {
             const container = document.getElementById(containerId);
@@ -14223,19 +14352,22 @@
                             <label style="font-size: 0.75rem">To Date</label>
                             <input type="date" class="form-input" id="detailsToDate" onchange="loadDetails()">
                         </div>
-                        <div class="filter-group">
-                            <select class="form-select" id="detailsType" onchange="loadDetails()">
-                                <option value="all">All Types</option>
-                                <option value="credit">Credits</option>
-                                <option value="personal">Personal</option>
-                                <option value="group">Group</option>
+                        <div class="filter-group" style="position: relative; min-width: 150px;">
+                            <select class="form-select" id="detailsType" multiple style="display: none;">
+                                <option value="all" selected>All Types</option>
+                                <option value="credit" selected>Credits</option>
+                                <option value="personal" selected>Personal</option>
+                                <option value="group" selected>Group</option>
                             </select>
+                            <div class="searchable-dropdown" id="detailsTypeContainer"></div>
                         </div>
                     </div>
                     
                     <div id="detailsTableContainer"></div>
                 </div>
             `;
+
+            initMultiSelectDropdown('detailsTypeContainer', 'detailsType', loadDetails);
 
             await loadDetails();
         }
@@ -19489,12 +19621,12 @@
                 const searchTerm = document.getElementById('detailsSearch')?.value || '';
                 const fromDate = document.getElementById('detailsFromDate')?.value || '';
                 const toDate = document.getElementById('detailsToDate')?.value || '';
-                const typeFilter = document.getElementById('detailsType')?.value || 'all';
+                const selectedTypes = getSelectedDetailsTypes();
 
                 let allData = [];
 
                 // 1. Process local credits
-                if (typeFilter === 'all' || typeFilter === 'credit') {
+                if (selectedTypes.includes('all') || selectedTypes.includes('credit')) {
                     allData = allData.concat(dataState.credits.map(doc => ({
                         ...doc,
                         section: 'Credit',
@@ -19504,7 +19636,7 @@
                 }
 
                 // 2. Process local personal expenses
-                if (typeFilter === 'all' || typeFilter === 'personal') {
+                if (selectedTypes.includes('all') || selectedTypes.includes('personal')) {
                     allData = allData.concat(dataState.personalExpenses.map(doc => ({
                         ...doc,
                         section: 'Personal',
@@ -19514,7 +19646,7 @@
                 }
 
                 // 3. Process local group expenses
-                if (typeFilter === 'all' || typeFilter === 'group') {
+                if (selectedTypes.includes('all') || selectedTypes.includes('group')) {
                     const groupsDataMap = {};
                     dataState.groups.forEach(g => groupsDataMap[g.id] = g);
 
@@ -22011,7 +22143,7 @@
             try {
                 const fromDate = document.getElementById('detailsFromDate')?.value || '';
                 const toDate = document.getElementById('detailsToDate')?.value || '';
-                const typeFilter = document.getElementById('detailsType')?.value || 'all';
+                const selectedTypes = getSelectedDetailsTypes();
                 const searchTerm = document.getElementById('detailsSearch')?.value || '';
                 const yearFilter = document.getElementById('detailsYear')?.value || 'all';
                 const monthFilter = document.getElementById('detailsMonth')?.value || 'all';
@@ -22037,15 +22169,15 @@
                 let allData = [];
 
                 // Process credits
-                if (typeFilter === 'all' || typeFilter === 'credit') {
+                if (selectedTypes.includes('all') || selectedTypes.includes('credit')) {
                     allData = allData.concat(creditsSnapshot.docs.map(doc => ({ ...doc.data(), sectionType: 'credit', section: 'Credit' })));
                 }
                 // Process personal expenses
-                if (typeFilter === 'all' || typeFilter === 'personal') {
+                if (selectedTypes.includes('all') || selectedTypes.includes('personal')) {
                     allData = allData.concat(personalSnapshot.docs.map(doc => ({ ...doc.data(), sectionType: 'personal', section: 'Personal' })));
                 }
                 // Process group expenses
-                if (typeFilter === 'all' || typeFilter === 'group') {
+                if (selectedTypes.includes('all') || selectedTypes.includes('group')) {
                     const groupEntries = groupExpenses.map(expense => {
                         if (expense.category === 'Settlement' || (expense.description && expense.description.includes('Settlement')) || expense.isSettlement) return null;
                         const group = groupsDataMap[expense.groupId];
@@ -22400,7 +22532,7 @@
                 // Retrieve filter values from UI elements
                 const fromDate = document.getElementById('detailsFromDate')?.value || '';
                 const toDate = document.getElementById('detailsToDate')?.value || '';
-                const typeFilter = document.getElementById('detailsType')?.value || 'all';
+                const selectedTypes = getSelectedDetailsTypes();
                 const searchTerm = document.getElementById('detailsSearch')?.value || '';
 
                 // Load core user data from server
@@ -22503,13 +22635,13 @@
 
                 // Combine data based on type filter
                 let allData = [];
-                if (typeFilter === 'all' || typeFilter === 'credit') {
+                if (selectedTypes.includes('all') || selectedTypes.includes('credit')) {
                     allData = allData.concat(credits);
                 }
-                if (typeFilter === 'all' || typeFilter === 'personal') {
+                if (selectedTypes.includes('all') || selectedTypes.includes('personal')) {
                     allData = allData.concat(personal);
                 }
-                if (typeFilter === 'all' || typeFilter === 'group') {
+                if (selectedTypes.includes('all') || selectedTypes.includes('group')) {
                     allData = allData.concat(groups);
                 }
 
@@ -22667,7 +22799,7 @@
 
                 const fromDate = document.getElementById('detailsFromDate')?.value || '';
                 const toDate = document.getElementById('detailsToDate')?.value || '';
-                const typeFilter = document.getElementById('detailsType')?.value || 'all';
+                const selectedTypes = getSelectedDetailsTypes();
                 const searchTerm = document.getElementById('detailsSearch')?.value || '';
 
                 const [creditsSnapshot, personalSnapshot, groupsListSnapshot] = await Promise.all([
@@ -22718,9 +22850,9 @@
                 }).filter(e => e !== null);
 
                 let allData = [];
-                if (typeFilter === 'all' || typeFilter === 'credit') allData = allData.concat(credits);
-                if (typeFilter === 'all' || typeFilter === 'personal') allData = allData.concat(personal);
-                if (typeFilter === 'all' || typeFilter === 'group') allData = allData.concat(groups);
+                if (selectedTypes.includes('all') || selectedTypes.includes('credit')) allData = allData.concat(credits);
+                if (selectedTypes.includes('all') || selectedTypes.includes('personal')) allData = allData.concat(personal);
+                if (selectedTypes.includes('all') || selectedTypes.includes('group')) allData = allData.concat(groups);
 
                 if (searchTerm) allData = filterBySearch(allData, searchTerm, ['description', 'mode', 'remarks', 'amount', 'section']);
                 allData = filterByDateRange(allData, fromDate, toDate);
@@ -22902,7 +23034,7 @@
             <label class="form-label">${t('language')}</label>
             
             <!-- Searchable Select with Flags -->
-            <select class="form-select" id="settingsLanguage">
+            <select class="form-select" id="settingsLanguage" style="display: none;">
                 <option value="en" ${settings.language === 'en' ? 'selected' : ''}>🇬🇧 English</option>
                 <option value="gu" ${settings.language === 'gu' ? 'selected' : ''}>🇮🇳 ગુજરાતી (Gujarati)</option>
                 <option value="hi" ${settings.language === 'hi' ? 'selected' : ''}>🇮🇳 हिंदी (Hindi)</option>
@@ -23193,6 +23325,7 @@
             // Initialize searchable dropdowns for currency and country settings
             setupSearchableDropdown('settingsCurrency', 'settingsCurrencyContainer');
             setupSearchableDropdown('settingsCountry', 'settingsCountryContainer', true);
+            setupSearchableDropdown('settingsLanguage', 'settingsLanguageContainer');
         }
 
         // Initialize Phone Input for Profile Edit - call this when edit mode is activated
