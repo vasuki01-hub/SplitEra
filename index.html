@@ -392,7 +392,7 @@
             position: relative;
             top: 3px;
             z-index: 100;
-            box-shadow: inset 0 0px 5px 1px;
+            box-shadow: inset 0 4px 10px 0px;
         }
 
         .header-content {
@@ -426,8 +426,14 @@
 
         .nav-link {
             color: var(--text-gray);
+            box-shadow: inset 0px 0px 20px 6px rgb(224 149 69 / 40%);
+            width: auto;
+            background: bisque;
+            border-radius: 2rem;
+            padding: 1rem;
+            overflow: auto;
             text-decoration: none;
-            font-weight: 500;
+            font-weight: 800;
             font-size: 1rem;
             transition: color 0.3s;
         }
@@ -602,10 +608,10 @@
             left: 50%;
             transform: translateX(-50%);
             width: 90%;
-            max-width: 400px;
+            max-width: none;
             background: rgba(255, 255, 255, 0.85);
             /* Light mode default */
-            backdrop-filter: blur(1.5px);
+            backdrop-filter: blur(2.5px);
             -webkit-backdrop-filter: blur(12px);
             border-radius: 20px;
             padding: 0.75rem 0.5rem;
@@ -1730,7 +1736,7 @@
             padding: 0 1.5rem;
             align-items: center;
             justify-content: space-between;
-            box-shadow: inset 0 0px 5px 1px;
+            box-shadow: inset 0px 0px 9px 1px;
         }
 
         .mobile-top-bar .logo {
@@ -12206,7 +12212,7 @@
                     </main>
 
                     <!-- Mobile Bottom Navigation (New 7-item layout) -->
-                    <div class="mobile-bottom-nav" id="mobileBottomNav" style="border-radius: 3.4rem; box-shadow: inset 0px -5px 20px;">
+                    <div class="mobile-bottom-nav" id="mobileBottomNav" style="border-radius: 3.4rem; box-shadow: inset 0px 0px 10px">
                         <div class="mobile-bottom-nav-content">
                             <a href="#" class="mobile-nav-item active" data-page="dashboard" onclick="mobileNavigate('dashboard'); return false;">
                                 <i class="fas fa-home"></i>
@@ -19725,7 +19731,7 @@
                             <div class="month-group">
                                 <div class="month-header">
                                     <span>${monthName} ${year}</span>
-                                    <span style="font-size: 0.9rem; color: ${monthTotal >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                                    <span style="font-size: 0.9rem; font-weight: 800; color: ${monthTotal >= 0 ? 'var(--success)' : 'var(--danger)'};">
                                         Net: ${monthTotal >= 0 ? '+' : ''}${formatCurrency(monthTotal)}
                                     </span>
                                 </div>
@@ -24398,7 +24404,7 @@
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                background: #fbe4c3e6;
+                background: #fbe0cde3;
                 color: #000000;
                 padding: 0.75rem 1rem;
                 border-radius: 1.2rem;
