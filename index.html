@@ -7695,7 +7695,7 @@
                 if (tokens.length > 0) {
                     await sendPushNotification(
                         tokens,
-                        'SplitEra â€” ' + (meta.groupName || 'Group Update'),
+                        'SplitEra — ' + (meta.groupName || 'Group Update'),
                         message,
                         {
                             groupId: meta.groupId || '',
@@ -8674,7 +8674,7 @@
             });
         }
 
-        // Multi-select Dropdown Component for Details Type
+        // Multi-select Dropdown Component
         function initMultiSelectDropdown(containerId, selectId, onSelectChange) {
             const selectEl = document.getElementById(selectId);
             const container = document.getElementById(containerId);
@@ -8683,14 +8683,16 @@
             function getTriggerText() {
                 const selectedOpts = Array.from(selectEl.options).filter(opt => opt.selected && opt.value !== 'all');
                 const isAllSelected = selectEl.options[0].selected;
+                const allLabel = selectEl.options[0].text;
+                const selectLabel = allLabel.startsWith('All') ? 'Select' + allLabel.substring(3) : 'Select Options';
                 if (isAllSelected) {
-                    return 'All Types';
+                    return allLabel;
                 }
                 if (selectedOpts.length === 0) {
-                    return 'Select Types';
+                    return selectLabel;
                 }
                 if (selectedOpts.length === selectEl.options.length - 1) {
-                    return 'All Types';
+                    return allLabel;
                 }
                 return selectedOpts.map(opt => opt.text).join(', ');
             }
@@ -8801,6 +8803,45 @@
             if (!typeSelect) return ['all'];
             const selectedOpts = Array.from(typeSelect.selectedOptions).map(opt => opt.value);
             return selectedOpts.length > 0 ? selectedOpts : ['all'];
+        }
+
+        function getSelectedCreditsPaymentModes() {
+            const selectEl = document.getElementById('creditsPaymentMode');
+            if (!selectEl) return ['all'];
+            const selectedOpts = Array.from(selectEl.selectedOptions).map(opt => opt.value);
+            return selectedOpts.length > 0 ? selectedOpts : ['all'];
+        }
+
+        function getSelectedPersonalPaymentModes() {
+            const selectEl = document.getElementById('personalPaymentMode');
+            if (!selectEl) return ['all'];
+            const selectedOpts = Array.from(selectEl.selectedOptions).map(opt => opt.value);
+            return selectedOpts.length > 0 ? selectedOpts : ['all'];
+        }
+
+        function getSelectedDetailsPaymentModes() {
+            const selectEl = document.getElementById('detailsPaymentMode');
+            if (!selectEl) return ['all'];
+            const selectedOpts = Array.from(selectEl.selectedOptions).map(opt => opt.value);
+            return selectedOpts.length > 0 ? selectedOpts : ['all'];
+        }
+
+        function filterByPaymentModes(dataList, selectedModes) {
+            if (!selectedModes || selectedModes.includes('all')) return dataList;
+            return dataList.filter(item => {
+                const itemMode = item.originalMode || item.mode;
+                if (!itemMode) return false;
+
+                return selectedModes.some(selMode => {
+                    if (selMode === 'GPay') {
+                        return itemMode === 'GPay' || itemMode === 'G Pay';
+                    }
+                    if (selMode === 'Credit Card') {
+                        return itemMode === 'Credit Card' || itemMode === 'Card';
+                    }
+                    return itemMode.toLowerCase() === selMode.toLowerCase();
+                });
+            });
         }
 
         // Searchable Dropdown Component
@@ -14367,6 +14408,18 @@
                             </select>
                             <div class="searchable-dropdown" id="detailsTypeContainer"></div>
                         </div>
+                        <div class="filter-group" style="position: relative; min-width: 150px; display: flex; flex-direction: column; gap: 0.2rem;">
+                            <label style="font-size: 0.75rem">Payment Mode</label>
+                            <select class="form-select" id="detailsPaymentMode" multiple style="display: none;">
+                                <option value="all" selected>All Modes</option>
+                                <option value="Cash" selected>Cash</option>
+                                <option value="Online" selected>Online</option>
+                                <option value="Credit Card" selected>Credit Card</option>
+                                <option value="Bank Transfer" selected>Bank Transfer</option>
+                                <option value="GPay" selected>G Pay</option>
+                            </select>
+                            <div class="searchable-dropdown" id="detailsPaymentModeContainer"></div>
+                        </div>
                     </div>
                     
                     <div id="detailsTableContainer"></div>
@@ -14374,6 +14427,7 @@
             `;
 
             initMultiSelectDropdown('detailsTypeContainer', 'detailsType', loadDetails);
+            initMultiSelectDropdown('detailsPaymentModeContainer', 'detailsPaymentMode', loadDetails);
 
             await loadDetails();
         }
@@ -14599,11 +14653,25 @@
                             <label style="font-size: 0.75rem">To Date</label>
                             <input type="date" class="form-input" id="creditsToDate" onchange="loadCredits()">
                         </div>
+                        <div class="filter-group" style="position: relative; min-width: 150px; display: flex; flex-direction: column; gap: 0.2rem;">
+                            <label style="font-size: 0.75rem">Payment Mode</label>
+                            <select class="form-select" id="creditsPaymentMode" multiple style="display: none;">
+                                <option value="all" selected>All Modes</option>
+                                <option value="Cash" selected>Cash</option>
+                                <option value="Online" selected>Online</option>
+                                <option value="Credit Card" selected>Credit Card</option>
+                                <option value="Bank Transfer" selected>Bank Transfer</option>
+                                <option value="GPay" selected>G Pay</option>
+                            </select>
+                            <div class="searchable-dropdown" id="creditsPaymentModeContainer"></div>
+                        </div>
                     </div>
 
                     <div id="creditsTableContainer"></div>
                 </div>
             `;
+
+            initMultiSelectDropdown('creditsPaymentModeContainer', 'creditsPaymentMode', loadCredits);
 
             await loadCredits();
         }
@@ -14628,6 +14696,7 @@
                 const toDate = document.getElementById('creditsToDate')?.value || '';
 
                 credits = filterByDateRange(credits, fromDate, toDate);
+                credits = filterByPaymentModes(credits, getSelectedCreditsPaymentModes());
                 credits.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 // Calculate totals
@@ -15229,6 +15298,7 @@
 
                 // Apply filters
                 credits = filterByDateRange(credits, fromDate, toDate);
+                credits = filterByPaymentModes(credits, getSelectedCreditsPaymentModes());
                 credits.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 // Header with orange color
@@ -15336,6 +15406,7 @@
 
                 let credits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 credits = filterByDateRange(credits, fromDate, toDate);
+                credits = filterByPaymentModes(credits, getSelectedCreditsPaymentModes());
                 credits.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 const excelData = credits.map(credit => ({
@@ -15445,11 +15516,25 @@
                             <label style="font-size: 0.75rem">To Date</label>
                             <input type="date" class="form-input" id="personalToDate" onchange="loadPersonal()">
                         </div>
+                        <div class="filter-group" style="position: relative; min-width: 150px; display: flex; flex-direction: column; gap: 0.2rem;">
+                            <label style="font-size: 0.75rem">Payment Mode</label>
+                            <select class="form-select" id="personalPaymentMode" multiple style="display: none;">
+                                <option value="all" selected>All Modes</option>
+                                <option value="Cash" selected>Cash</option>
+                                <option value="Online" selected>Online</option>
+                                <option value="Credit Card" selected>Credit Card</option>
+                                <option value="Bank Transfer" selected>Bank Transfer</option>
+                                <option value="GPay" selected>G Pay</option>
+                            </select>
+                            <div class="searchable-dropdown" id="personalPaymentModeContainer"></div>
+                        </div>
                     </div>
 
                     <div id="personalTableContainer"></div>
                 </div>
             `;
+
+            initMultiSelectDropdown('personalPaymentModeContainer', 'personalPaymentMode', loadPersonal);
 
             await loadPersonal();
         }
@@ -15470,6 +15555,7 @@
 
                 expenses = filterBySearch(expenses, searchTerm, ['description', 'category', 'mode', 'remarks', 'amount']);
                 expenses = filterByDateRange(expenses, fromDate, toDate);
+                expenses = filterByPaymentModes(expenses, getSelectedPersonalPaymentModes());
                 expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 const total = expenses.reduce((sum, e) => sum + e.amount, 0);
@@ -16020,6 +16106,7 @@
 
                 // Apply filters
                 expenses = filterByDateRange(expenses, fromDate, toDate);
+                expenses = filterByPaymentModes(expenses, getSelectedPersonalPaymentModes());
                 expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 doc.setFillColor(255, 140, 66);
@@ -16117,6 +16204,7 @@
 
                 let expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 expenses = filterByDateRange(expenses, fromDate, toDate);
+                expenses = filterByPaymentModes(expenses, getSelectedPersonalPaymentModes());
                 expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 const excelData = expenses.map(expense => ({
@@ -19689,6 +19777,7 @@
                             canEdit: false,
                             amount: userShare,
                             mode: 'Group Split',
+                            originalMode: expense.mode,
                             groupName: group.name
                         };
                     }).filter(e => e !== null);
@@ -19704,6 +19793,8 @@
                 if (fromDate || toDate) {
                     allData = filterByDateRange(allData, fromDate, toDate);
                 }
+
+                allData = filterByPaymentModes(allData, getSelectedDetailsPaymentModes());
 
                 // Sort by date descending
                 allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
@@ -22213,6 +22304,7 @@
                             sectionType: 'group',
                             amount: userShare,
                             mode: 'Group Split',
+                            originalMode: expense.mode,
                             groupName: group.name
                         };
                     }).filter(e => e !== null);
@@ -22222,6 +22314,7 @@
                 // Apply Filters
                 allData = filterBySearch(allData, searchTerm, ['description', 'mode', 'remarks', 'amount', 'section']);
                 allData = filterByDateRange(allData, fromDate, toDate);
+                allData = filterByPaymentModes(allData, getSelectedDetailsPaymentModes());
 
                 // Format for Excel
                 const excelData = allData.map(item => ({
@@ -22635,7 +22728,8 @@
                         section: `Group: ${groupName}`,
                         sectionType: 'group',
                         ...expense,
-                        amount: displayAmount // Override with user's share or full amount
+                        amount: displayAmount, // Override with user's share or full amount
+                        originalMode: expense.mode
                     };
                 }).filter(e => e !== null);
 
@@ -22657,6 +22751,7 @@
                 }
                 // Apply year and month filters
                 allData = filterByDateRange(allData, fromDate, toDate);
+                allData = filterByPaymentModes(allData, getSelectedDetailsPaymentModes());
                 // Sort data by date in descending order
                 allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
@@ -22851,7 +22946,8 @@
                         section: `Group: ${groupsMap[expense.groupId]}`,
                         sectionType: 'group',
                         ...expense,
-                        amount: displayAmount
+                        amount: displayAmount,
+                        originalMode: expense.mode
                     };
                 }).filter(e => e !== null);
 
@@ -22862,6 +22958,7 @@
 
                 if (searchTerm) allData = filterBySearch(allData, searchTerm, ['description', 'mode', 'remarks', 'amount', 'section']);
                 allData = filterByDateRange(allData, fromDate, toDate);
+                allData = filterByPaymentModes(allData, getSelectedDetailsPaymentModes());
                 allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
 
                 const excelData = allData.map(item => ({
@@ -25652,7 +25749,7 @@
             const pages = ['dashboard', 'credits', 'personal', 'groups', 'calendar', 'details', 'settings'];
 
             // === Swipe Settings (Easy to adjust) ===
-            const MIN_SWIPE_DISTANCE = 280;        // â† Increase this to decrease swipe area
+            const MIN_SWIPE_DISTANCE = 280;        // ← Increase this to decrease swipe area
             const MIN_HORIZONTAL_RATIO = 2.5;      // How much more horizontal than vertical (higher = stricter)
 
             document.addEventListener('touchstart', (e) => {
