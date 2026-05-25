@@ -18,8 +18,15 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"
+        integrity="sha384-cwS6YdhLI7XS60eoDiC+egV0qHp8zI+Cms46R0nbn8JrmoAzV9uFL60etMZhAnSu"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+        integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"
+        integrity="sha384-nQIZ6tIcczKARkLebcfqb6P67Pcv2p+KIX3NH6oGaIBc64j2HxDKerK6Efn4aeiY"
+        crossorigin="anonymous"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <!-- Phone Authentication Dependencies -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.2.1/build/css/intlTelInput.css">
@@ -8291,7 +8298,7 @@
                             </div>`;
                     });
                     html += '</div>';
-                    container.innerHTML = html;
+                    container.innerHTML = DOMPurify.sanitize(html);
                 }, error => {
                     console.error('Failed to load group activity:', error);
                     if (error.code === 'permission-denied') {
@@ -8875,7 +8882,7 @@
                 <input type="hidden" id="${containerId}-value" value="${selectedValue}" />
             `;
 
-            container.innerHTML = triggerHTML;
+            container.innerHTML = DOMPurify.sanitize(triggerHTML);
 
             const trigger = document.getElementById(`${containerId}-trigger`);
             const panel = document.getElementById(`${containerId}-panel`);
@@ -12152,7 +12159,7 @@
         // Main Layout Component
         function renderMainLayout() {
             const app = document.getElementById('app');
-            app.innerHTML = `
+            app.innerHTML = DOMPurify.sanitize(`
                 <div class="main-layout">
                     <header class="header">
                         <div class="header-content">
@@ -12285,7 +12292,7 @@
                         </div>
                     </div>
                 </div>
-            `;
+            `);
 
             // Navigation
             document.querySelectorAll('.nav-link').forEach(link => {
@@ -12692,7 +12699,7 @@
 
                 // Render stats
                 const statsGrid = document.getElementById('statsGrid');
-                statsGrid.innerHTML = `
+                statsGrid.innerHTML = DOMPurify.sanitize(`
                     <div class="dashboard-expandable-block">
                         <div class="stat-card dashboard-main-card" role="button" tabindex="0"
                              onclick="toggleDashboardCollapse('dash-collapse-netBalance','dash-expand-icon-netBalance')"
@@ -12897,7 +12904,7 @@
                             </div>
                         </div>
                     </div>
-                `;
+                `);
 
 
 
@@ -14234,7 +14241,7 @@
                     html += `</div></div>`;
                 });
 
-                container.innerHTML = html || '<p style="text-align: center; padding: 2rem;">No transactions found</p>';
+                container.innerHTML = DOMPurify.sanitize(html || '<p style="text-align: center; padding: 2rem;">No transactions found</p>');
 
                 // Store date map for day details
                 window.calendarDateMap = dateMap;
@@ -14260,7 +14267,7 @@
 
             const modal = document.createElement('div');
             modal.className = 'modal-overlay show';
-            modal.innerHTML = `
+            modal.innerHTML = DOMPurify.sanitize(`
         <div class="modal" style="width: 600px;">
             <div class="modal-header">
                 <h3 class="modal-title">${date.toLocaleDateString()} - ${t('details')}</h3>
@@ -14328,7 +14335,7 @@
                 </button>
             </div>
         </div>
-    `;
+    `);
             document.body.appendChild(modal);
         }
 
@@ -14552,7 +14559,7 @@
                 if (filtered.length === 0) {
                     container.innerHTML = '<p style="text-align: center; padding: 2rem;">No transactions found</p>';
                 } else {
-                    container.innerHTML = `
+                    container.innerHTML = DOMPurify.sanitize(`
                         <table class="table">
                             <thead>
                                 <tr>
@@ -14578,7 +14585,7 @@
                                 `).join('')}
                             </tbody>
                         </table>
-                    `;
+                    `);
                 }
 
             } catch (error) {
@@ -14604,7 +14611,7 @@
                 monthOptions.push(`<option value="${i}">${getMonthName(i)}</option>`);
             }
 
-            content.innerHTML = `
+            content.innerHTML = DOMPurify.sanitize(`
                 <div class="page-header">
                     <div>
                         <h1 class="page-title">${t('creditBalance')}</h1>
@@ -14672,7 +14679,7 @@
 
                     <div id="creditsTableContainer"></div>
                 </div>
-            `;
+            `);
 
             initMultiSelectDropdown('creditsPaymentModeContainer', 'creditsPaymentMode', loadCredits);
 
@@ -14790,7 +14797,7 @@
                         `;
                     });
 
-                    container.innerHTML = html;
+                    container.innerHTML = DOMPurify.sanitize(html);
                     enhanceMonthGroupedRows('credits', 'creditsTableContainer');
 
                     if (dataState.paging.hasMoreCredits) {
@@ -15467,7 +15474,7 @@
                 monthOptions.push(`<option value="${i}">${getMonthName(i)}</option>`);
             }
 
-            content.innerHTML = `
+            content.innerHTML = DOMPurify.sanitize(`
                 <div class="page-header">
                     <div>
                         <h1 class="page-title">${t('personal')}</h1>
@@ -15535,7 +15542,7 @@
 
                     <div id="personalTableContainer"></div>
                 </div>
-            `;
+            `);
 
             initMultiSelectDropdown('personalPaymentModeContainer', 'personalPaymentMode', loadPersonal);
 
@@ -15648,7 +15655,7 @@
                             `;
                     });
 
-                    container.innerHTML = html;
+                    container.innerHTML = DOMPurify.sanitize(html);
                     enhanceMonthGroupedRows('personal', 'personalTableContainer');
 
                     if (dataState.paging.hasMorePersonal) {
@@ -16257,7 +16264,7 @@
         async function renderGroups() {
             const content = document.getElementById('mainContent');
 
-            content.innerHTML = `
+            content.innerHTML = DOMPurify.sanitize(`
                 <div class="page-header">
                     <div>
                         <h1 class="page-title">${t('groups')}</h1>
@@ -16293,7 +16300,7 @@
                     <div id="groupInvitesContainer"></div>
                     <div id="groupsContainer"></div>
                 </div>
-            `;
+            `);
 
             await Promise.all([loadGroups(), loadGroupInvites()]);
         }
@@ -16886,11 +16893,11 @@
                 });
 
                 // Update banner with user's total group expenses (their share)
-                document.getElementById('totalGroupAmount').innerHTML = `
+                document.getElementById('totalGroupAmount').innerHTML = DOMPurify.sanitize(`
                     <div style="font-size: 1.9rem; color: #ffffff;">
                         ${t('')} ${formatCurrency(userTotalShare)}
                     </div>
-                `;
+                `);
 
                 const container = document.getElementById('groupsContainer');
                 let html = '';
@@ -17080,7 +17087,7 @@
                 }
                 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-                container.innerHTML = html;
+                container.innerHTML = DOMPurify.sanitize(html);
                 enhanceMonthGroupedRows('details', 'detailsTableContainer');
             } catch (error) {
                 showToast('Error', error.message, 'error');
@@ -18920,7 +18927,7 @@
                             // We still need to update the tabs themselves to reflect correct state
                             // (Though usually they are already correct)
                         } else {
-                            modalBody.innerHTML = `
+                            modalBody.innerHTML = DOMPurify.sanitize(`
                                 <div class="row" style="margin: 0;">
                                     <div id="groupMainColumn" class="col-md-${window.currentGroupTab === 'activity' ? '12' : '9'}" style="padding: 0; display: flex; flex-direction: column;">
                                         <!-- Tabs -->
@@ -19177,7 +19184,7 @@
                                 `}
                             </div>
                         </div>
-                        `;
+                        `);
                         } // End else
                     } // End if (modalBody)
                 } // End if (isUpdating)
@@ -19185,7 +19192,7 @@
                     // Create NEW modal from scratch
                     const modal = document.createElement('div');
                     modal.className = 'modal-overlay show';
-                    modal.innerHTML = `
+                    modal.innerHTML = DOMPurify.sanitize(`
                 <div class="modal modal-large">
                     <div class="modal-header">
                         <div>
@@ -19455,7 +19462,7 @@
                         </div>
                     </div>
                 </div>
-            `;
+            `);
 
                     // Remove any existing group detail modals to prevent overlap
                     document.querySelectorAll('.modal-overlay.show').forEach(m => {
@@ -19897,7 +19904,7 @@
                             </div>
                         `;
                     });
-                    container.innerHTML = html;
+                    container.innerHTML = DOMPurify.sanitize(html);
                     // Enable month accordion + row click expansion for details
                     enhanceMonthGroupedRows('details', 'detailsTableContainer');
                 }
@@ -20037,7 +20044,7 @@
                 const selectedSettled = currentBalance === 0 ? 'selected' : '';
                 const modal = document.createElement('div');
                 modal.className = 'modal-overlay show';
-                modal.innerHTML = `
+                modal.innerHTML = DOMPurify.sanitize(`
                 <div class="modal">
                     <div class="modal-header">
                         <h3 class="modal-title">Edit Balance for ${escapeHTML(member.firstName)} ${escapeHTML(member.lastName || '')}</h3>
@@ -20072,7 +20079,7 @@
                         <button class="btn btn-primary" onclick="saveEditedBalance()">Save Changes</button>
                     </div>
                 </div>
-            `;
+            `);
                 document.body.appendChild(modal);
             } catch (error) {
                 showToast('Error', 'Failed to load balance: ' + error.message, 'error');
@@ -20303,7 +20310,7 @@
             return new Promise((resolve) => {
                 const modal = document.createElement('div');
                 modal.className = 'modal-overlay show';
-                modal.innerHTML = `
+                modal.innerHTML = DOMPurify.sanitize(`
                     <div class="modal" style="max-width: 420px;">
                         <div class="modal-header">
                             <h3 class="modal-title">${escapeHTML(title)}</h3>
@@ -20325,7 +20332,7 @@
                             <button class="btn btn-primary" id="settleAmountConfirmBtn">${t('confirm') || 'Confirm'}</button>
                         </div>
                     </div>
-                `;
+                `);
                 document.body.appendChild(modal);
 
                 const cleanup = () => modal.remove();
@@ -21526,7 +21533,7 @@
                 });
                 const modal = document.createElement('div');
                 modal.className = 'modal-overlay show';
-                modal.innerHTML = `
+                modal.innerHTML = DOMPurify.sanitize(`
                 <div class="modal" style="width: 500px;">
                     <div class="modal-header">
                         <h3 class="modal-title">${t('expenseDetails')}</h3>
@@ -21684,7 +21691,7 @@
                         </button>
                     </div>
                 </div>
-            `;
+            `);
                 document.body.appendChild(modal);
             } catch (error) {
                 showToast('Error', error.message, 'error');
@@ -22999,7 +23006,7 @@
                 theme: currentTheme
             };
 
-            content.innerHTML = `
+            content.innerHTML = DOMPurify.sanitize(`
                 <div class="page-header">
                     <div>
                         <h1 class="page-title">${t('settings')}</h1>
@@ -23408,7 +23415,7 @@
                         </div>
                     </div>
                 </div>
-            `;
+            `);
 
             // Profile photo preview
             document.getElementById('newProfilePhoto')?.addEventListener('change', (e) => {
