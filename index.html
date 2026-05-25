@@ -19911,7 +19911,7 @@
                 container.classList.remove('loading-state');
             } catch (error) {
                 console.error("Details Load Error:", error);
-                container.innerHTML = `<div class="error-msg">${error.message}</div>`;
+                container.innerHTML = `<div class="error-msg">${escapeHTML(error.message)}</div>`;
             }
         }
 
