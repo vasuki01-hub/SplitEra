@@ -18,15 +18,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"
-        integrity="sha384-cwS6YdhLI7XS60eoDiC+egV0qHp8zI+Cms46R0nbn8JrmoAzV9uFL60etMZhAnSu"
-        crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
-        integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk"
-        crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"
-        integrity="sha384-nQIZ6tIcczKARkLebcfqb6P67Pcv2p+KIX3NH6oGaIBc64j2HxDKerK6Efn4aeiY"
-        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <!-- Phone Authentication Dependencies -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.2.1/build/css/intlTelInput.css">
@@ -2235,7 +2228,7 @@
             background: var(--bg-white);
             color: var(--text-dark);
             cursor: pointer;
-            display: ruby;
+            display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 0.5rem;
@@ -2258,7 +2251,7 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            overflow: auto;
+            overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
             flex: 1;
@@ -19911,7 +19904,7 @@
                 container.classList.remove('loading-state');
             } catch (error) {
                 console.error("Details Load Error:", error);
-                container.innerHTML = `<div class="error-msg">${escapeHTML(error.message)}</div>`;
+                container.innerHTML = `<div class="error-msg">${error.message}</div>`;
             }
         }
 
@@ -20909,6 +20902,10 @@
                         <input type="text" class="form-input" id="groupExpenseName" required placeholder="e.g. Dinner, Fuel, Rent">
                     </div>
                     <div class="form-group">
+                        <label class="form-label">${t('description')}</label>
+                        <input type="text" class="form-input" id="groupExpenseDescription" placeholder="Optional details">
+                    </div>
+                    <div class="form-group">
                         <label class="form-label">Paid By</label>
                         <select class="form-select" id="groupExpensePaidBy" onchange="toggleMultiPayerInputs()">
                             <option value="all_paid_individually">${t('allHavePaidIndividually')}</option>
@@ -21183,7 +21180,7 @@
                 const expenseData = {
                     date: firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('groupExpenseDate').value)),
                     expenseName: document.getElementById('groupExpenseName').value,
-                    description: document.getElementById('groupExpenseDescription').value,
+                    description: document.getElementById('groupExpenseDescription')?.value || '',
                     category: document.getElementById('groupExpenseCategory').value,
                     mode: document.getElementById('groupExpenseMode').value,
                     amount: amount,
@@ -21355,8 +21352,10 @@
                 document.getElementById('groupExpenseDate').value = safeDate(expense.date).toISOString().split('T')[0];
                 document.getElementById('groupExpenseAmount').value = expense.amount;
                 document.getElementById('groupExpenseName').value = expense.expenseName || '';
-                document.getElementById('groupExpenseDescription').value = expense.description;
-                document.getElementById('groupExpenseCategory').value = expense.category;
+                if (document.getElementById('groupExpenseDescription')) {
+                    document.getElementById('groupExpenseDescription').value = expense.description || '';
+                }
+                document.getElementById('groupExpenseCategory').value = expense.category || 'General';
                 document.getElementById('groupExpenseMode').value = expense.mode;
                 if (expense.isMultiPayer) {
                     document.getElementById('groupExpensePaidBy').value = 'multi';
