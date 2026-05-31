@@ -2520,7 +2520,7 @@
                 // Set up the listener ONLY after initialization
                 setupAuthListener();
 
-                // Median native Social Login returns here with ?idToken=&type=google â€” handle before Firebase redirect
+                // Median native Social Login returns here with ?idToken=&type=google — handle before Firebase redirect
                 await handleMedianGoogleAuthCallback();
 
                 // ðŸ”¥ IMPORTANT: Run Google redirect AFTER init (browser / non-Median)
@@ -2532,13 +2532,13 @@
             }
         }
 
-        // ðŸ”¥ Call immediately! Waiting for window 'load' causes race conditions 
+        // 🔥 Call immediately! Waiting for window 'load' causes race conditions 
         // if large assets/images delay the event but the UI is interactive.
         initFirebase();
 
 
 
-        // âœ… OneSignal Setup (GLOBAL)
+        //✅ OneSignal Setup (GLOBAL)
         window.OneSignalDeferred = window.OneSignalDeferred || [];
 
         OneSignalDeferred.push(async function (OneSignal) {
@@ -7610,7 +7610,7 @@
 
 
         // ============================================================
-        // NOTIFICATION SYSTEM â€” Core Functions
+        // NOTIFICATION SYSTEM — Core Functions
         // ============================================================
 
         /**
@@ -7641,7 +7641,7 @@
                 if (tokens.length > 0) {
                     await sendPushNotification(
                         tokens,
-                        'SplitEra â€” ' + (meta.groupName || 'Group Update'),
+                        'SplitEra — ' + (meta.groupName || 'Group Update'),
                         message,
                         {
                             groupId: meta.groupId || '',
@@ -7714,20 +7714,20 @@
         }
 
         // ============================================================
-        // NOTIFICATION SYSTEM â€” UI & Listener
+        // NOTIFICATION SYSTEM — UI & Listener
         // ============================================================
 
         let _notifUnsubscribe = null; // holds the Firestore listener teardown
 
 
         // ============================================================
-        // NATIVE PUSH NOTIFICATION SYSTEM â€” FCM Token Management
+        // NATIVE PUSH NOTIFICATION SYSTEM — FCM Token Management
         // ============================================================
 
-        // const VAPID_KEY = 'BMU_kfKzI0qanP3hRDHEHxAkCqu6cgL53xancIEYc6Z3fl4JP-vFHFknSkAEflvfUkecy0g2EmlKONZqYDmjXxg'; // â† paste your VAPID key here
+        // const VAPID_KEY = 'BMU_kfKzI0qanP3hRDHEHxAkCqu6cgL53xancIEYc6Z3fl4JP-vFHFknSkAEflvfUkecy0g2EmlKONZqYDmjXxg'; // ← paste your VAPID key here
 
         // ============================================================
-        // PUSH NOTIFICATION SYSTEM â€” OneSignal (Web + Android)
+        // PUSH NOTIFICATION SYSTEM — OneSignal (Web + Android)
         // ============================================================
 
         let _oneSignalInitialized = false;
@@ -7838,7 +7838,7 @@
                 await linkPushTokenToCurrentUser(token);
             };
 
-            // â”€â”€ OneSignal v5 events (Legacy Mode OFF) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            //  -------------------------------- OneSignal v5 events (Legacy Mode OFF)  --------------------------------
             document.addEventListener('median_onesignal_subscription_id', async (e) => {
                 showToast('Push Event', 'Fired median_onesignal_subscription_id');
                 await handleToken(
@@ -7860,7 +7860,7 @@
                 );
             });
 
-            // â”€â”€ Direct JS Bridge calls â”€â”€â”€â”€â”€
+            // -------------------------------- Direct JS Bridge calls --------------------------------
             // We use polling to ensure Median bridge is fully injected
             let attempts = 0;
             const checkMedian = setInterval(() => {
@@ -11354,11 +11354,11 @@
         }
 
         /*
-         * Median Android/iOS + Firebase Google â€” console checklist (same Google Cloud project as Firebase):
+         * Median Android/iOS + Firebase Google — console checklist (same Google Cloud project as Firebase):
          * 1) Google Cloud: OAuth consent screen configured. Credentials: Web client ID, Android client ID
          *    (package name + SHA-1 from Median App Studio; add debug SHA-1 / .debug package for sideload tests).
-         * 2) Firebase Console: Authentication â†’ Google enabled; Settings â†’ Authorized domains include your Vercel host.
-         * 3) Median App Studio: Native Plugins â†’ Social Login â†’ Web + Android (+ iOS) client IDs and iOS URL scheme; rebuild APK.
+         * 2) Firebase Console: Authentication → Google enabled; Settings → Authorized domains include your Vercel host.
+         * 3) Median App Studio: Native Plugins → Social Login → Web + Android (+ iOS) client IDs and iOS URL scheme; rebuild APK.
          * Docs: https://median.co/docs/google-sign-in-configuration
          *        https://median.co/docs/social-login-server-side-redirects
          */
@@ -11431,7 +11431,7 @@
             }
         }
 
-        // Google Authentication â€” Median uses native Social Login; browsers use Firebase popup/redirect
+        // Google Authentication — Median uses native Social Login; browsers use Firebase popup/redirect
         async function signInWithGoogleFlow(medianMode) {
             showLoading();
             try {
@@ -13524,7 +13524,7 @@
 
             if (isMedianApp) {
                 try {
-                    // Primary: trigger standard download â€” Median's plugin intercepts it
+                    // Primary: trigger standard download — Median's plugin intercepts it
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.href = url;
@@ -13611,7 +13611,7 @@
         }
 
         /*
-                // Save file safely â€” works on Web, Android WebView (Median & generic), and Desktop
+                // Save file safely — works on Web, Android WebView (Median & generic), and Desktop
                 async function saveFileSafely(blob, fileName, mimeType) {
                     const ua = navigator.userAgent || '';
                     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
@@ -13723,7 +13723,7 @@
                 }
                 */
 
-        // Save file safely â€” works on Web, Android WebView (Median & generic), and Desktop
+        //Save file safely — works on Web, Android WebView (Median & generic), and Desktop
         /* async function saveFileSafely(blob, fileName, mimeType) {
              const ua = navigator.userAgent || '';
              const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
@@ -13739,7 +13739,7 @@
                  });
              }
  
-             // â”€â”€ 1. Median JS Bridge (highest priority inside Median app) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+             //  -------------------------------- 1. Median JS Bridge (highest priority inside Median app) --------------------------------
              // Median exposes window.median after page load. We check both the object
              // and the UA string so it works regardless of initialisation timing.
              const isMedianApp = (typeof window.median !== 'undefined') ||
@@ -13762,7 +13762,7 @@
                  }
              }
  
-             // â”€â”€ 2. Web Share API with files (Android Chrome / modern WebViews) â”€â”€â”€â”€
+             //  -------------------------------- 2. Web Share API with files (Android Chrome / modern WebViews) --------------------------------
              // navigator.share with files works in Chrome for Android 75+ and most
              // Chromium-based WebViews. It triggers the system share sheet so the
              // user can save to Downloads, Drive, etc.
@@ -13775,12 +13775,12 @@
                          return true;
                      }
                  } catch (err) {
-                     if (err.name === 'AbortError') return false; // user cancelled â€” do not fallback
+                     if (err.name === 'AbortError') return false; // user cancelled — do not fallback
                      console.warn('Web Share API failed, trying base64 link:', err);
                  }
              }
  
-             // â”€â”€ 3. Android WebView generic fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+             // -------------------------------- 3. Android WebView generic fallback  --------------------------------
              // Many generic WebView wrappers (AppMaker, WebIntoApp, etc.) can handle
              // a programmatic <a download> click with a base64 data-URI, even when
              // they cannot handle blob: URLs.
@@ -13800,7 +13800,7 @@
                  }
              }
  
-             // â”€â”€ 4. Desktop: File System Access API (Chrome / Edge) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+             //  -------------------------------- 4. Desktop: File System Access API (Chrome / Edge)  --------------------------------
              if (!isMobile && 'showSaveFilePicker' in window) {
                  try {
                      const ext = fileName.includes('.') ? '' : (mimeType === 'application/pdf' ? '.pdf' : '.xlsx');
@@ -13868,18 +13868,18 @@
         function getCurrencySymbol() {
             const currencyMap = {
                 'USD': '$',
-                'EUR': 'â‚¬',
-                'GBP': 'Â£',
-                'INR': 'â‚¹',
-                'JPY': 'Â¥',
-                'CNY': 'Â¥',
+                'EUR': '€',
+                'GBP': '£',
+                'INR': '₹',
+                'JPY': '¥',
+                'CNY': '¥',
                 'AUD': 'A$',
                 'CAD': 'C$'
             };
 
             // Get currency from user settings or default to INR
             const userCurrency = localStorage.getItem('currency') || 'INR';
-            return currencyMap[userCurrency] || 'â‚¹';
+            return currencyMap[userCurrency] || '₹';
         }
 
         // Legacy function for backward compatibility
@@ -14022,7 +14022,7 @@
                     amountColumns: [t('amount')]
                 });
 
-                // Write file â€” use saveFileSafely so download works on Android WebView too
+                // Write file — use saveFileSafely so download works on Android WebView too
                 const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
                 const excelBlob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
                 const isSaved = await saveFileSafely(excelBlob, `Dashboard_Report_${new Date().toISOString().split('T')[0]}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -15026,7 +15026,7 @@
 
                 const date = credit.date.toDate().toISOString().split('T')[0];
 
-                // Build modal â€” keep same element IDs so saveEditCredit works unchanged
+                //Build modal — keep same element IDs so saveEditCredit works unchanged
                 const modal = document.createElement('div');
                 modal.className = 'modal-overlay show';
                 modal.id = `edit-credit-modal-${id}`;
@@ -15848,7 +15848,7 @@
 
                 const date = expense.date.toDate().toISOString().split('T')[0];
 
-                // Build modal â€” keep same element IDs so saveEditPersonal works unchanged
+                // Build modal — keep same element IDs so saveEditPersonal works unchanged
                 const modal = document.createElement('div');
                 modal.className = 'modal-overlay show';
                 modal.id = `edit-personal-modal-${id}`;
@@ -16365,7 +16365,7 @@
                     });
                     await inviteRef.update({ status: 'accepted' });
 
-                    // â”€â”€ NOTIFICATION: Tell the admin who invited them â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    //  --------------------------------NOTIFICATION: Tell the admin who invited them  --------------------------------
                     await createNotification(
                         adminUid,
                         'member',
@@ -16373,7 +16373,7 @@
                         { ...meta, targetItem: actorName }
                     );
 
-                    // â”€â”€ NOTIFICATION: Tell all other group members â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    // -------------------------------- NOTIFICATION: Tell all other group members  --------------------------------
                     await createGroupNotification(
                         groupId,
                         'member',
@@ -16386,7 +16386,7 @@
                 } else {
                     await inviteRef.update({ status: 'rejected' });
 
-                    // â”€â”€ NOTIFICATION: Tell only the admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    //  -------------------------------- NOTIFICATION: Tell only the admin  --------------------------------
                     await createNotification(
                         adminUid,
                         'decline',
@@ -16742,7 +16742,7 @@
                     await batch.commit();
 
 
-                    // â”€â”€ NOTIFICATION: Notify registered users who were invited â”€â”€â”€â”€â”€â”€
+                    //  -------------------------------- NOTIFICATION: Notify registered users who were invited  --------------------------------
                     const actorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
                     for (const email of emailsToInvite) {
                         try {
@@ -16755,9 +16755,9 @@
                                     { groupId: groupId, groupName: name, triggerUserName: actorName, targetItem: name }
                                 );
                             }
-                        } catch (_) { /* non-critical â€” don't block group save */ }
+                        } catch (_) { /* non-critical — don't block group save */ }
                     }
-                    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    //  --------------------------------
                 }
 
                 document.querySelector('.modal-overlay')?.remove();
@@ -16794,7 +16794,7 @@
                     targetMemberName: targetName
                 });
 
-                // â”€â”€ NOTIFICATION: Notify all remaining members â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //  -------------------------------- NOTIFICATION: Notify all remaining members  --------------------------------
                 const remActorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
                 const remGroupDoc = await db.collection('groups').doc(groupId).get();
                 const remGroupName = remGroupDoc.data()?.name || 'the group';
@@ -16804,7 +16804,7 @@
                     `${remActorName} removed ${targetName} from "${remGroupName}".`,
                     { groupId, groupName: remGroupName, triggerUserName: remActorName, targetItem: targetName }
                 );
-                // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //  --------------------------------
 
                 // Close modal and refresh
                 document.querySelector('.modal-overlay')?.remove();
@@ -17046,7 +17046,8 @@
                     html += '</div>';
                 }
 
-                // â”€â”€ RECOVER DELETED GROUPS SECTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // -------------------------------- RECOVER DELETED GROUPS SECTION  --------------------------------
+
                 if (deletedGroups.length > 0) {
                     html += `
                         <div style="margin-top: 30px; border-top: 2px dashed var(--border); padding-top: 20px;">
@@ -17078,7 +17079,7 @@
                     }
                     html += `</div></div>`;
                 }
-                // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //  --------------------------------
 
                 container.innerHTML = html;
                 enhanceMonthGroupedRows('details', 'detailsTableContainer');
@@ -17102,7 +17103,7 @@
                     deletedBy: firebase.firestore.FieldValue.delete()
                 });
 
-                // â”€â”€ NOTIFICATION: Notify all members about recovery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //  -------------------------------- NOTIFICATION: Notify all members about recovery  --------------------------------
                 try {
                     const recActorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
                     await createGroupNotification(
@@ -17112,7 +17113,7 @@
                         { groupId, groupName: groupData.name, triggerUserName: recActorName, targetItem: groupData.name }
                     );
                 } catch (_) { }
-                // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //  --------------------------------
 
                 showToast('Success', 'Group recovered successfully!');
                 await loadGroups();
@@ -17217,7 +17218,7 @@
                         : userId;
                     await logGroupActivity(groupId, 'MEMBER_ADDED', `${acceptedName} joined the group`);
 
-                    // â”€â”€ NOTIFICATION: Notify the accepted user â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    //  -------------------------------- NOTIFICATION: Notify the accepted user  --------------------------------
                     const accGroupDoc = await db.collection('groups').doc(groupId).get();
                     const accGroupName = accGroupDoc.data()?.name || 'the group';
                     const accAdminName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
@@ -17258,7 +17259,7 @@
                     pendingRequests: firebase.firestore.FieldValue.arrayRemove(userId)
                 });
 
-                // â”€â”€ NOTIFICATION: Notify the denied user â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //  -------------------------------- NOTIFICATION: Notify the denied user  --------------------------------
                 try {
                     const denyGroupDoc = await db.collection('groups').doc(groupId).get();
                     const denyGroupName = denyGroupDoc.data()?.name || 'the group';
@@ -17270,7 +17271,7 @@
                         { groupId, groupName: denyGroupName, triggerUserName: denyAdminName, targetItem: denyGroupName }
                     );
                 } catch (_) { /* non-critical */ }
-                // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //  --------------------------------
 
                 container.innerHTML = '<div style="color: var(--danger); text-align: center; width: 100%;">Denied</div>';
                 setTimeout(() => container.remove(), 1000);
@@ -17293,7 +17294,7 @@
 
                     await logGroupActivity(groupId, 'MEMBER_REMOVED', `${userName} left the group`);
 
-                    // â”€â”€ NOTIFICATION: Tell all remaining members â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    //  -------------------------------- NOTIFICATION: Tell all remaining members  --------------------------------
                     await createGroupNotification(
                         groupId,
                         'leave',
@@ -17305,7 +17306,7 @@
                             targetItem: userName
                         }
                     );
-                    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    //  --------------------------------
 
                     await db.collection('groups').doc(groupId).update({
                         members: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
@@ -17648,7 +17649,7 @@
 
                 await batch.commit();
 
-                // â”€â”€ NOTIFICATION: Notify all invited registered users â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //  -------------------------------- NOTIFICATION: Notify all invited registered users  --------------------------------
                 const actorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
                 for (const userInvite of userInvites) {
                     await createNotification(
@@ -17663,7 +17664,7 @@
                         }
                     );
                 }
-                // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //  --------------------------------
 
 
                 document.querySelector('.modal-overlay')?.remove();
@@ -18273,7 +18274,7 @@
                         // Guest handling
                         let displayStr = member;
                         if (contactName && contactPhone) {
-                            displayStr = `${contactName} â€¢ ${contactPhone}`;
+                            displayStr = `${contactName} • ${contactPhone}`;
                             inviteType = 'guest_phone_contact';
                         }
 
@@ -18395,7 +18396,7 @@
                         members: firebase.firestore.FieldValue.arrayUnion(existingUser.id)
                     });
 
-                    // â”€â”€ NOTIFICATION: Notify all current members â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    //  -------------------------------- NOTIFICATION: Notify all current members  --------------------------------
                     const addActorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
                     const groupDoc2 = await db.collection('groups').doc(groupId).get();
                     await createGroupNotification(
@@ -18421,7 +18422,7 @@
                             targetItem: userDisplayName
                         }
                     );
-                    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    // --------------------------------
 
                     showToast('Success', `Added ${userDisplayName} to group!`, 'success');
                     // Refresh view
@@ -18535,7 +18536,7 @@
                     pendingRequests: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
                 });
 
-                // â”€â”€ NOTIFICATION: Notify admin of join request â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // -------------------------------- NOTIFICATION: Notify admin of join request  --------------------------------
                 try {
                     const reqActorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
                     await createNotification(
@@ -18545,7 +18546,7 @@
                         { groupId: groupDoc.id, groupName: groupData.name, triggerUserName: reqActorName, targetItem: groupData.name }
                     );
                 } catch (_) { /* non-critical */ }
-                // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // --------------------------------
 
                 document.querySelector('.modal-overlay').remove();
                 showToast(t('success'), t('joinRequestSent'));
@@ -18648,9 +18649,9 @@
                         phoneNumber = parts[1];
                     }
 
-                    // Format display name: "Contact Name â€¢ Phone Number" or just the entry
+                    // Format display name: "Contact Name • Phone Number" or just the entry
                     const formattedName = phoneNumber
-                        ? `${displayName} â€¢ ${phoneNumber}`
+                        ? `${displayName} • ${phoneNumber}`
                         : displayName;
 
                     return {
@@ -18706,9 +18707,9 @@
                 // Calculate breakdowns
                 const breakdowns = calculateExpenseBreakdown(expenses, allMembers.map(m => m.id), memberMap);
 
-                // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // --------------------------------
                 // IMPORTANT CHANGE: Show ALL expenses to every group member
-                // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // --------------------------------
                 const displayExpenses = expenses;
 
                 // Classify active / settled per current user
@@ -18901,7 +18902,7 @@
                     const modalBody = modalToUpdate?.querySelector('.modal-body');
 
                     if (modalTitle) modalTitle.innerHTML = escapeHTML(group.name);
-                    if (modalSubtitle) modalSubtitle.innerHTML = `${(group.members?.length || 0) + (group.guestMembers?.length || 0)} ${t('membersCount')} â€¢ ${t('groupCode')}: ${group.code}`;
+                    if (modalSubtitle) modalSubtitle.innerHTML = `${(group.members?.length || 0) + (group.guestMembers?.length || 0)} ${t('membersCount')} • ${t('groupCode')}: ${group.code}`;
 
                     if (modalBody) {
                         // Check if we already have the structure
@@ -19097,7 +19098,7 @@
                                                         <span style="font-size:0.88rem;font-weight:600;color:var(--text-dark);flex:1;">${escapeHTML(m.firstName)} ${escapeHTML(m.lastName || '')}</span>
                                                         ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size:0.75rem;"></i>' : ''}
                                                         ${m.id === currentUser.uid ? '<span style="font-size:0.65rem;background:var(--primary);color:#fff;border-radius:4px;padding:1px 5px;">You</span>' : ''}
-                                                        ${isSettled ? '<span style="font-size:0.68rem;color:var(--success);font-weight:600;margin-left:auto;">âœ“ Settled</span>' : ''}
+                                                        ${isSettled ? '<span style="font-size:0.68rem;color:var(--success);font-weight:600;margin-left:auto;">✓ Settled</span>' : ''}
                                                         <i id="member-card-icon-${groupId}-${m.id}" class="fas fa-chevron-${isOpenByDefault ? 'up' : 'down'}" style="font-size:0.75rem;color:var(--text-gray);"></i>
                                                     </div>
                                                     <div id="member-card-body-${groupId}-${m.id}" style="display:${isOpenByDefault ? 'flex' : 'none'};flex-direction:column;gap:3px;padding-left:36px;margin-top:${isSettled ? '0' : '6px'};">
@@ -19373,7 +19374,7 @@
                                                     <span style="font-size:0.88rem;font-weight:600;color:var(--text-dark);flex:1;">${escapeHTML(m.firstName)} ${escapeHTML(m.lastName || '')}</span>
                                                     ${m.id === group.createdBy ? '<i class="fas fa-crown text-warning" title="Admin" style="font-size:0.75rem;"></i>' : ''}
                                                     ${m.id === currentUser.uid ? '<span style="font-size:0.65rem;background:var(--primary);color:#fff;border-radius:4px;padding:1px 5px;">You</span>' : ''}
-                                                    ${isSettled ? '<span style="font-size:0.68rem;color:var(--success);font-weight:600;margin-left:auto;">âœ“ Settled</span>' : ''}
+                                                    ${isSettled ? '<span style="font-size:0.68rem;color:var(--success);font-weight:600;margin-left:auto;">✓ Settled</span>' : ''}
                                                     <i id="member-card-icon-${groupId}-${m.id}" class="fas fa-chevron-${isOpenByDefault ? 'up' : 'down'}" style="font-size:0.75rem;color:var(--text-gray);"></i>
                                                 </div>
                                                 <div id="member-card-body-${groupId}-${m.id}" style="display:${isOpenByDefault ? 'flex' : 'none'};flex-direction:column;gap:3px;padding-left:36px;margin-top:${isSettled ? '0' : '6px'};">
@@ -19521,7 +19522,7 @@
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
 
-                    // â”€â”€ NOTIFICATION: Notify group about deleted settlement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    //  -------------------------------- NOTIFICATION: Notify group about deleted settlement  --------------------------------
                     if (deletedSettlement) {
                         try {
                             const delSettleActor = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
@@ -19535,7 +19536,7 @@
                             );
                         } catch (_) { }
                     }
-                    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    //  --------------------------------
 
                     if (deletedSettlement) {
                         logGroupActivity(groupId, 'SETTLEMENT', `${currentUser.firstName} deleted a settlement of ${formatCurrency(deletedSettlement.amount)} in "${expense.description}"`, deletedSettlement.amount, {
@@ -19949,7 +19950,7 @@
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                // â”€â”€ NOTIFICATION: Notify group about edited settlement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //  -------------------------------- NOTIFICATION: Notify group about edited settlement  --------------------------------
                 try {
                     const editSettleActor = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
                     const groupDoc = await db.collection('groups').doc(groupId).get();
@@ -19961,7 +19962,7 @@
                         { groupId, groupName, triggerUserName: editSettleActor, targetItem: amount }
                     );
                 } catch (_) { }
-                // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //  --------------------------------
                 showToast('Success', 'Settlement updated successfully!');
 
                 // Close the specific modal and refresh data
@@ -20123,7 +20124,7 @@
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                // â”€â”€ NOTIFICATION: Notify group about edited balance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //  -------------------------------- NOTIFICATION: Notify group about edited balance  --------------------------------
                 try {
                     const editBalActor = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
                     const groupDoc = await db.collection('groups').doc(groupId).get();
@@ -20135,7 +20136,7 @@
                         { groupId, groupName, triggerUserName: editBalActor, targetItem: expense.description || 'an expense' }
                     );
                 } catch (_) { }
-                // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //  --------------------------------
                 showToast('Success', 'Balance updated successfully!');
 
                 // Close the specific modal and refresh data
@@ -20226,7 +20227,7 @@
                     });
                     await batch.commit();
 
-                    // â”€â”€ NOTIFICATION: Notify group about individual settlement â”€â”€â”€â”€â”€â”€â”€
+                    //  -------------------------------- NOTIFICATION: Notify group about individual settlement  --------------------------------
                     try {
                         const settleBalActor = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
                         const groupDoc = await db.collection('groups').doc(groupId).get();
@@ -20238,7 +20239,7 @@
                             { groupId, groupName, triggerUserName: settleBalActor, targetItem: expense.description || 'an expense' }
                         );
                     } catch (_) { }
-                    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    //  --------------------------------
                     showToast('Success', 'Balance settled successfully!');
                     // Real-time DOM updates for individual balance
                     var individualBalanceElement = document.getElementById(`individual-balance-${expenseId}-${memberId}`);
@@ -20442,14 +20443,14 @@
                         fromUid, toUid, fromName, toName
                     });
 
-                    // â”€â”€ NOTIFICATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    // ------------------ NOTIFICATION --------------------------------
                     const settleGroupDoc = await db.collection('groups').doc(groupId).get();
                     const settleGroupName = settleGroupDoc.data()?.name || 'the group';
                     const settleMsg = `${fromName} settled ${formatCurrency(amountVal)} with ${toName} in "${settleGroupName}".`;
                     const settleMeta = { groupId, groupName: settleGroupName, triggerUserName: fromName, targetItem: toName };
 
                     await createGroupNotification(groupId, 'settle', settleMsg, settleMeta);
-                    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    //  --------------------------------
 
                     // Real-time DOM updates for total balance debt card
                     var totalBalanceDebtCard = document.getElementById(`debt-card-${groupId}-${fromUid}-${toUid}`);
@@ -21224,14 +21225,14 @@
                         category: expenseData.category
                     });
 
-                    // â”€â”€ NOTIFICATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    // ---------------------- NOTIFICATION --------------------------------------------------------------
                     await createGroupNotification(
                         groupId,
                         'expense',
                         `${expActorName} edited the expense "${expItemName}" in "${expGroupName}".`,
                         { groupId, groupName: expGroupName, triggerUserName: expActorName, targetItem: expItemName }
                     );
-                    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    // -------------------------------------------------------------------------------------------
                 } else {
                     expenseData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                     const newDoc = await db.collection('group_expenses').add(expenseData);
@@ -21241,14 +21242,14 @@
                         category: expenseData.category
                     });
 
-                    // â”€â”€ NOTIFICATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    //  -------------------------------- NOTIFICATION  --------------------------------
                     await createGroupNotification(
                         groupId,
                         'expense',
                         `${expActorName} added a new expense: "${expItemName}" in "${expGroupName}".`,
                         { groupId, groupName: expGroupName, triggerUserName: expActorName, targetItem: expItemName }
                     );
-                    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    //  --------------------------------
                 }
 
                 // Only remove the functional modal, keep Group Details open
@@ -21598,7 +21599,7 @@
                                                 ${mb.balance > 0 ? '+' : ''}${formatCurrency(mb.balance)}
                                             </div>
                                             <div style="font-size: 0.8rem; color: var(--text-gray);">
-                                                ${mb.status === 'settled' ? 'âœ“ ' + t('settled') : mb.status === 'owes' ? t('owes') : t('owed')}
+                                                ${mb.status === 'settled' ? '✓ ' + t('settled') : mb.status === 'owes' ? t('owes') : t('owed')}
                                             </div>
                                         </div>
                                     </div>
@@ -21606,7 +21607,7 @@
                             </div>
                             ${expenseBreakdown?.isSettled ? `
                                 <div style="margin-top: 0.5rem; padding: 0.5rem; background: var(--success-light); border-radius: 4px; text-align: center;">
-                                    <span style="color: var(--success); font-weight: 600;">âœ“ All settlements completed</span>
+                                    <span style="color: var(--success); font-weight: 600;">✓ All settlements completed</span>
                                 </div>
                             ` : ''}
                         </div>
@@ -21617,7 +21618,7 @@
                             <div style="margin-top: 0.5rem; padding: 0.75rem; background: var(--info-light); border-radius: 4px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span><strong>${payer.firstName}</strong> paid <strong>${formatCurrency(expense.amount)}</strong></span>
-                                    <span style="color: var(--info); font-weight: 600;">âœ“ Recorded</span>
+                                    <span style="color: var(--info); font-weight: 600;">✓ Recorded</span>
                                 </div>
                             </div>
                         </div>
@@ -21643,7 +21644,7 @@
                         return `
                                                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; margin-bottom: 0.25rem; background: var(--success-light); border-radius: 4px; border-left: 3px solid var(--success);">
                                                     <div>
-                                                        <div style="font-weight: 600; color: var(--success);">${settlementPayer.firstName} ${settlementPayer.lastName} â†’ ${settlementReceiver.firstName} ${settlementReceiver.lastName}</div>
+                                                        <div style="font-weight: 600; color: var(--success);">${settlementPayer.firstName} ${settlementPayer.lastName} → ${settlementReceiver.firstName} ${settlementReceiver.lastName}</div>
                                                         <div style="font-size: 0.8rem; color: var(--text-gray);">${settlement.date.toDate().toLocaleDateString()}</div>
                                                     </div>
                                                     <div style="text-align: right;">
@@ -22138,7 +22139,7 @@
                         category: expData.category
                     });
 
-                    // â”€â”€ NOTIFICATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    // -------------------------------- NOTIFICATION  --------------------------------
                     const delGroupDoc = await db.collection('groups').doc(groupId).get();
                     const delGroupName = delGroupDoc.data()?.name || 'the group';
                     await createGroupNotification(
@@ -22147,7 +22148,7 @@
                         `${delActorName} deleted the expense "${delItemName}" from "${delGroupName}".`,
                         { groupId, groupName: delGroupName, triggerUserName: delActorName, targetItem: delItemName }
                     );
-                    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    //  --------------------------------
                 }
 
                 await viewGroupDetails(groupId);
@@ -22210,7 +22211,7 @@
                     deletedBy: currentUser.uid
                 });
 
-                // â”€â”€ NOTIFICATION: Notify all members about group deletion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //  -------------------------------- NOTIFICATION: Notify all members about group deletion --------------------------------
                 try {
                     const delActorName = `${currentUser.firstName} ${currentUser.lastName || ''}`.trim();
                     await createGroupNotification(
@@ -22220,7 +22221,9 @@
                         { groupId, groupName: groupData.name, triggerUserName: delActorName, targetItem: groupData.name }
                     );
                 } catch (_) { }
-                // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+
+                //  --------------------------------
 
                 document.querySelector('.modal-overlay')?.remove();
                 await loadGroups();
@@ -22233,7 +22236,7 @@
         }
 
 
-        // Calendar Page â€” duplicate slow version removed; fast cached version at line ~10955 is used
+        //  Calendar Page — duplicate slow version removed; fast cached version at line ~10955 is used
         // (renderCalendar, loadCalendar, renderMonthCalendar, openDayDetails removed)
         // The fast renderCalendar uses loadCalendarData() which reads from dataState cache
 
@@ -22366,7 +22369,7 @@
                 const date = item.date.toDate().toISOString().split('T')[0];
                 const typeLabel = sectionType === 'credit' ? 'Credit' : 'Personal';
 
-                // Build modal â€” keep same element IDs so saveEditDetailsRow works unchanged
+                //Build modal — keep same element IDs so saveEditDetailsRow works unchanged
                 const modal = document.createElement('div');
                 modal.className = 'modal-overlay show';
                 modal.id = `edit-details-modal-${id}`;
@@ -23672,12 +23675,12 @@
                         <p style="margin-bottom: 1rem;">At SplitEra, we're passionate about simplifying the way people handle their finances in an increasingly shared world. Founded in 2025 in Chikhli, Gujarat, India, our mission is to empower individuals and groups to track, manage, and split expenses effortlessly, turning financial chaos into clarity and collaboration.</p>
 
                         <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Our Story</h4>
-                        <p style="margin-bottom: 1rem;">SplitEra was born out of a simple frustration: splitting bills with friends, family, or roommates often leads to awkward conversations, forgotten IOUs, and lost receipts. Our founders, a team of tech enthusiasts and finance buffs, experienced this firsthand during group trips and shared living situations. We set out to build a smart, user-friendly platform that leverages intuitive technology to make expense management seamless and stress-free. Hosted on modern infrastructure, SplitEra combines secure data handling with features like real-time group splits, customizable categories, and insightful reportsâ€”all accessible from your desktop or mobile device.</p>
+                        <p style="margin-bottom: 1rem;">SplitEra was born out of a simple frustration: splitting bills with friends, family, or roommates often leads to awkward conversations, forgotten IOUs, and lost receipts. Our founders, a team of tech enthusiasts and finance buffs, experienced this firsthand during group trips and shared living situations. We set out to build a smart, user-friendly platform that leverages intuitive technology to make expense management seamless and stress-free. Hosted on modern infrastructure, SplitEra combines secure data handling with features like real-time group splits, customizable categories, and insightful reports—all accessible from your desktop or mobile device.</p>
 
                         <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">What We Offer</h4>
                         <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
                             <li><strong>Personal Expense Tracking</strong>: Log your daily spends, categorize them, and get visual insights into your habits.</li>
-                            <li><strong>Group Expense Splitting</strong>: Create groups, add expenses, and automatically calculate who owes whatâ€”perfect for trips, events, or households.</li>
+                            <li><strong>Group Expense Splitting</strong>: Create groups, add expenses, and automatically calculate who owes what—perfect for trips, events, or households.</li>
                             <li><strong>Secure and Private</strong>: We prioritize your data with robust encryption, OTP-based security, and compliance with global privacy standards.</li>
                             <li><strong>Free and Accessible</strong>: No hidden fees; our core features are available to everyone, with plans for premium enhancements based on user feedback.</li>
                         </ul>
@@ -23692,7 +23695,7 @@
 
                         <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Meet the Team</h4>
                         <p style="margin-bottom: 1rem;">Our small but dedicated team in Chikhli brings together expertise in software development, UI/UX design, and financial analytics. We're committed to growing SplitEra into a go-to tool for millions, one split at a time.</p>
-                        <p style="margin-bottom: 1rem;">If you'd like to learn more or share ideas, reach out to us at support-splitera@gmail.com. Join us in redefining expense managementâ€”because sharing costs shouldn't cost you peace of mind.</p>
+                        <p style="margin-bottom: 1rem;">If you'd like to learn more or share ideas, reach out to us at support-splitera@gmail.com. Join us in redefining expense management—because sharing costs shouldn't cost you peace of mind.</p>
                     `;
                     break;
                 case 'terms':
@@ -25435,7 +25438,7 @@
                 warningDiv.innerHTML = `
                     <strong>Warning:</strong> You are opening this file directly (file://). 
                     Google Sign-In will NOT work. Please use a local server (e.g., VS Code "Live Server").
-                    <button onclick="this.parentElement.remove()" style="margin-left: 10px; background: transparent; border: none; cursor: pointer; color: inherit;">âœ•</button>
+                    <button onclick="this.parentElement.remove()" style="margin-left: 10px; background: transparent; border: none; cursor: pointer; color: inherit;">✕</button>
                 `;
                 document.body.prepend(warningDiv);
             }
