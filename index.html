@@ -2459,6 +2459,19 @@
         html {
             scroll-behavior: auto !important;
         }
+
+        /* Preserve dashboard expand/collapse animations */
+        #mainContent .dashboard-collapse {
+            transition: max-height 0.35s ease, opacity 0.25s ease !important;
+        }
+
+        #mainContent .dashboard-expand-arrow i {
+            transition: transform 0.35s ease !important;
+        }
+
+        #mainContent .dashboard-main-card {
+            transition: all 0.2s !important;
+        }
     </style>
     <script src="https://cdn.tailwindcss.com/3.4.1"></script>
     <script>
@@ -2494,17 +2507,6 @@
         const APP_CONFIG = {
             supportEmail: 'splitera0@gmail.com'
         };
-
-        if (window.Chart) {
-            Chart.defaults.animation = false;
-            Chart.defaults.animations = {};
-            Chart.defaults.transitions = {
-                active: { animation: { duration: 0 } },
-                resize: { animation: { duration: 0 } },
-                show: { animation: { duration: 0 } },
-                hide: { animation: { duration: 0 } }
-            };
-        }
 
         function generateOTP() {
             // Use cryptographically secure random numbers if available
@@ -7528,8 +7530,26 @@
         }
 
         let expensesUnsub = null;
+        function chunkFirestoreInValues(values, size = 10) {
+            const chunks = [];
+            for (let i = 0; i < values.length; i += size) {
+                chunks.push(values.slice(i, i + size));
+            }
+            return chunks;
+        }
+
+        function teardownGroupExpensesListeners() {
+            if (!expensesUnsub) return;
+            if (Array.isArray(expensesUnsub)) {
+                expensesUnsub.forEach(unsub => unsub());
+            } else {
+                expensesUnsub();
+            }
+            expensesUnsub = null;
+        }
+
         function setupGroupExpensesListeners(groupIds) {
-            if (expensesUnsub) expensesUnsub();
+            teardownGroupExpensesListeners();
             if (groupIds.length === 0) {
                 dataState.groupExpenses = [];
                 dataState.isLoaded.groupExpenses = true;
@@ -7539,47 +7559,81 @@
                 return;
             }
 
-            // Firestore 'in' limit is 10.
-            expensesUnsub = db.collection('group_expenses')
-                .where('groupId', 'in', groupIds.slice(0, 10))
-                .onSnapshot(snapshot => {
-                    dataState.groupExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    dataState.isLoaded.groupExpenses = true;
-                    debouncedRefresh();
-                    if (typeof dataState._checkInitialLoad === 'function') {
-                        dataState._checkInitialLoad();
-                    }
-                }, error => {
-                    console.error('Group expenses listener error:', error);
-                    dataState.isLoaded.groupExpenses = true;
-                    if (typeof dataState._checkInitialLoad === 'function') {
-                        dataState._checkInitialLoad();
-                    }
-                });
-            dataState.listeners.push(expensesUnsub);
+            const chunkExpenses = {};
+            expensesUnsub = [];
+
+            chunkFirestoreInValues(groupIds, 10).forEach((chunk, chunkIndex) => {
+                const unsub = db.collection('group_expenses')
+                    .where('groupId', 'in', chunk)
+                    .onSnapshot(snapshot => {
+                        chunkExpenses[chunkIndex] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        const merged = new Map();
+                        Object.values(chunkExpenses).flat().forEach(expense => merged.set(expense.id, expense));
+                        dataState.groupExpenses = Array.from(merged.values());
+                        dataState.isLoaded.groupExpenses = true;
+                        debouncedRefresh();
+                        if (typeof dataState._checkInitialLoad === 'function') {
+                            dataState._checkInitialLoad();
+                        }
+                    }, error => {
+                        console.error('Group expenses listener error:', error);
+                        chunkExpenses[chunkIndex] = [];
+                        const merged = new Map();
+                        Object.values(chunkExpenses).flat().forEach(expense => merged.set(expense.id, expense));
+                        dataState.groupExpenses = Array.from(merged.values());
+                        dataState.isLoaded.groupExpenses = true;
+                        if (typeof dataState._checkInitialLoad === 'function') {
+                            dataState._checkInitialLoad();
+                        }
+                    });
+                expensesUnsub.push(unsub);
+                dataState.listeners.push(unsub);
+            });
         }
 
         let invitesSentUnsub = null;
+        function teardownGroupInvitesListeners() {
+            if (!invitesSentUnsub) return;
+            if (Array.isArray(invitesSentUnsub)) {
+                invitesSentUnsub.forEach(unsub => unsub());
+            } else {
+                invitesSentUnsub();
+            }
+            invitesSentUnsub = null;
+        }
+
         function setupGroupInvitesListeners(groupIds) {
-            if (invitesSentUnsub) invitesSentUnsub();
+            teardownGroupInvitesListeners();
             if (groupIds.length === 0) {
                 dataState.allGroupInvites = [];
                 dataState.isLoaded.allGroupInvites = true;
                 return;
             }
 
-            // Limit to first 10 groups due to Firestore 'in' query limit
-            invitesSentUnsub = db.collection('group_invites')
-                .where('groupId', 'in', groupIds.slice(0, 10))
-                .onSnapshot(snapshot => {
-                    dataState.allGroupInvites = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    dataState.isLoaded.allGroupInvites = true;
-                    debouncedRefresh();
-                }, error => {
-                    console.error('All group invites listener error:', error);
-                    dataState.isLoaded.allGroupInvites = true;
-                });
-            dataState.listeners.push(invitesSentUnsub);
+            const chunkInvites = {};
+            invitesSentUnsub = [];
+
+            chunkFirestoreInValues(groupIds, 10).forEach((chunk, chunkIndex) => {
+                const unsub = db.collection('group_invites')
+                    .where('groupId', 'in', chunk)
+                    .onSnapshot(snapshot => {
+                        chunkInvites[chunkIndex] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        const merged = new Map();
+                        Object.values(chunkInvites).flat().forEach(invite => merged.set(invite.id, invite));
+                        dataState.allGroupInvites = Array.from(merged.values());
+                        dataState.isLoaded.allGroupInvites = true;
+                        debouncedRefresh();
+                    }, error => {
+                        console.error('All group invites listener error:', error);
+                        chunkInvites[chunkIndex] = [];
+                        const merged = new Map();
+                        Object.values(chunkInvites).flat().forEach(invite => merged.set(invite.id, invite));
+                        dataState.allGroupInvites = Array.from(merged.values());
+                        dataState.isLoaded.allGroupInvites = true;
+                    });
+                invitesSentUnsub.push(unsub);
+                dataState.listeners.push(unsub);
+            });
         }
 
         // Translation function
@@ -13002,7 +13056,12 @@
                                     }
                                 }
                             },
-                            animation: false,
+                            animation: {
+                                animateScale: true,
+                                animateRotate: true,
+                                duration: 1800,
+                                easing: 'easeOutQuart'
+                            },
                             layout: {
                                 padding: 20
                             }
@@ -13054,7 +13113,10 @@
                             options: {
                                 responsive: true,
                                 maintainAspectRatio: false,
-                                animation: false,
+                                animation: {
+                                    duration: 1000,
+                                    easing: 'easeOutQuart'
+                                },
                                 plugins: {
                                     legend: {
                                         position: 'right',
@@ -13137,7 +13199,10 @@
                             options: {
                                 responsive: true,
                                 maintainAspectRatio: false,
-                                animation: false,
+                                animation: {
+                                    duration: 1000,
+                                    easing: 'easeOutQuart'
+                                },
                                 plugins: {
                                     legend: { position: 'top', labels: { color: textColor } },
                                     tooltip: {
@@ -14094,7 +14159,7 @@
          * Groups data by date, calculates user shares for group expenses, and renders the calendar months.
          */
         async function loadCalendarData() {
-            if (!dataState.isLoaded.credits || !dataState.isLoaded.personalExpenses || !dataState.isLoaded.groups) {
+            if (!dataState.isLoaded.credits || !dataState.isLoaded.personalExpenses || !dataState.isLoaded.groups || !dataState.isLoaded.groupExpenses) {
                 showLoading();
                 return;
             }
@@ -14144,7 +14209,6 @@
 
                         const breakdowns = calculateExpenseBreakdown([expense], allMembers, memberMap);
                         const breakdown = breakdowns[expense.id];
-                        const payerId = expense.paidBy || expense.userId;
                         let userShare = breakdown?.contributions?.[currentUser.uid] || 0;
 
                         // Fallback: If share is 0 but user is a member, try simple division for old/migrated data
@@ -14152,21 +14216,10 @@
                             userShare = parseFloat(expense.amount) / allMembers.length;
                         }
 
-                        // Expense Visibility Rules for Non-Payer Members
-                        const isPayer = payerId === currentUser.uid;
-                        let isSettledForCurrentUser = true; // Assume settled if not a non-payer or no share
-
-                        if (!isPayer && userShare > 0) {
-                            // For non-payer, check if their share is settled
-                            const remainingBalanceForUser = breakdown?.remainingBalances?.[currentUser.uid] || -userShare; // Fix: Use -userShare if no breakdown (assume unsettled for old data)
-                            isSettledForCurrentUser = Math.abs(remainingBalanceForUser) < 0.01;
-                        }
-
-                        // Only add to calendar if current user is payer, or is non-payer AND settled
-                        if (isPayer || (userShare > 0 && isSettledForCurrentUser)) {
+                        const isMember = (group.members || []).includes(currentUser.uid);
+                        if (isMember) {
                             const dateKey = expense.date.toDate().toDateString();
                             if (!dateMap[dateKey]) dateMap[dateKey] = { credits: 0, personal: 0, groupShare: 0, items: [] };
-                            // Removed duplicate addition and temporary fix (assuming data issue resolved; remove if unnecessary)
                             dateMap[dateKey].groupShare += userShare;
                             dateMap[dateKey].items.push({ ...expense, type: 'group', userShare });
                         }
@@ -14317,14 +14370,15 @@
                 } else {
                     amount = item.userShare;
                     color = 'var(--danger)';
-                    label = t('groupExpenses') + ' (' + t('totalYourShare') + ')';
+                    const group = dataState.groups.find(g => g.id === item.groupId);
+                    label = (group ? group.name : t('groupExpenses')) + ' (' + t('totalYourShare') + ')';
                 }
 
                 return `
                             <div style="padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid var(--border); border-radius: 4px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <div>
-                                        <div style="font-weight: 600;">${item.description || '-'}</div>
+                                        <div style="font-weight: 600;">${escapeHTML(item.expenseName || item.description || '-')}</div>
                                         <div style="font-size: 0.85rem; color: var(--text-gray);">${label}</div>
                                     </div>
                                     <div style="font-weight: 600; color: ${color}">
