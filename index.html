@@ -7296,11 +7296,11 @@
             }
         }
 
-        // Debounced refresh to handle multiple simultaneous updates
+        // Coalesce rapid listener updates into a single immediate refresh
         let refreshTimeout;
         function debouncedRefresh() {
             clearTimeout(refreshTimeout);
-            refreshTimeout = setTimeout(refreshCurrentPage, 150);
+            refreshTimeout = setTimeout(refreshCurrentPage, 0);
         }
 
         // Force refresh the current page (bypasses modal check)
@@ -7332,9 +7332,9 @@
             };
         }
 
-        const debouncedLoadCredits = debounce(() => loadCredits(), 300);
-        const debouncedLoadPersonal = debounce(() => loadPersonal(), 300);
-        const debouncedLoadDetailsData = debounce(() => loadDetailsData(), 300);
+        const debouncedLoadCredits = debounce(() => loadCredits(), 80);
+        const debouncedLoadPersonal = debounce(() => loadPersonal(), 80);
+        const debouncedLoadDetailsData = debounce(() => loadDetailsData(), 80);
 
         let lastListenerParams = null;
         async function setupDataListeners(userId, email, phone) {
@@ -18459,11 +18459,8 @@
                     showToast('Success', `Added ${userDisplayName} to group!`, 'success');
                     // Refresh view
                     btn.closest('.modal-overlay')?.remove();
-                    setTimeout(() => {
-                        const existingModals = document.querySelectorAll('.modal-overlay');
-                        existingModals.forEach(m => m.remove());
-                        viewGroupDetails(groupId);
-                    }, 500);
+                    document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+                    viewGroupDetails(groupId);
 
                 } else if (inviteType === 'email') {
                     // Send email invitation
@@ -18495,11 +18492,8 @@
 
                     // Refresh view
                     btn.closest('.modal-overlay')?.remove();
-                    setTimeout(() => {
-                        const existingModals = document.querySelectorAll('.modal-overlay');
-                        existingModals.forEach(m => m.remove());
-                        viewGroupDetails(groupId);
-                    }, 500);
+                    document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+                    viewGroupDetails(groupId);
                     return;
 
                 } else {
@@ -18509,13 +18503,9 @@
                     });
                     showToast('Success', `Added ${inputVal} as guest member!`, 'success');
 
-                    // Refresh view
                     btn.closest('.modal-overlay')?.remove();
-                    setTimeout(() => {
-                        const existingModals = document.querySelectorAll('.modal-overlay');
-                        existingModals.forEach(m => m.remove());
-                        viewGroupDetails(groupId);
-                    }, 500);
+                    document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+                    viewGroupDetails(groupId);
                     return;
                 }
 
@@ -18646,14 +18636,14 @@
             }
 
             try {
-                // Fetch group and expenses in parallel
-                const groupPromise = db.collection('groups').doc(groupId).get();
-                const expensesPromise = db.collection('group_expenses')
-                    .where('groupId', '==', groupId)
-                    .get();
-
-                const [groupSnap, expensesSnap] = await Promise.all([groupPromise, expensesPromise]);
-                const group = { id: groupSnap.id, ...groupSnap.data() };
+                const cachedGroupState = dataState.groups.find(g => g.id === groupId);
+                let group;
+                if (cachedGroupState && dataState.isLoaded.groups) {
+                    group = { ...cachedGroupState };
+                } else {
+                    const groupSnap = await db.collection('groups').doc(groupId).get();
+                    group = { id: groupSnap.id, ...groupSnap.data() };
+                }
                 window.groupDataCache.set(groupId, group);
 
                 // If no shell shown yet, show it now
@@ -18698,12 +18688,18 @@
                 if (!window.currentGroupTab) window.currentGroupTab = 'expenses';
 
 
-                const expensesSnapshot = expensesSnap;
-
                 const fromDate = document.getElementById('groupFromDateFilter')?.value || '';
                 const toDate = document.getElementById('groupToDateFilter')?.value || '';
 
-                let allExpenses = expensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                let allExpenses;
+                if (dataState.isLoaded.groupExpenses) {
+                    allExpenses = dataState.groupExpenses.filter(e => e.groupId === groupId);
+                } else {
+                    const expensesSnap = await db.collection('group_expenses')
+                        .where('groupId', '==', groupId)
+                        .get();
+                    allExpenses = expensesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
 
                 // Collect settlements from ALL expenses before filtering
                 const allSettlements = [];
@@ -18750,7 +18746,7 @@
                     const isExpenseSettled = expenseBreakdown?.isSettled || false;
 
                     return `
-                <tbody class="expense-row-group ${isSettledRow ? 'settled-expense-row-' + groupId : ''}"
+                <tbody class="expense-row-group ${isSettledRow ? 'settled-expense-row-' + groupId + ' hidden' : ''}"
                        style="${isSettledRow ? 'background: rgba(0,0,0,0.02);' : ''}">
                     <tr class="${isFullySettledForMe ? 'expense-settled' : ''} ${isExpenseSettled ? 'fully-settled-row' : ''}">
                         <td>${expense.date.toDate().toLocaleDateString()}</td>
@@ -18896,12 +18892,40 @@
             `;
                 };
 
-                const renderExpenseTableRows = () => displayExpenses.map(expense => {
+                const activeExpenses = [];
+                const settledExpenses = [];
+
+                displayExpenses.forEach(expense => {
                     const breakdown = breakdowns[expense.id];
-                    const remaining = breakdown?.remainingBalances?.[currentUser.uid] || 0;
-                    const isSettledRow = Math.abs(remaining) <= 0.01;
-                    return renderExpenseRow(expense, isSettledRow);
-                }).join('');
+                    if (!breakdown) {
+                        activeExpenses.push(expense);
+                        return;
+                    }
+                    const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
+                    if (Math.abs(remaining) <= 0.01) {
+                        settledExpenses.push(expense);
+                    } else {
+                        activeExpenses.push(expense);
+                    }
+                });
+
+                const renderExpenseTableRows = () => {
+                    let html = activeExpenses.map(e => renderExpenseRow(e, false)).join('');
+                    if (settledExpenses.length > 0) {
+                        html += `
+                            <tbody>
+                                <tr style="background: var(--bg-light); cursor: pointer;"
+                                    onclick="this.closest('table').querySelectorAll('.settled-expense-row-${groupId}').forEach(el => el.classList.toggle('hidden'))">
+                                    <td colspan="8" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
+                                        <i class="fas fa-history"></i> Settlement History — ${settledExpenses.length} Settled Expense${settledExpenses.length > 1 ? 's' : ''}
+                                    </td>
+                                </tr>
+                            </tbody>
+                            ${settledExpenses.map(e => renderExpenseRow(e, true)).join('')}
+                        `;
+                    }
+                    return html;
+                };
 
                 if (isUpdating) {
                     // Update only the inner content to prevent flicker
@@ -19535,10 +19559,7 @@
 
                     showToast('Success', 'Settlement deleted successfully!');
 
-                    // Defer data reload to avoid immediate flicker
-                    setTimeout(() => {
-                        viewGroupDetails(groupId);
-                    }, 500);
+                    viewGroupDetails(groupId, true);
                 } catch (error) {
                     showToast('Error', 'Failed to delete settlement: ' + error.message, 'error');
                 } finally {
@@ -19579,8 +19600,7 @@
                     await expenseRef.update(updateData);
                     showToast('Success', 'Balance entry deleted successfully!');
 
-                    // Refresh data directly for immediate update
-                    viewGroupDetails(groupId);
+                    viewGroupDetails(groupId, true);
                 } catch (error) {
                     showToast('Error', 'Failed to delete balance entry: ' + error.message, 'error');
                 } finally {
@@ -19955,7 +19975,7 @@
                 // Close the specific modal and refresh data
                 const targetModal = document.querySelector('.modal-overlay.show:last-child');
                 if (targetModal && !targetModal.querySelector('.modal-large')) targetModal.remove();
-                viewGroupDetails(groupId);
+                viewGroupDetails(groupId, true);
             } catch (error) {
                 showToast('Error', 'Failed to update settlement: ' + error.message, 'error');
             } finally {
@@ -20129,7 +20149,7 @@
                 // Close the specific modal and refresh data
                 const targetModal = document.querySelector('.modal-overlay.show:last-child');
                 if (targetModal && !targetModal.querySelector('.modal-large')) targetModal.remove();
-                viewGroupDetails(groupId);
+                viewGroupDetails(groupId, true);
             } catch (error) {
                 showToast('Error', 'Failed to update balance: ' + error.message, 'error');
             } finally {
@@ -20251,7 +20271,7 @@
                         totalBalanceDebtCardReverse.remove();
                     }
                     // Refresh the group view immediately
-                    viewGroupDetails(groupId);
+                    viewGroupDetails(groupId, true);
                 } catch (error) {
                     showToast('Error', 'Failed to settle balance: ' + error.message, 'error');
                 } finally {
@@ -20276,8 +20296,7 @@
                     value: simplify
                 });
 
-                // Refresh the group details view immediately
-                viewGroupDetails(groupId);
+                viewGroupDetails(groupId, true);
             } catch (error) {
                 showToast('Error', error.message, 'error');
             }
@@ -20448,8 +20467,7 @@
                     if (totalBalanceDebtCardReverse) {
                         totalBalanceDebtCardReverse.remove();
                     }
-                    // Refresh the group view immediately
-                    viewGroupDetails(groupId);
+                    viewGroupDetails(groupId, true);
                 } catch (e) {
                     console.error(e);
                     showToast('Error', e.message, 'error');
@@ -21203,7 +21221,7 @@
                 // Only remove the functional modal, keep Group Details open
                 const modalToAdd = document.getElementById('groupExpenseModal') || btn.closest('.modal-overlay');
                 if (modalToAdd && !modalToAdd.querySelector('.modal-large')) modalToAdd.remove();
-                viewGroupDetails(groupId);
+                viewGroupDetails(groupId, true);
             } catch (error) {
                 showToast('Error', error.message, 'error');
                 btn.disabled = false;
@@ -22099,7 +22117,7 @@
                     //  --------------------------------
                 }
 
-                await viewGroupDetails(groupId);
+                await viewGroupDetails(groupId, true);
                 showToast('Success', 'Group expense deleted successfully!');
 
             } catch (error) {
@@ -25417,40 +25435,53 @@
 
                 if (user) {
                     try {
-                        // Try to get user document
+                        const displayNameParts = (user.displayName || '').trim().split(/\s+/).filter(Boolean);
+                        currentUser = {
+                            uid: user.uid,
+                            email: user.email || '',
+                            userId: user.uid.substring(0, 8),
+                            firstName: displayNameParts[0] || 'User',
+                            lastName: displayNameParts.slice(1).join(' ') || '',
+                            phone: user.phoneNumber || '',
+                            photoUrl: user.photoURL || '',
+                            currency: localStorage.getItem('currency') || 'USD',
+                            country: localStorage.getItem('country') || 'US',
+                            language: localStorage.getItem('language') || localStorage.getItem('lang') || 'en',
+                            darkMode: (localStorage.getItem('theme') || 'light') === 'dark'
+                        };
+                        currentLanguage = currentUser.language;
+                        currentLang = currentUser.language;
+                        currentTheme = currentUser.darkMode ? 'dark' : 'light';
+                        document.documentElement.setAttribute('data-theme', currentTheme);
+
+                        setupDataListeners(user.uid, currentUser.email, currentUser.phone);
+                        renderMainLayout();
+                        currentPage = 'dashboard';
+                        navigate('dashboard');
+
                         let userDoc = await db.collection('users').doc(user.uid).get();
-
-                        // Retry logic with improved delay steps
                         if (!userDoc.exists) {
-
-                            await new Promise(resolve => setTimeout(resolve, 2000));
-                            userDoc = await db.collection('users').doc(user.uid).get();
-                        }
-
-                        if (!userDoc.exists) {
-                            await new Promise(resolve => setTimeout(resolve, 4000));
+                            await new Promise(resolve => setTimeout(resolve, 300));
                             userDoc = await db.collection('users').doc(user.uid).get();
                         }
 
                         if (userDoc.exists) {
                             const userData = userDoc.data();
 
-                            // Build complete user object
                             currentUser = {
                                 uid: user.uid,
                                 email: user.email,
                                 userId: userData.userId || user.uid.substring(0, 8),
-                                firstName: userData.firstName || 'User',
+                                firstName: userData.firstName || currentUser.firstName,
                                 lastName: userData.lastName || '',
                                 phone: userData.phone || '',
-                                photoUrl: userData.photoUrl || '',
+                                photoUrl: userData.photoUrl || user.photoURL || '',
                                 currency: userData.currency || 'USD',
                                 country: userData.country || 'US',
                                 language: userData.language || 'en',
                                 darkMode: userData.darkMode || false
                             };
 
-                            // Apply user preferences
                             localStorage.setItem('currency', currentUser.currency);
                             localStorage.setItem('country', currentUser.country);
                             localStorage.setItem('language', currentUser.language);
@@ -25459,17 +25490,9 @@
                             currentLanguage = currentUser.language;
                             currentLang = currentUser.language;
                             currentTheme = currentUser.darkMode ? 'dark' : 'light';
-
-                            // Apply theme using data-theme attribute (matches CSS selector)
                             document.documentElement.setAttribute('data-theme', currentUser.darkMode ? 'dark' : 'light');
 
-                            // Start data listeners in background; render UI immediately
-                            setupDataListeners(user.uid, user.email, currentUser.phone);
-
-                            renderMainLayout();
-                            currentPage = 'dashboard';
-                            navigate('dashboard');
-
+                            if (typeof translateApp === 'function') translateApp();
                             checkPendingInvites(currentUser);
 
                         } else {
@@ -25520,16 +25543,8 @@
                                     darkMode: false
                                 };
 
-                                await flushPendingPushToken();
-                                initPushNotifications();
-
-
-                                setupDataListeners(user.uid, user.email, currentUser.phone);
-
                                 showToast('Success', 'Account created! Welcome ' + newUserData.firstName);
-                                renderMainLayout();
-                                currentPage = 'dashboard';
-                                navigate('dashboard');
+                                if (typeof translateApp === 'function') translateApp();
                             } else {
                                 // No signup data and no user doc - sign out to prevent loop
                                 console.error('User document not found and no signup data');
