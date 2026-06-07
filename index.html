@@ -1398,37 +1398,12 @@
             color: var(--text-gray);
         }
 
-        /* Loading */
-        .loading {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 3000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .loading.show {
-            display: flex;
-        }
-
-        .spinner {
-            width: 3rem;
-            height: 3rem;
-            border: 4px solid var(--border);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
+        /* Loading indicators disabled for faster UI */
+        .loading,
+        .loading.show,
+        .spinner,
+        .loading-spinner {
+            display: none !important;
         }
 
         /* Groups */
@@ -7569,7 +7544,7 @@
                         chunkExpenses[chunkIndex] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                         const merged = new Map();
                         Object.values(chunkExpenses).flat().forEach(expense => merged.set(expense.id, expense));
-                        dataState.groupExpenses = Array.from(merged.values());
+                        dataState.groupExpenses = sortByNewestFirst(Array.from(merged.values()));
                         dataState.isLoaded.groupExpenses = true;
                         debouncedRefresh();
                         if (typeof dataState._checkInitialLoad === 'function') {
@@ -7580,7 +7555,7 @@
                         chunkExpenses[chunkIndex] = [];
                         const merged = new Map();
                         Object.values(chunkExpenses).flat().forEach(expense => merged.set(expense.id, expense));
-                        dataState.groupExpenses = Array.from(merged.values());
+                        dataState.groupExpenses = sortByNewestFirst(Array.from(merged.values()));
                         dataState.isLoaded.groupExpenses = true;
                         if (typeof dataState._checkInitialLoad === 'function') {
                             dataState._checkInitialLoad();
@@ -7682,6 +7657,16 @@
         // Helper to get milliseconds safely
         function safeDateMillis(dateValue) {
             return safeDate(dateValue).getTime();
+        }
+
+        function sortByNewestFirst(items) {
+            return [...items].sort((a, b) => {
+                const createdDiff = safeDateMillis(b.createdAt || b.date) - safeDateMillis(a.createdAt || a.date);
+                if (createdDiff !== 0) return createdDiff;
+                const dateDiff = safeDateMillis(b.date) - safeDateMillis(a.date);
+                if (dateDiff !== 0) return dateDiff;
+                return (b.id || '').localeCompare(a.id || '');
+            });
         }
 
 
@@ -8308,12 +8293,6 @@
 
             window.lastActivityGroupId = groupId;
             if (container) container.dataset.tab = 'activity';
-
-            // Only show spinner if container is empty or has different tab content
-            if (!container.innerHTML || container.innerHTML.includes('loading-spinner') || container.querySelector('table')) {
-                container.innerHTML = `<div style="text-align:center;padding:2rem;"><div class="loading-spinner"></div><p>${t('loading')}...</p></div>`;
-            }
-
 
             window.activityUnsubscribe = db.collection('group_activities')
                 .where('groupId', '==', groupId)
@@ -9068,15 +9047,9 @@
 
         applyTheme();
 
-        // Show loading
-        function showLoading() {
-            document.getElementById('loading').classList.add('show');
-        }
+        function showLoading() {}
 
-        // Hide loading
-        function hideLoading() {
-            document.getElementById('loading').classList.remove('show');
-        }
+        function hideLoading() {}
 
         // Show toast
         function showToast(title, message, type = 'success') {
@@ -12690,17 +12663,8 @@
                 dataState.isLoaded.groupExpenses;
 
             if (!isFullyLoaded) {
-                // If we've been waiting here and navigate was called, show specific loader
-                const statsGrid = document.getElementById('statsGrid');
-                if (statsGrid && !statsGrid.innerHTML.trim()) {
-                    statsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 2rem;">
-                        <div class="loading-spinner"></div>
-                        <p style="margin-top: 1rem; color: var(--text-gray);">${t('loading')}...</p>
-                    </div>`;
-                }
                 return;
             }
-            hideLoading();
 
             try {
                 const fromDate = document.getElementById('dashboardFromDate')?.value || '';
@@ -18651,12 +18615,7 @@
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
-                    <div class="modal-body" style="padding: 0;">
-                        <div style="text-align:center;padding:5rem;">
-                            <div class="loading-spinner"></div>
-                            <p>${t('loading')}...</p>
-                        </div>
-                    </div>
+                    <div class="modal-body" style="padding: 0;"></div>
                 </div>
             `;
             document.body.appendChild(modal);
@@ -18766,7 +18725,7 @@
                 );
 
                 expenses = filterByDateRange(expenses, fromDate, toDate);
-                expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                expenses = sortByNewestFirst(expenses);
 
                 // Calculate Debts
                 const simplify = group.simplify !== false; // Default to true
@@ -18775,32 +18734,7 @@
                 // Calculate breakdowns
                 const breakdowns = calculateExpenseBreakdown(expenses, allMembers.map(m => m.id), memberMap);
 
-                // --------------------------------
-                // IMPORTANT CHANGE: Show ALL expenses to every group member
-                // --------------------------------
                 const displayExpenses = expenses;
-
-                // Classify active / settled per current user
-                const activeExpenses = [];
-                const settledExpenses = [];
-
-                displayExpenses.forEach(expense => {
-                    const breakdown = breakdowns[expense.id];
-                    if (!breakdown) {
-                        activeExpenses.push(expense);
-                        return;
-                    }
-
-                    // Source of truth: remaining balance from the engine
-                    const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-
-                    // If my remaining balance is near zero, it's settled FOR ME
-                    if (Math.abs(remaining) <= 0.01) {
-                        settledExpenses.push(expense);
-                    } else {
-                        activeExpenses.push(expense);
-                    }
-                });
 
                 const renderExpenseRow = (expense, isSettledRow = false) => {
                     const payerId = expense.paidBy || expense.userId;
@@ -18816,7 +18750,7 @@
                     const isExpenseSettled = expenseBreakdown?.isSettled || false;
 
                     return `
-                <tbody class="expense-row-group ${isSettledRow ? 'settled-expense-row-' + groupId + ' hidden' : ''}"
+                <tbody class="expense-row-group ${isSettledRow ? 'settled-expense-row-' + groupId : ''}"
                        style="${isSettledRow ? 'background: rgba(0,0,0,0.02);' : ''}">
                     <tr class="${isFullySettledForMe ? 'expense-settled' : ''} ${isExpenseSettled ? 'fully-settled-row' : ''}">
                         <td>${expense.date.toDate().toLocaleDateString()}</td>
@@ -18962,6 +18896,13 @@
             `;
                 };
 
+                const renderExpenseTableRows = () => displayExpenses.map(expense => {
+                    const breakdown = breakdowns[expense.id];
+                    const remaining = breakdown?.remainingBalances?.[currentUser.uid] || 0;
+                    const isSettledRow = Math.abs(remaining) <= 0.01;
+                    return renderExpenseRow(expense, isSettledRow);
+                }).join('');
+
                 if (isUpdating) {
                     // Update only the inner content to prevent flicker
                     let modalToUpdate = existingModal || document.querySelector('.modal-overlay.show .modal-large');
@@ -19044,18 +18985,7 @@
                                                         <th>${t('actions')}</th>
                                                     </tr>
                                                 </thead>
-                                                ${activeExpenses.map(e => renderExpenseRow(e, false)).join('')}
-                                                ${settledExpenses.length > 0 ? `
-                                                    <tbody>
-                                                        <tr style="background: var(--bg-light); cursor: pointer;"
-                                                            onclick="this.closest('table').querySelectorAll('.settled-expense-row-${groupId}').forEach(el => el.classList.toggle('hidden'))">
-                                                            <td colspan="8" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
-                                                                <i class="fas fa-history"></i> Show ${settledExpenses.length} Settled Expense${settledExpenses.length > 1 ? 's' : ''}
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                    ${settledExpenses.map(e => renderExpenseRow(e, true)).join('')}
-                                                ` : ''}
+                                                ${renderExpenseTableRows()}
                                             </table>
                                         </div>
 
@@ -19322,18 +19252,7 @@
                                                     <th>${t('actions')}</th>
                                                 </tr>
                                             </thead>
-                                            ${activeExpenses.map(e => renderExpenseRow(e, false)).join('')}
-                                            ${settledExpenses.length > 0 ? `
-                                                <tbody>
-                                                    <tr style="background: var(--bg-light); cursor: pointer;"
-                                                        onclick="this.closest('table').querySelectorAll('.settled-expense-row-${groupId}').forEach(el => el.classList.toggle('hidden'))">
-                                                        <td colspan="8" style="text-align: center; color: var(--text-gray); font-weight: 500; padding: 1rem;">
-                                                            <i class="fas fa-history"></i> Show ${settledExpenses.length} Settled Expense${settledExpenses.length > 1 ? 's' : ''}
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                                ${settledExpenses.map(e => renderExpenseRow(e, true)).join('')}
-                                            ` : ''}
+                                            ${renderExpenseTableRows()}
                                         </table>
                                     </div>
 
@@ -21775,7 +21694,7 @@
                     .get({ source: 'server' });
                 let expenses = expensesSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                 expenses = filterByDateRange(expenses, fromDate, toDate);
-                expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                expenses = sortByNewestFirst(expenses);
                 // Use all members (registered + guests) for debt calculations
                 const debts = calculateGroupDebts(expenses, allMemberIds);
                 // Compute expense breakdowns for summary + per-expense shares
@@ -25498,8 +25417,6 @@
 
                 if (user) {
                     try {
-                        showLoading();
-
                         // Try to get user document
                         let userDoc = await db.collection('users').doc(user.uid).get();
 
@@ -25546,18 +25463,14 @@
                             // Apply theme using data-theme attribute (matches CSS selector)
                             document.documentElement.setAttribute('data-theme', currentUser.darkMode ? 'dark' : 'light');
 
-                            // Initialize real-time data listeners and WAIT for initial data
-                            await setupDataListeners(user.uid, user.email, currentUser.phone);
+                            // Start data listeners in background; render UI immediately
+                            setupDataListeners(user.uid, user.email, currentUser.phone);
 
-                            // Show dashboard
                             renderMainLayout();
                             currentPage = 'dashboard';
-                            await navigate('dashboard');
+                            navigate('dashboard');
 
-                            // Check for any pending invites/guest links
                             checkPendingInvites(currentUser);
-
-                            hideLoading();
 
                         } else {
                             // User document doesn't exist - this is a new user from signup
@@ -25611,12 +25524,12 @@
                                 initPushNotifications();
 
 
-                                // Initialize data listeners and WAIT for initial data
-                                await setupDataListeners(user.uid, user.email, currentUser.phone);
+                                setupDataListeners(user.uid, user.email, currentUser.phone);
 
                                 showToast('Success', 'Account created! Welcome ' + newUserData.firstName);
-                                await renderMainLayout();
-                                await navigate('dashboard');
+                                renderMainLayout();
+                                currentPage = 'dashboard';
+                                navigate('dashboard');
                             } else {
                                 // No signup data and no user doc - sign out to prevent loop
                                 console.error('User document not found and no signup data');
