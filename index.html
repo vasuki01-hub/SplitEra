@@ -471,6 +471,18 @@
             border: 2px solid var(--border);
         }
 
+        .user-avatar-initials {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--primary);
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            object-fit: unset;
+        }
+
         .user-dropdown {
             backdrop-filter: blur(2rem);
             background: #ffffff3d;
@@ -478,6 +490,8 @@
             box-shadow: inset 0px 0px 20px 0px rgb(0 0 0 / 43%);
             min-width: 17rem;
             display: none;
+            position: fixed;
+            z-index: 1050;
         }
 
         .user-dropdown.show {
@@ -1126,6 +1140,8 @@
 
         /* Filters */
         .filters {
+            position: relative;
+            z-index: 1;
             display: flex;
             gap: 1rem;
             margin-bottom: 1.5rem;
@@ -2259,7 +2275,7 @@
             border-top: none;
             border-radius: 0 0 0.5rem 0.5rem;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-            z-index: 1000;
+            z-index: 11000;
             display: none;
             max-height: 0;
             overflow: hidden;
@@ -2411,7 +2427,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            z-index: 999;
+            z-index: 10999;
             display: none;
         }
 
@@ -7300,7 +7316,12 @@
         let refreshTimeout;
         function debouncedRefresh() {
             clearTimeout(refreshTimeout);
-            refreshTimeout = setTimeout(refreshCurrentPage, 0);
+            refreshTimeout = setTimeout(() => {
+                if (currentPage === 'dashboard') {
+                    refreshDashboardIfNeeded();
+                }
+                refreshCurrentPage();
+            }, 0);
         }
 
         // Force refresh the current page (bypasses modal check)
@@ -7364,6 +7385,8 @@
                     dataState.isLoaded.groups &&
                     dataState.isLoaded.groupExpenses) {
                     resolveInitial();
+                    refreshDashboardIfNeeded();
+                    updateUserHeader();
                 }
             };
 
@@ -7667,6 +7690,65 @@
                 if (dateDiff !== 0) return dateDiff;
                 return (b.id || '').localeCompare(a.id || '');
             });
+        }
+
+        function getUserInitials(firstName, lastName, email) {
+            const first = (firstName || '').trim();
+            const last = (lastName || '').trim();
+            if (first && last) return (first.charAt(0) + last.charAt(0)).toUpperCase();
+            if (first && first.toLowerCase() !== 'user') return first.charAt(0).toUpperCase();
+            if (email) return email.charAt(0).toUpperCase();
+            return '?';
+        }
+
+        function getUserAvatarUrl(user) {
+            if (!user) return '';
+            if (user.photoUrl) return user.photoUrl;
+            const first = (user.firstName || '').trim();
+            const last = (user.lastName || '').trim();
+            let name = '';
+            if (first && last) name = `${first} ${last}`;
+            else if (first && first.toLowerCase() !== 'user') name = first;
+            else if (user.email) name = user.email.split('@')[0];
+            else name = 'User';
+            return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=FF8C42&color=fff`;
+        }
+
+        function closeUserDropdown() {
+            document.getElementById('userDropdown')?.classList.remove('show');
+        }
+
+        function updateUserHeader() {
+            if (!currentUser) return;
+            const avatarUrl = getUserAvatarUrl(currentUser);
+            const initials = getUserInitials(currentUser.firstName, currentUser.lastName, currentUser.email);
+            document.querySelectorAll('.user-avatar').forEach(el => {
+                if (el.tagName === 'IMG') {
+                    el.src = avatarUrl;
+                    el.alt = initials;
+                }
+            });
+            const dropdownName = document.querySelector('#userDropdown strong');
+            if (dropdownName) {
+                dropdownName.textContent = `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim();
+            }
+            const dropdownEmail = document.querySelector('#userDropdown small');
+            if (dropdownEmail) dropdownEmail.textContent = currentUser.email || '';
+        }
+
+        function refreshDashboardIfNeeded() {
+            if (currentPage !== 'dashboard') return;
+            if (typeof loadDashboardData !== 'function') return;
+            const isFullyLoaded = dataState.isLoaded.credits &&
+                dataState.isLoaded.personalExpenses &&
+                dataState.isLoaded.groups &&
+                dataState.isLoaded.groupExpenses;
+            if (!isFullyLoaded) return;
+            if (document.getElementById('statsGrid')) {
+                loadDashboardData();
+            } else if (typeof navigate === 'function') {
+                navigate('dashboard');
+            }
         }
 
 
@@ -8819,6 +8901,7 @@
             }
 
             function openDropdown() {
+                closeUserDropdown();
                 trigger.classList.add('active');
                 panel.classList.add('open');
                 overlay.classList.add('active');
@@ -8836,6 +8919,7 @@
                 if (panel.classList.contains('open')) {
                     closeDropdown();
                 } else {
+                    closeUserDropdown();
                     document.querySelectorAll('.searchable-dropdown-panel.open').forEach(p => {
                         p.classList.remove('open');
                         p.previousElementSibling?.classList?.remove('active');
@@ -8980,6 +9064,7 @@
             }
 
             function openDropdown() {
+                closeUserDropdown();
                 trigger.classList.add('active');
                 panel.classList.add('open');
                 overlay.classList.add('active');
@@ -9007,6 +9092,7 @@
                 if (panel.classList.contains('open')) {
                     closeDropdown();
                 } else {
+                    closeUserDropdown();
                     // Close any other open searchable dropdowns first
                     document.querySelectorAll('.searchable-dropdown-panel.open').forEach(p => {
                         p.classList.remove('open');
@@ -12222,8 +12308,8 @@
         <span class="notif-badge" style="display:none;">0</span>
     </button>
     <div class="user-menu">
-                                    <img src="${currentUser.photoUrl || 'https://ui-avatars.com/api/?name=' + currentUser.firstName + '+' + currentUser.lastName}" 
-                                         alt="User" class="user-avatar" onclick="toggleUserDropdown(event, 'desktop')">
+                                    <img src="${getUserAvatarUrl(currentUser)}" 
+                                         alt="${getUserInitials(currentUser.firstName, currentUser.lastName, currentUser.email)}" class="user-avatar" onclick="toggleUserDropdown(event, 'desktop')">
                                 </div>
                                 <button class="hamburger" onclick="toggleMobileMenu()">
                                     <i class="fas fa-bars"></i>
@@ -12246,8 +12332,8 @@
         <span class="notif-badge" style="display:none;">0</span>
     </button>
     <div class="user-menu" style="position: relative;">
-                                <img src="${currentUser.photoUrl || 'https://ui-avatars.com/api/?name=' + currentUser.firstName + '+' + currentUser.lastName}" 
-                                     alt="User" class="user-avatar" style="width: 32px; height: 32px;" onclick="toggleUserDropdown(event, 'mobile')">
+                                <img src="${getUserAvatarUrl(currentUser)}" 
+                                     alt="${getUserInitials(currentUser.firstName, currentUser.lastName, currentUser.email)}" class="user-avatar" style="width: 32px; height: 32px;" onclick="toggleUserDropdown(event, 'mobile')">
                             </div>
                             
                         </div>
@@ -12354,7 +12440,8 @@
                 }
             });
 
-            renderDashboard();
+            updateUserHeader();
+            navigate(currentPage || 'dashboard');
             startNotificationListener();
             initPushNotifications();
             flushPendingPushToken();
@@ -12364,6 +12451,7 @@
 
         // Navigation functions
         function navigateTo(page) {
+            closeUserDropdown();
             currentPage = page;
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
             document.querySelector(`.nav-link[data-page="${page}"]`)?.classList.add('active');
@@ -16883,6 +16971,8 @@
                     purgeDeletedGroups(groupsToPurge);
                 }
 
+                activeGroups.sort((a, b) => safeDateMillis(b.createdAt || b.creationDate) - safeDateMillis(a.createdAt || a.creationDate));
+
                 // Calculate user's total share in active groups and individual expenses
                 let userTotalShare = 0;
                 let userIndividualExpenses = 0;
@@ -16961,7 +17051,7 @@
                                         <i class="fas fa-user-clock"></i> ${pendingCount} ${pendingCount > 1 ? t('pendingRequestsLabel') : t('pendingRequest')}
                                     </h4>
                                     <div class="request-actions">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="manageGroupRequests('${group.id}')">${t('review')}</button>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); manageGroupRequests('${group.id}')">${t('review')}</button>
                                     </div>
                                 </div>
                             `;
@@ -17030,15 +17120,15 @@
                         }
 
                         html += `
-                            <div class="group-card">
+                            <div class="group-card" onclick="viewGroupDetails('${group.id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();viewGroupDetails('${group.id}');}">
                                 <div class="group-header">
                                     <h3>${escapeHTML(group.name)}</h3>
                                     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
-                                        <span class="badge badge-info" onclick="openDetailedMemberList('${group.id}')" style="cursor: pointer; transition: all 0.2s;" title="${t('viewMembers')}">
+                                        <span class="badge badge-info" onclick="event.stopPropagation(); openDetailedMemberList('${group.id}')" style="cursor: pointer; transition: all 0.2s;" title="${t('viewMembers')}">
                                             <i class="fas fa-users"></i> ${(group.members?.length || 0) + (group.guestMembers?.length || 0)} ${t('membersCount')}
                                         </span>
                                         ${totalPending > 0 ? `
-                                            <span class="badge badge-warning" onclick="openPendingMembersModal('${group.id}')" style="cursor: pointer; font-size: 0.75rem; transition: all 0.2s;" title="View Pending">
+                                            <span class="badge badge-warning" onclick="event.stopPropagation(); openPendingMembersModal('${group.id}')" style="cursor: pointer; font-size: 0.75rem; transition: all 0.2s;" title="View Pending">
                                                 <i class="fas fa-user-clock"></i> ${totalPending} pending
                                             </span>
                                         ` : ''}
@@ -17053,19 +17143,19 @@
                                     ${requestsHtml}
                                 </div>
                                 <div class="group-footer">
-                                    <button class="btn btn-primary btn-sm" onclick="viewGroupDetails('${group.id}')" style="width: 50%;">
+                                    <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); viewGroupDetails('${group.id}')" style="width: 50%;">
                                         <i class="fas fa-eye"></i>
                                         ${t('viewDetails')}
                                     </button>
                                     ${group.createdBy === currentUser.uid ? `
-                                        <button class="btn btn-secondary btn-sm" onclick="editGroup('${group.id}')">
+                                        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); editGroup('${group.id}')">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-danger btn-sm" onclick="deleteGroup('${group.id}')">
+                                        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteGroup('${group.id}')">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     ` : `
-                                        <button class="btn btn-warning btn-sm" onclick="leaveGroup('${group.id}')">
+                                        <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); leaveGroup('${group.id}')">
                                             <i class="fas fa-sign-out-alt"></i>
                                             ${t('leave')}
                                         </button>
@@ -25353,6 +25443,7 @@
 
         // Navigation
         async function navigate(pageId) {
+            closeUserDropdown();
             currentPage = pageId;
 
             // Update nav links
@@ -25436,12 +25527,14 @@
                 if (user) {
                     try {
                         const displayNameParts = (user.displayName || '').trim().split(/\s+/).filter(Boolean);
+                        const signupData = sessionStorage.getItem('newUserData');
+                        const signupProfile = signupData ? JSON.parse(signupData) : null;
                         currentUser = {
                             uid: user.uid,
                             email: user.email || '',
                             userId: user.uid.substring(0, 8),
-                            firstName: displayNameParts[0] || 'User',
-                            lastName: displayNameParts.slice(1).join(' ') || '',
+                            firstName: signupProfile?.firstName || localStorage.getItem('userFirstName') || displayNameParts[0] || 'User',
+                            lastName: signupProfile?.lastName || localStorage.getItem('userLastName') || displayNameParts.slice(1).join(' ') || '',
                             phone: user.phoneNumber || '',
                             photoUrl: user.photoURL || '',
                             currency: localStorage.getItem('currency') || 'USD',
@@ -25454,10 +25547,9 @@
                         currentTheme = currentUser.darkMode ? 'dark' : 'light';
                         document.documentElement.setAttribute('data-theme', currentTheme);
 
+                        currentPage = 'dashboard';
                         setupDataListeners(user.uid, currentUser.email, currentUser.phone);
                         renderMainLayout();
-                        currentPage = 'dashboard';
-                        navigate('dashboard');
 
                         let userDoc = await db.collection('users').doc(user.uid).get();
                         if (!userDoc.exists) {
@@ -25487,12 +25579,16 @@
                             localStorage.setItem('language', currentUser.language);
                             localStorage.setItem('lang', currentUser.language);
                             localStorage.setItem('theme', currentUser.darkMode ? 'dark' : 'light');
+                            localStorage.setItem('userFirstName', currentUser.firstName || '');
+                            localStorage.setItem('userLastName', currentUser.lastName || '');
                             currentLanguage = currentUser.language;
                             currentLang = currentUser.language;
                             currentTheme = currentUser.darkMode ? 'dark' : 'light';
                             document.documentElement.setAttribute('data-theme', currentUser.darkMode ? 'dark' : 'light');
 
+                            updateUserHeader();
                             if (typeof translateApp === 'function') translateApp();
+                            refreshDashboardIfNeeded();
                             checkPendingInvites(currentUser);
 
                         } else {
@@ -25543,6 +25639,8 @@
                                     darkMode: false
                                 };
 
+                                updateUserHeader();
+                                refreshDashboardIfNeeded();
                                 showToast('Success', 'Account created! Welcome ' + newUserData.firstName);
                                 if (typeof translateApp === 'function') translateApp();
                             } else {
