@@ -1673,19 +1673,18 @@
             }
 
             .dashboard-chart-wrap {
-                height: 220px;
-                max-height: 220px;
+                position: relative;
+                width: 100%;
+                min-height: 300px;
             }
 
             .dashboard-chart-wrap--category {
-                height: 260px;
-                max-height: 260px;
+                min-height: 380px;
             }
 
             .dashboard-chart-wrap canvas {
                 width: 100% !important;
-                height: 100% !important;
-                max-height: 100% !important;
+                max-height: none !important;
             }
 
             .stats-grid {
@@ -2515,21 +2514,16 @@
         .dashboard-chart-wrap {
             position: relative;
             width: 100%;
-            height: 200px;
-            max-height: 200px;
-            overflow: hidden;
+            min-height: 280px;
         }
 
         .dashboard-chart-wrap--category {
-            height: 220px;
-            max-height: 220px;
+            min-height: 320px;
         }
 
         .dashboard-chart-wrap canvas {
             display: block;
             width: 100% !important;
-            height: 100% !important;
-            max-height: 100% !important;
         }
     </style>
     <script src="https://cdn.tailwindcss.com/3.4.1"></script>
@@ -7815,10 +7809,10 @@
                 align: 'center',
                 labels: {
                     color: textColor,
-                    boxWidth: mobile ? 8 : 12,
-                    padding: mobile ? 6 : 10,
+                    boxWidth: mobile ? 10 : 14,
+                    padding: mobile ? 10 : 16,
                     font: {
-                        size: mobile ? 9 : 11,
+                        size: mobile ? 10 : 12,
                         weight: '600'
                     },
                     generateLabels: function (chart) {
