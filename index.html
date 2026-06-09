@@ -1673,19 +1673,8 @@
             }
 
             .dashboard-chart-wrap {
-                position: relative;
-                width: 100%;
-                min-height: 100%;
-            }
-
-            .dashboard-chart-wrap--category {
-                min-height: 100%;
-                max-height: 100%;
-            }
-
-            .dashboard-chart-wrap canvas {
-                width: 100% !important;
-                max-height: 100%;
+                min-height: 260px;
+                max-height: 400px;
             }
 
             .stats-grid {
@@ -2515,18 +2504,16 @@
         .dashboard-chart-wrap {
             position: relative;
             width: 100%;
-            min-height: 100%;
-            max-height: 100%;
-        }
-
-        .dashboard-chart-wrap--category {
-            min-height: 100%;
-            max-height: 100%;
+            min-height: 280px;
+            max-height: 420px;
+            margin: 0 auto;
         }
 
         .dashboard-chart-wrap canvas {
             display: block;
             width: 100% !important;
+            height: 100% !important;
+            max-height: 100% !important;
         }
     </style>
     <script src="https://cdn.tailwindcss.com/3.4.1"></script>
@@ -7805,6 +7792,52 @@
             return window.innerWidth <= 768;
         }
 
+        function getDashboardContentWidth() {
+            const card = document.querySelector('#mainContent .card');
+            if (card && card.clientWidth > 0) return card.clientWidth;
+            const main = document.getElementById('mainContent');
+            if (main && main.clientWidth > 0) return main.clientWidth;
+            return window.innerWidth;
+        }
+
+        function getDashboardChartHeight(kind) {
+            const w = getDashboardContentWidth();
+            const mobile = w <= 768;
+            const small = w <= 480;
+
+            if (kind === 'overview') {
+                if (small) return Math.round(Math.min(300, Math.max(265, w * 0.78)));
+                if (mobile) return Math.round(Math.min(330, Math.max(285, w * 0.50)));
+                return Math.round(Math.min(380, Math.max(310, w * 0.28)));
+            }
+            if (kind === 'category') {
+                if (small) return Math.round(Math.min(370, Math.max(310, w * 0.92)));
+                if (mobile) return Math.round(Math.min(400, Math.max(330, w * 0.58)));
+                return Math.round(Math.min(400, Math.max(330, w * 0.30)));
+            }
+            if (small) return Math.round(Math.min(300, Math.max(265, w * 0.72)));
+            if (mobile) return Math.round(Math.min(340, Math.max(295, w * 0.48)));
+            return Math.round(Math.min(370, Math.max(310, w * 0.26)));
+        }
+
+        function applyDashboardChartHeights() {
+            const kinds = [
+                ['overview', '.dashboard-chart-wrap--overview'],
+                ['category', '.dashboard-chart-wrap--category'],
+                ['bar', '.dashboard-chart-wrap--bar']
+            ];
+            kinds.forEach(([kind, selector]) => {
+                const el = document.querySelector(selector);
+                if (el) el.style.height = `${getDashboardChartHeight(kind)}px`;
+            });
+            ['dashboardChart', 'expenseCategoryChart', 'bankCardsChart'].forEach(id => {
+                const canvas = document.getElementById(id);
+                if (!canvas) return;
+                const chart = Chart.getChart(canvas);
+                if (chart) chart.resize();
+            });
+        }
+
         function buildDashboardPieLegendOptions(textColor) {
             const mobile = isMobileViewport();
             return {
@@ -7812,8 +7845,8 @@
                 align: 'center',
                 labels: {
                     color: textColor,
-                    boxWidth: mobile ? 10 : 14,
-                    padding: mobile ? 10 : 16,
+                    boxWidth: mobile ? 10 : 12,
+                    padding: mobile ? 8 : 12,
                     font: {
                         size: mobile ? 10 : 12,
                         weight: '600'
@@ -7862,12 +7895,13 @@
         window.addEventListener('resize', () => {
             clearTimeout(dashboardResizeTimer);
             dashboardResizeTimer = setTimeout(() => {
+                applyDashboardChartHeights();
                 const mobileNow = isMobileViewport();
                 if (mobileNow !== lastDashboardMobileViewport) {
                     lastDashboardMobileViewport = mobileNow;
                     refreshDashboardIfNeeded();
                 }
-            }, 200);
+            }, 150);
         });
 
 
@@ -13149,6 +13183,8 @@
 
 
 
+                applyDashboardChartHeights();
+
                 const ctx = document.getElementById('dashboardChart');
                 if (ctx) {
                     // Destroy existing chart if it exists
@@ -13201,11 +13237,12 @@
                                 legend: {
                                     position: 'bottom',
                                     labels: {
-                                        padding: isMobileViewport() ? 12 : 25,
+                                        padding: isMobileViewport() ? 10 : 14,
+                                        boxWidth: isMobileViewport() ? 10 : 12,
                                         usePointStyle: true,
                                         pointStyle: 'circle',
                                         font: {
-                                            size: isMobileViewport() ? 11 : 14,
+                                            size: isMobileViewport() ? 10 : 12,
                                             weight: '600',
                                             family: "'Inter', 'Segoe UI', sans-serif"
                                         },
@@ -13240,7 +13277,7 @@
                                 easing: 'easeOutQuart'
                             },
                             layout: {
-                                padding: 20
+                                padding: isMobileViewport() ? 8 : 12
                             }
                         }
                     });
@@ -13383,6 +13420,7 @@
                         });
                     }
 
+                    requestAnimationFrame(() => applyDashboardChartHeights());
 
                 }
             } catch (error) {
