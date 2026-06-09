@@ -690,16 +690,21 @@
         }
 
         .mobile-nav-item span {
-            font-size: 0.75rem;
-            font-weight: 700;
-            opacity: 0;
+            font-size: 0.65rem;
+            font-weight: 600;
+            line-height: 1.15;
+            text-align: center;
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            max-width: 100%;
+            display: none;
         }
 
-
-
         .mobile-nav-item.active span {
-            font-weight: 900;
-            opacity: 1;
+            display: block;
+            font-weight: 700;
+            color: #ff8800;
         }
 
 
@@ -1633,11 +1638,53 @@
             .mobile-bottom-nav {
                 background: #00000000;
                 display: block;
+                width: calc(100% - 12px);
+                max-width: 100%;
+                padding: 0.45rem 0.2rem;
+                bottom: calc(10px + var(--safe-area-bottom));
+            }
+
+            .mobile-bottom-nav-content {
+                overflow: visible;
+                gap: 2px;
+            }
+
+            .mobile-nav-item {
+                min-width: 0;
+                padding: 0.2rem 0.1rem;
+                flex: 1 1 0;
+                overflow: hidden;
+            }
+
+            .mobile-nav-item i {
+                font-size: 1.2rem;
+                margin-bottom: 0.1rem;
+            }
+
+            .mobile-nav-item span {
+                font-size: clamp(0.48rem, 2.4vw, 0.62rem);
+                line-height: 1.1;
+                padding: 0 1px;
             }
 
             .main-content {
-                padding-bottom: 80px;
+                padding-bottom: calc(88px + var(--safe-area-bottom));
                 padding-top: 70px;
+            }
+
+            .dashboard-chart-wrap {
+                position: relative;
+                width: 100%;
+                min-height: 300px;
+            }
+
+            .dashboard-chart-wrap--category {
+                min-height: 380px;
+            }
+
+            .dashboard-chart-wrap canvas {
+                width: 100% !important;
+                max-height: none !important;
             }
 
             .stats-grid {
@@ -2462,6 +2509,21 @@
 
         #mainContent .dashboard-main-card {
             transition: all 0.2s !important;
+        }
+
+        .dashboard-chart-wrap {
+            position: relative;
+            width: 100%;
+            min-height: 280px;
+        }
+
+        .dashboard-chart-wrap--category {
+            min-height: 320px;
+        }
+
+        .dashboard-chart-wrap canvas {
+            display: block;
+            width: 100% !important;
         }
     </style>
     <script src="https://cdn.tailwindcss.com/3.4.1"></script>
@@ -7736,6 +7798,47 @@
             if (dropdownEmail) dropdownEmail.textContent = currentUser.email || '';
         }
 
+        function isMobileViewport() {
+            return window.innerWidth <= 768;
+        }
+
+        function buildDashboardPieLegendOptions(textColor) {
+            const mobile = isMobileViewport();
+            return {
+                position: mobile ? 'bottom' : 'right',
+                align: 'center',
+                labels: {
+                    color: textColor,
+                    boxWidth: mobile ? 10 : 14,
+                    padding: mobile ? 10 : 16,
+                    font: {
+                        size: mobile ? 10 : 12,
+                        weight: '600'
+                    },
+                    generateLabels: function (chart) {
+                        const data = chart.data;
+                        if (!data.labels.length || !data.datasets.length) return [];
+                        return data.labels.map((label, i) => {
+                            const value = data.datasets[0].data[i];
+                            const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                            const pct = total === 0 ? 0 : ((value / total) * 100).toFixed(1);
+                            const shortLabel = mobile && label.length > 14 ? `${label.slice(0, 12)}…` : label;
+                            return {
+                                text: `${shortLabel} (${pct}%)`,
+                                fillStyle: data.datasets[0].backgroundColor[i],
+                                hidden: chart.getDatasetMeta(0).data[i].hidden,
+                                index: i,
+                                strokeStyle: '#fff',
+                                lineWidth: 1,
+                                fontColor: textColor,
+                                color: textColor
+                            };
+                        });
+                    }
+                }
+            };
+        }
+
         function refreshDashboardIfNeeded() {
             if (currentPage !== 'dashboard') return;
             if (typeof loadDashboardData !== 'function') return;
@@ -7750,6 +7853,19 @@
                 navigate('dashboard');
             }
         }
+
+        let dashboardResizeTimer = null;
+        let lastDashboardMobileViewport = isMobileViewport();
+        window.addEventListener('resize', () => {
+            clearTimeout(dashboardResizeTimer);
+            dashboardResizeTimer = setTimeout(() => {
+                const mobileNow = isMobileViewport();
+                if (mobileNow !== lastDashboardMobileViewport) {
+                    lastDashboardMobileViewport = mobileNow;
+                    refreshDashboardIfNeeded();
+                }
+            }, 200);
+        });
 
 
         // ============================================================
@@ -12725,16 +12841,22 @@
                         </div>
                     </div>
 
-                    <canvas id="dashboardChart" style="max-height: 300px;"></canvas>
+                    <div class="dashboard-chart-wrap">
+                        <canvas id="dashboardChart"></canvas>
+                    </div>
                     
                     <div style="margin-top: 2rem;">
                         <h3 class="card-title">${t('expenseByCategory')}</h3>
-                        <canvas id="expenseCategoryChart" style="max-height: 300px; margin-top: 1rem; overflow: auto;"></canvas>
+                        <div class="dashboard-chart-wrap dashboard-chart-wrap--category" style="margin-top: 1rem;">
+                            <canvas id="expenseCategoryChart"></canvas>
+                        </div>
                     </div>
 
                     <div style="margin-top: 2rem;">
                         <h3 class="card-title">${t('bankVsCreditVsCash')}</h3>
-                        <canvas id="bankCardsChart" style="max-height: 300px; margin-top: 1rem;"></canvas>
+                        <div class="dashboard-chart-wrap" style="margin-top: 1rem;">
+                            <canvas id="bankCardsChart"></canvas>
+                        </div>
                     </div>
 
                 </div>
@@ -13076,11 +13198,11 @@
                                 legend: {
                                     position: 'bottom',
                                     labels: {
-                                        padding: 25,
+                                        padding: isMobileViewport() ? 12 : 25,
                                         usePointStyle: true,
                                         pointStyle: 'circle',
                                         font: {
-                                            size: 14,
+                                            size: isMobileViewport() ? 11 : 14,
                                             weight: '600',
                                             family: "'Inter', 'Segoe UI', sans-serif"
                                         },
@@ -13169,35 +13291,11 @@
                                     duration: 1000,
                                     easing: 'easeOutQuart'
                                 },
+                                layout: {
+                                    padding: isMobileViewport() ? { top: 8, bottom: 8, left: 4, right: 4 } : 12
+                                },
                                 plugins: {
-                                    legend: {
-                                        position: 'right',
-                                        labels: {
-                                            color: textColor,
-                                            generateLabels: function (chart) {
-                                                const data = chart.data;
-                                                if (data.labels.length && data.datasets.length) {
-                                                    return data.labels.map((label, i) => {
-                                                        const value = data.datasets[0].data[i];
-                                                        const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
-                                                        const pct = total === 0 ? 0 : ((value / total) * 100).toFixed(1);
-                                                        return {
-                                                            text: `${label} (${pct}%)`,
-                                                            fillStyle: data.datasets[0].backgroundColor[i],
-                                                            hidden: chart.getDatasetMeta(0).data[i].hidden,
-                                                            index: i,
-                                                            strokeStyle: '#fff',
-                                                            lineWidth: 1,
-                                                            fontColor: textColor,
-                                                            color: textColor
-                                                        };
-                                                    });
-                                                }
-                                                return [];
-                                            }
-                                        }
-                                    },
-
+                                    legend: buildDashboardPieLegendOptions(textColor),
                                     tooltip: {
                                         callbacks: {
                                             label: function (ctx) {
@@ -13256,7 +13354,16 @@
                                     easing: 'easeOutQuart'
                                 },
                                 plugins: {
-                                    legend: { position: 'top', labels: { color: textColor } },
+                                    legend: {
+                                        position: isMobileViewport() ? 'bottom' : 'top',
+                                        align: 'center',
+                                        labels: {
+                                            color: textColor,
+                                            boxWidth: isMobileViewport() ? 10 : 14,
+                                            padding: isMobileViewport() ? 8 : 12,
+                                            font: { size: isMobileViewport() ? 10 : 12 }
+                                        }
+                                    },
                                     tooltip: {
                                         callbacks: {
                                             label: function (ctx) {
@@ -13266,8 +13373,8 @@
                                     }
                                 },
                                 scales: {
-                                    y: { ticks: { color: textColor }, grid: { color: isDark ? '#374151' : '#e5e7eb' } },
-                                    x: { ticks: { color: textColor }, grid: { display: false } }
+                                    y: { ticks: { color: textColor, font: { size: isMobileViewport() ? 10 : 12 } }, grid: { color: isDark ? '#374151' : '#e5e7eb' } },
+                                    x: { ticks: { color: textColor, font: { size: isMobileViewport() ? 10 : 12 }, maxRotation: isMobileViewport() ? 45 : 0 }, grid: { display: false } }
                                 }
                             }
                         });
