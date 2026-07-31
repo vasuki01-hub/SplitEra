@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 
 <head>
@@ -9288,9 +9288,9 @@
 
         applyTheme();
 
-        function showLoading() {}
+        function showLoading() { }
 
-        function hideLoading() {}
+        function hideLoading() { }
 
         // Show toast
         function showToast(title, message, type = 'success') {
@@ -19269,20 +19269,9 @@
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                                 <span class="text-secondary">${t('receivable')}:</span>
                                                 <strong style="color: var(--success);">${(() => {
-                                        const totalReceivable = displayExpenses.reduce((sum, e) => {
-                                            const breakdown = breakdowns[e.id];
-                                            if (!breakdown) return sum;
-                                            const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                                            return sum + Math.max(0, remaining);
-                                        }, 0);
-                                        const totalOwed = displayExpenses.reduce((sum, e) => {
-                                            const breakdown = breakdowns[e.id];
-                                            if (!breakdown) return sum;
-                                            const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                                            return sum + Math.max(0, -remaining);
-                                        }, 0);
-                                        // Net receivable after subtracting what I still owe
-                                        return formatCurrency(Math.max(0, totalReceivable - totalOwed));
+                                        const totalIncoming = debts.filter(d => d.to === currentUser.uid).reduce((s, d) => s + d.amount, 0);
+                                        const totalOutgoing = debts.filter(d => d.from === currentUser.uid).reduce((s, d) => s + d.amount, 0);
+                                        return formatCurrency(Math.max(0, totalIncoming - totalOutgoing));
                                     })()}</strong>
                                             </div>
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
@@ -19300,20 +19289,9 @@
                                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
     <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
     <strong style="color: var(--danger);">${(() => {
-                                        const totalReceivable = displayExpenses.reduce((sum, e) => {
-                                            const breakdown = breakdowns[e.id];
-                                            if (!breakdown) return sum;
-                                            const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                                            return sum + Math.max(0, remaining);
-                                        }, 0);
-                                        const totalOwed = displayExpenses.reduce((sum, e) => {
-                                            const breakdown = breakdowns[e.id];
-                                            if (!breakdown) return sum;
-                                            const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                                            return sum + Math.max(0, -remaining);
-                                        }, 0);
-                                        // Net owed after subtracting receivable side
-                                        return formatCurrency(Math.max(0, totalOwed - totalReceivable));
+                                        const totalIncoming = debts.filter(d => d.to === currentUser.uid).reduce((s, d) => s + d.amount, 0);
+                                        const totalOutgoing = debts.filter(d => d.from === currentUser.uid).reduce((s, d) => s + d.amount, 0);
+                                        return formatCurrency(Math.max(0, totalOutgoing - totalIncoming));
                                     })()}</strong>
 </div>
                                         </div>
@@ -19536,19 +19514,9 @@
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                             <span class="text-secondary">${t('receivable')}:</span>
                                             <strong style="color: var(--success);">${(() => {
-                                const totalReceivable = displayExpenses.reduce((sum, e) => {
-                                    const breakdown = breakdowns[e.id];
-                                    if (!breakdown) return sum;
-                                    const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                                    return sum + Math.max(0, remaining);
-                                }, 0);
-                                const totalOwed = displayExpenses.reduce((sum, e) => {
-                                    const breakdown = breakdowns[e.id];
-                                    if (!breakdown) return sum;
-                                    const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                                    return sum + Math.max(0, -remaining);
-                                }, 0);
-                                return formatCurrency(Math.max(0, totalReceivable - totalOwed));
+                                const totalIncoming = debts.filter(d => d.to === currentUser.uid).reduce((s, d) => s + d.amount, 0);
+                                const totalOutgoing = debts.filter(d => d.from === currentUser.uid).reduce((s, d) => s + d.amount, 0);
+                                return formatCurrency(Math.max(0, totalIncoming - totalOutgoing));
                             })()}</strong>
                                         </div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
@@ -19566,19 +19534,9 @@
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
     <span class="text-secondary">${t('totalYouOwed') || 'Total You Owed'}:</span>
     <strong style="color: var(--danger);">${(() => {
-                                const totalReceivable = displayExpenses.reduce((sum, e) => {
-                                    const breakdown = breakdowns[e.id];
-                                    if (!breakdown) return sum;
-                                    const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                                    return sum + Math.max(0, remaining);
-                                }, 0);
-                                const totalOwed = displayExpenses.reduce((sum, e) => {
-                                    const breakdown = breakdowns[e.id];
-                                    if (!breakdown) return sum;
-                                    const remaining = breakdown.remainingBalances[currentUser.uid] || 0;
-                                    return sum + Math.max(0, -remaining);
-                                }, 0);
-                                return formatCurrency(Math.max(0, totalOwed - totalReceivable));
+                                const totalIncoming = debts.filter(d => d.to === currentUser.uid).reduce((s, d) => s + d.amount, 0);
+                                const totalOutgoing = debts.filter(d => d.from === currentUser.uid).reduce((s, d) => s + d.amount, 0);
+                                return formatCurrency(Math.max(0, totalOutgoing - totalIncoming));
                             })()}</strong>
 </div>
                                         </div>
