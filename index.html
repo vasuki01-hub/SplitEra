@@ -1021,6 +1021,19 @@
             margin-bottom: 2rem;
         }
 
+        /* Books Section Banner Grid */
+        .books-banner-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* First card (Net Balance) spans full width on mobile */
+        .books-banner-grid .books-banner-net {
+            grid-column: 1 / -1;
+        }
+
         .stat-card {
             background: var(--bg-white);
             border-radius: 1.75rem;
@@ -1684,6 +1697,16 @@
 
             .stats-grid {
                 grid-template-columns: 1fr;
+            }
+
+            /* Books banners: Net Balance full-width top, Credit+Expense side-by-side */
+            .books-banner-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 0.75rem;
+            }
+
+            .books-banner-grid .books-banner-net {
+                grid-column: 1 / -1;
             }
 
             .form-row {
@@ -16723,21 +16746,21 @@
                 </div>
 
                 <!-- Combined Summary Banner for All Books -->
-                <div class="stats-grid" style="margin-bottom: 1.5rem;">
-                    <div class="stat-card blue">
-                        <div class="stat-icon"><i class="fas fa-balance-scale"></i></div>
+                <div class="books-banner-grid">
+                    <div class="stat-card blue books-banner-net" style="justify-content: center; text-align: center; flex-direction: column; gap: 0.25rem;">
+                        <div class="stat-icon" style="margin: 0 auto;"><i class="fas fa-balance-scale"></i></div>
                         <div class="stat-value" id="allBooksNetBalance">${formatCurrency(0)}</div>
-                        <div class="stat-label">Net Balance (All Books)</div>
+                        <div class="stat-label">Net Balance</div>
                     </div>
                     <div class="stat-card green">
                         <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
                         <div class="stat-value" id="allBooksTotalCredit">${formatCurrency(0)}</div>
-                        <div class="stat-label">Total Credit (All Books)</div>
+                        <div class="stat-label">Total Credit</div>
                     </div>
                     <div class="stat-card red">
                         <div class="stat-icon"><i class="fas fa-arrow-up"></i></div>
                         <div class="stat-value" id="allBooksTotalExpense">${formatCurrency(0)}</div>
-                        <div class="stat-label">Total Expenses (All Books)</div>
+                        <div class="stat-label">Total Expenses</div>
                     </div>
                 </div>
 
@@ -17142,11 +17165,11 @@
                 </div>
 
                 <!-- Book Specific Summary Banner -->
-                <div class="stats-grid" style="margin-bottom: 1.5rem;">
-                    <div class="stat-card blue">
-                        <div class="stat-icon"><i class="fas fa-wallet"></i></div>
+                <div class="books-banner-grid">
+                    <div class="stat-card blue books-banner-net" style="justify-content: center; text-align: center; flex-direction: column; gap: 0.25rem;">
+                        <div class="stat-icon" style="margin: 0 auto;"><i class="fas fa-wallet"></i></div>
                         <div class="stat-value" id="bookDetailNetBalance">${formatCurrency(0)}</div>
-                        <div class="stat-label">Book Net Balance</div>
+                        <div class="stat-label">Net Balance</div>
                     </div>
                     <div class="stat-card green">
                         <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
