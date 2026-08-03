@@ -26665,6 +26665,7 @@
                     case 'dashboard': await renderDashboard(); break;
                     case 'credits': await renderCredits(); break;
                     case 'personal': await renderPersonal(); break;
+                    case 'books': await renderBooks(); break;
                     case 'groups': await renderGroups(); break;
                     case 'calendar': await renderCalendar(); break;
                     case 'details': await renderDetails(); break;
@@ -27010,7 +27011,7 @@
             let touchEndX = 0;
             let touchEndY = 0;
 
-            const pages = ['dashboard', 'credits', 'personal', 'groups', 'calendar', 'details', 'settings'];
+            const pages = ['dashboard', 'credits', 'personal', 'books', 'groups', 'calendar', 'details', 'settings'];
 
             // === Swipe Settings (Easy to adjust) ===
             const MIN_SWIPE_DISTANCE = 280;        // ← Increase this to decrease swipe area
