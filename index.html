@@ -1023,6 +1023,7 @@
 
         /* Books Section Banner Grid */
         .books-banner-grid {
+            overflow: auto;
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 1rem;
@@ -1039,7 +1040,7 @@
             border-radius: 1.75rem;
             box-shadow: inset 0 1px 5px 3px rgb(0 0 0 / 26%);
             padding: 1.5rem;
-            display: flex;
+            display: flow;
             align-items: center;
             gap: 1rem;
             border: 0px solid #ff6b35;
@@ -7603,7 +7604,7 @@
                     dataState.isLoaded.books = true;
                     checkInitialLoad();
                     if (currentPage === 'books' && window.activeBookId) {
-                        renderBookEntriesList(window.activeBookId);
+                        loadBookEntriesTable(window.activeBookId);
                     }
                 }, error => {
                     console.error("Books listener error:", error);
@@ -7621,7 +7622,7 @@
                     dataState.isLoaded.bookEntries = true;
                     checkInitialLoad();
                     if (currentPage === 'books' && window.activeBookId) {
-                        renderBookEntriesList(window.activeBookId);
+                        loadBookEntriesTable(window.activeBookId);
                     }
                 }, error => {
                     console.error("Book entries listener error:", error);
@@ -14502,22 +14503,7 @@
                     dateMap[dateKey].items.push({ ...item, type: 'personal' });
                 });
 
-                bookEntries.forEach(item => {
-                    const book = booksMap[item.bookId];
-                    if (!book || book.status === 'deleted') return;
 
-                    const dateKey = safeDate(item.date).toDateString();
-                    if (!dateMap[dateKey]) dateMap[dateKey] = { credits: 0, personal: 0, groupShare: 0, items: [] };
-
-                    const amt = parseFloat(item.amount) || 0;
-                    if (item.type === 'credit') {
-                        dateMap[dateKey].credits += amt;
-                        dateMap[dateKey].items.push({ ...item, type: 'credit', description: `[Book: ${book.name}] ${item.remarks || item.description || ''}` });
-                    } else {
-                        dateMap[dateKey].personal += amt;
-                        dateMap[dateKey].items.push({ ...item, type: 'personal', description: `[Book: ${book.name}] ${item.remarks || item.description || ''}` });
-                    }
-                });
 
                 // Calculate user's share for each group expense
                 for (const expense of groupExpenses) {
@@ -15405,7 +15391,7 @@
                 creditData.attachments = attachments;
 
                 // Add to credits collection
-                await db.collection('credits').add(creditData);
+                const creditDocRef = await db.collection('credits').add(creditData);
 
                 // Add to book_entries if books are checked
                 const checkedBooks = document.querySelectorAll('.credit-book-check:checked');
@@ -15414,6 +15400,7 @@
                     const bookEntryData = {
                         bookId,
                         userId: currentUser.uid,
+                        creditId: creditDocRef.id,
                         type: 'credit',
                         amount: creditData.amount,
                         date: creditData.date,
@@ -15691,6 +15678,11 @@
             showLoading();
             try {
                 await db.collection('credits').doc(id).delete();
+                // Cascade delete linked book_entries
+                const linkedBookEntries = (dataState.bookEntries || []).filter(e => e.creditId === id);
+                if (linkedBookEntries.length > 0) {
+                    await Promise.all(linkedBookEntries.map(e => db.collection('book_entries').doc(e.id).delete()));
+                }
                 document.querySelector('.modal-overlay')?.remove();
                 showToast('Success', 'Credit deleted successfully!');
                 // Render credits directly for immediate update
@@ -16256,7 +16248,7 @@
                 expenseData.attachments = attachments;
 
                 // Add to personal_expenses collection
-                await db.collection('personal_expenses').add(expenseData);
+                const expenseDocRef = await db.collection('personal_expenses').add(expenseData);
 
                 // Add to book_entries if books are checked
                 const checkedBooks = document.querySelectorAll('.personal-book-check:checked');
@@ -16265,6 +16257,7 @@
                     const bookEntryData = {
                         bookId,
                         userId: currentUser.uid,
+                        personalExpenseId: expenseDocRef.id,
                         type: 'expense',
                         amount: expenseData.amount,
                         date: expenseData.date,
@@ -16320,8 +16313,17 @@
                                 <input type="date" class="form-input" value="${escapeHTML(date)}" id="edit-date-${id}" required>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">${t('description')}</label>
-                                <input type="text" class="form-input" value="${escapeHTML(expense.description)}" id="edit-description-${id}" required>
+                                <label class="form-label">${t('category')}</label>
+                                <select class="form-select" id="edit-category-${id}" required>
+                                    <option value="Food" ${expense.category === 'Food' ? 'selected' : ''}>Food</option>
+                                    <option value="Transport" ${expense.category === 'Transport' ? 'selected' : ''}>Transport</option>
+                                    <option value="Shopping" ${expense.category === 'Shopping' ? 'selected' : ''}>Shopping</option>
+                                    <option value="Bills" ${expense.category === 'Bills' ? 'selected' : ''}>Bills</option>
+                                    <option value="Entertainment" ${expense.category === 'Entertainment' ? 'selected' : ''}>${t('entertainment')}</option>
+                                    <option value="Health" ${expense.category === 'Health' ? 'selected' : ''}>${t('health')}</option>
+                                    <option value="Travel" ${expense.category === 'Travel' ? 'selected' : ''}>${t('travel') || 'Travel'}</option>
+                                    <option value="Other" ${expense.category === 'Other' || !expense.category ? 'selected' : ''}>${t('other')}</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">${t('mode')}</label>
@@ -16437,9 +16439,11 @@
                 const doc = await db.collection('personal_expenses').doc(id).get();
                 const oldData = doc.data();
 
+                const selectedCategory = document.getElementById(`edit-category-${id}`).value;
                 const updateData = {
                     date: firebase.firestore.Timestamp.fromDate(new Date(document.getElementById(`edit-date-${id}`).value)),
-                    description: document.getElementById(`edit-description-${id}`).value,
+                    category: selectedCategory,
+                    description: selectedCategory,
                     mode: document.getElementById(`edit-mode-${id}`).value,
                     remarks: document.getElementById(`edit-remarks-${id}`).value,
                     amount: parseFloat(document.getElementById(`edit-amount-${id}`).value),
@@ -16530,6 +16534,11 @@
             showLoading();
             try {
                 await db.collection('personal_expenses').doc(id).delete();
+                // Cascade delete linked book_entries
+                const linkedBookEntries = (dataState.bookEntries || []).filter(e => e.personalExpenseId === id);
+                if (linkedBookEntries.length > 0) {
+                    await Promise.all(linkedBookEntries.map(e => db.collection('book_entries').doc(e.id).delete()));
+                }
                 document.querySelector('.modal-overlay')?.remove();
                 showToast('Success', 'Expense deleted successfully!');
                 // Render personal expenses directly for immediate update
@@ -17160,11 +17169,16 @@
                 </div>
 
                 <div class="card">
-                    <!-- Tab Sub-sections -->
-                    <div class="tabs" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
-                        <button class="btn btn-sm ${window.currentBookTab === 'all' ? 'btn-primary' : 'btn-secondary'}" onclick="switchBookTab('${book.id}', 'all')">All</button>
-                        <button class="btn btn-sm ${window.currentBookTab === 'credits' ? 'btn-primary' : 'btn-secondary'}" onclick="switchBookTab('${book.id}', 'credits')">Credits</button>
-                        <button class="btn btn-sm ${window.currentBookTab === 'expenses' ? 'btn-primary' : 'btn-secondary'}" onclick="switchBookTab('${book.id}', 'expenses')">Expenses</button>
+                    <!-- Tab Sub-sections & Add Entry in same row -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; gap: 0.5rem; flex-wrap: wrap;">
+                        <div class="tabs" style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-sm ${window.currentBookTab === 'all' ? 'btn-primary' : 'btn-secondary'}" onclick="switchBookTab('${book.id}', 'all')">All</button>
+                            <button class="btn btn-sm ${window.currentBookTab === 'credits' ? 'btn-primary' : 'btn-secondary'}" onclick="switchBookTab('${book.id}', 'credits')">Credits</button>
+                            <button class="btn btn-sm ${window.currentBookTab === 'expenses' ? 'btn-primary' : 'btn-secondary'}" onclick="switchBookTab('${book.id}', 'expenses')">Expenses</button>
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="handleAddEntryClick('${book.id}')" style="border-radius: 50px; padding: 0.45rem 1.1rem;">
+                            <i class="fas fa-plus"></i> Add Entry
+                        </button>
                     </div>
 
                     <!-- Filters inside Book -->
@@ -17190,19 +17204,24 @@
                         </div>
                     </div>
 
-                    <div id="bookEntriesContainer"></div>
-
-                    <!-- Contextual Floating / Prominent + Add Entry Button -->
-                    <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
-                        <button class="btn btn-primary" onclick="handleAddEntryClick('${book.id}')" style="border-radius: 50px; padding: 0.6rem 1.4rem;">
-                            <i class="fas fa-plus"></i> Add Entry
+                    <!-- Bulk delete toolbar (shown when entries selected) -->
+                    <div id="bookBulkToolbar" style="display: none; margin-bottom: 0.75rem; align-items: center; gap: 0.75rem; background: var(--bg-hover); border-radius: 8px; padding: 0.5rem 1rem;">
+                        <span id="bookBulkCount" style="font-size: 0.85rem; font-weight: 600;"></span>
+                        <button class="btn btn-danger btn-sm" onclick="bulkDeleteBookEntries('${book.id}')">
+                            <i class="fas fa-trash"></i> Delete Selected
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="clearBookEntrySelections()">
+                            <i class="fas fa-times"></i> Clear
                         </button>
                     </div>
+
+                    <div id="bookEntriesContainer"></div>
                 </div>
             `;
 
             await loadBookEntriesTable(bookId);
         }
+
 
         function switchBookTab(bookId, tabName) {
             window.currentBookTab = tabName;
@@ -17293,18 +17312,19 @@
                                         <th>Select</th>
                                         <th>Date</th>
                                         <th>Mode</th>
-                                        <th>Remarks</th>
                                         <th>Amount</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${monthMonthEntries.map(e => `
+                                    ${monthMonthEntries.map(e => {
+                    const hasDetails = (e.remarks || e.description || (e.attachments && e.attachments.length > 0));
+                    const detailId = 'bk-detail-' + e.id.replace(/[^a-zA-Z0-9]/g, '_');
+                    return `
                                         <tr>
-                                            <td><input type="checkbox" class="book-entry-check month-${monthKey}" data-entry-id="${e.id}"></td>
+                                            <td><input type="checkbox" class="book-entry-check month-${monthKey}" data-entry-id="${e.id}" onchange="updateBookBulkToolbar()"></td>
                                             <td>${safeDate(e.date).toLocaleDateString()}</td>
                                             <td><span class="badge badge-secondary">${escapeHTML(e.mode || '-')}</span></td>
-                                            <td>${escapeHTML(e.remarks || e.description || '-')}</td>
                                             <td style="font-weight: 600; color: ${e.type === 'credit' ? 'var(--success)' : 'var(--danger)'};">
                                                 ${e.type === 'credit' ? '+' : '-'}${formatCurrency(e.amount)}
                                             </td>
@@ -17316,10 +17336,19 @@
                                                     <button class="action-btn danger" onclick="deleteBookEntry('${e.id}', '${bookId}')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
+                                                    ${hasDetails ? `<button class="action-btn" onclick="toggleBookEntryDetail('${detailId}')" title="Details" style="color: var(--text-gray);"><i class="fas fa-chevron-down" id="icon-${detailId}"></i></button>` : ''}
                                                 </div>
                                             </td>
                                         </tr>
-                                    `).join('')}
+                                        ${hasDetails ? `
+                                        <tr id="${detailId}" style="display:none; background: var(--bg-hover);">
+                                            <td colspan="5" style="padding: 0.6rem 1rem;">
+                                                ${(e.remarks || e.description) ? `<div style="margin-bottom:0.4rem;"><strong>Remarks:</strong> ${escapeHTML(e.remarks || e.description || '')}</div>` : ''}
+                                                ${(e.attachments && e.attachments.length > 0) ? `<div><strong>Attachments:</strong> ${e.attachments.map((url, i) => `<a href="${url}" target="_blank" style="margin-right:0.5rem;">📎 File ${i + 1}</a>`).join('')}</div>` : ''}
+                                            </td>
+                                        </tr>` : ''}
+                                        `;
+                }).join('')}
                                 </tbody>
                             </table>
                         </div>
@@ -17330,9 +17359,57 @@
             container.innerHTML = html;
         }
 
+        function toggleBookEntryDetail(detailId) {
+            const row = document.getElementById(detailId);
+            const icon = document.getElementById('icon-' + detailId);
+            if (!row) return;
+            const isHidden = row.style.display === 'none';
+            row.style.display = isHidden ? 'table-row' : 'none';
+            if (icon) {
+                icon.className = isHidden ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+            }
+        }
+
+        function updateBookBulkToolbar() {
+            const checked = document.querySelectorAll('.book-entry-check:checked');
+            const toolbar = document.getElementById('bookBulkToolbar');
+            const countEl = document.getElementById('bookBulkCount');
+            if (!toolbar) return;
+            if (checked.length > 0) {
+                toolbar.style.display = 'flex';
+                if (countEl) countEl.textContent = `${checked.length} entr${checked.length === 1 ? 'y' : 'ies'} selected`;
+            } else {
+                toolbar.style.display = 'none';
+            }
+        }
+
+        function clearBookEntrySelections() {
+            document.querySelectorAll('.book-entry-check').forEach(cb => cb.checked = false);
+            updateBookBulkToolbar();
+        }
+
+        async function bulkDeleteBookEntries(bookId) {
+            const checked = Array.from(document.querySelectorAll('.book-entry-check:checked'));
+            if (checked.length === 0) return;
+            if (!confirm(`Delete ${checked.length} selected entr${checked.length === 1 ? 'y' : 'ies'}? This cannot be undone.`)) return;
+            showLoading();
+            try {
+                const entryIds = checked.map(cb => cb.getAttribute('data-entry-id'));
+                await Promise.all(entryIds.map(id => db.collection('book_entries').doc(id).delete()));
+                showToast('Success', `${entryIds.length} entr${entryIds.length === 1 ? 'y' : 'ies'} deleted!`);
+                await viewBookDetails(bookId);
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
         function toggleSelectMonthBookEntries(masterCb, monthKey) {
             document.querySelectorAll(`.book-entry-check.month-${monthKey}`).forEach(cb => cb.checked = masterCb.checked);
+            updateBookBulkToolbar();
         }
+
 
         // CONTEXTUAL + ADD ENTRY CLICK
         function handleAddEntryClick(bookId) {
