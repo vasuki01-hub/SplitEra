@@ -7579,7 +7579,9 @@
                     dataState.books = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     dataState.isLoaded.books = true;
                     checkInitialLoad();
-                    debouncedRefresh();
+                    if (currentPage === 'books' && window.activeBookId) {
+                        renderBookEntriesList(window.activeBookId);
+                    }
                 }, error => {
                     console.error("Books listener error:", error);
                     dataState.books = [];
@@ -7595,7 +7597,9 @@
                     dataState.bookEntries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     dataState.isLoaded.bookEntries = true;
                     checkInitialLoad();
-                    debouncedRefresh();
+                    if (currentPage === 'books' && window.activeBookId) {
+                        renderBookEntriesList(window.activeBookId);
+                    }
                 }, error => {
                     console.error("Book entries listener error:", error);
                     dataState.bookEntries = [];
@@ -10737,6 +10741,27 @@
                                             <p class="ug-card-subtitle">${slide.subtitle}</p>
                                         </div>
                                         <div class="ug-avatar-wrap">
+                                            <tr id="category-remarks-${expense.id}" class="expandable-detail-row">
+                                                     <td colspan="5">
+                                                         <div style=" margin-right: 2rem; overflow: auto; padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
+                                                             <div><strong>${t('category')}:</strong> ${escapeHTML(expense.category || '-')}</div>
+                                                             <div><strong>${t('remarks') || 'Remarks'}:</strong> ${escapeHTML(expense.remarks || expense.description || '-')}</div>
+                                                             ${expense.bookName ? `<div><strong>Book:</strong> <span class="badge badge-primary"><i class="fas fa-book"></i> ${escapeHTML(expense.bookName)}</span></div>` : ''}
+                                                             <div style="margin-top: 0.5rem;">
+                                                                 <strong>${t('attachments')}:</strong>
+                                                                 ${expense.attachments && expense.attachments.length > 0 ? `
+                                                                     <div class="attachments" style="margin-top:0.4rem;">
+                                                                         ${expense.attachments.map((url, idx) => `
+                                                                             <div class="attachment" onclick="viewAttachment(this.dataset.url)" data-url="${escapeHTML(url)}">
+                                                                                 <img src="${escapeHTML(url)}" alt="Attachment ${idx + 1}">
+                                                                             </div>
+                                                                         `).join('')}
+                                                                     </div>
+                                                                 ` : ' -'}
+                                                             </div>
+                                                         </div>
+                                                     </td>
+                                                 </tr>
                                             ${getAvatar3D(slide.avatarType, slide.accentColor)}
                                         </div>
                                     </div>
@@ -13402,6 +13427,32 @@
                         });
                     }
 
+                    // Personal details row template
+                    // <tr id="personal-details-${expense.id}" class="expandable-detail-row">
+                    //     <td colspan="5">
+                    //         <div style=" margin-right: 2rem; overflow: auto; padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
+                    <tr id="personal-details-${expense.id}" class="expandable-detail-row">
+                        <td colspan="5">
+                            <div style=" margin-right: 2rem; overflow: auto; padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
+                                <div><strong>${t('category')}:</strong> ${escapeHTML(expense.category || '-')}</div>
+                                <div><strong>${t('remarks') || 'Remarks'}:</strong> ${escapeHTML(expense.remarks || expense.description || '-')}</div>
+                                ${expense.bookName ? `<div><strong>Book:</strong> <span class="badge badge-primary"><i class="fas fa-book"></i> ${escapeHTML(expense.bookName)}</span></div>` : ''}
+                                <div style="margin-top: 0.5rem;">
+                                    <strong>${t('attachments')}:</strong>
+                                    ${expense.attachments && expense.attachments.length > 0 ? `
+                                                                         <div class="attachments" style="margin-top:0.4rem;">
+                                                                             ${expense.attachments.map((url, idx) => `
+                                                                                 <div class="attachment" onclick="viewAttachment(this.dataset.url)" data-url="${escapeHTML(url)}">
+                                                                                     <img src="${escapeHTML(url)}" alt="Attachment ${idx + 1}">
+                                                                                 </div>
+                                                                             `).join('')}
+                                                                         </div>
+                                                                     ` : ' -'}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+
                     // Bank vs Credit Card Chart
                     const bankCtx = document.getElementById('bankCardsChart');
                     if (bankCtx) {
@@ -15106,8 +15157,9 @@
                                                 <tr id="credit-details-${credit.id}" class="expandable-detail-row">
                                                     <td colspan="5">
                                                         <div style="margin-right: 2rem; overflow: auto; padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
-                                                            <div><strong>${t('description')}:</strong> ${escapeHTML(credit.description || '-')}</div>
+                                                            <div><strong>${t('remarks') || 'Remarks'}:</strong> ${escapeHTML(credit.remarks || credit.description || '-')}</div>
                                                             <div><strong>${t('source')}:</strong> ${escapeHTML(credit.source || '-')}</div>
+                                                            ${credit.bookName ? `<div><strong>Book:</strong> <span class="badge badge-primary"><i class="fas fa-book"></i> ${escapeHTML(credit.bookName)}</span></div>` : ''}
                                                             <div style="margin-top: 0.5rem;">
                                                                 <strong>${t('attachments')}:</strong>
                                                                 ${credit.attachments && credit.attachments.length > 0 ? `
@@ -15121,8 +15173,8 @@
                                                                 ` : ' -'}
                                                             </div>
                                                         </div>
-                                                    </td>
-                                                </tr>
+                                                     </td>
+                                                 </tr>
                                             `).join('')}
                                         </tbody>
                                     </table>
@@ -15214,16 +15266,12 @@
                     <div class="modal-body">
                         <form id="addCreditForm">
                             <div class="form-group">
+                                <label class="form-label">${t('amount')}</label>
+                                <input type="number" step="0.01" class="form-input" id="creditAmount" required>
+                            </div>
+                            <div class="form-group">
                                 <label class="form-label">${t('date')}</label>
                                 <input type="date" class="form-input" id="creditDate" required value="${new Date().toISOString().split('T')[0]}">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">${t('description')}</label>
-                                <input type="text" class="form-input" id="creditDescription" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">${t('source')} (Optional)</label>
-                                <input type="text" class="form-input" id="creditSource">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">${t('mode')}</label>
@@ -15236,8 +15284,8 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">${t('amount')}</label>
-                                <input type="number" step="0.01" class="form-input" id="creditAmount" required>
+                                <label class="form-label">${t('source')} (Optional)</label>
+                                <input type="text" class="form-input" id="creditSource">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">${t('remarks')} (Optional)</label>
@@ -15248,6 +15296,18 @@
                                  <input type="file" class="form-input" id="creditAttachments" multiple accept="image">
                                  <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 files, 9MB each</small>
                                 <div id="creditAttachmentPreview" class="attachment-grid" style="margin-top: 0.5rem;"></div>
+                            </div>
+                            <div class="form-group" style="border-top: 1px solid var(--border); padding-top: 1rem;">
+                                <label class="form-label"><i class="fas fa-book"></i> Add to Book (Optional)</label>
+                                <div id="creditBookSelector" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+                                    ${(dataState.books || []).filter(b => b.status !== 'deleted').map(b => `
+                                        <label style="display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border: 1px solid var(--border); border-radius: 1rem; cursor: pointer; font-size: 0.85rem; background: var(--bg-light);">
+                                            <input type="checkbox" class="credit-book-check" value="${b.id}" data-book-name="${escapeHTML(b.name)}">
+                                            ${escapeHTML(b.name)}
+                                        </label>
+                                    `).join('')}
+                                    ${(dataState.books || []).filter(b => b.status !== 'deleted').length === 0 ? '<small style="color: var(--text-gray);">No books created yet</small>' : ''}
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -15321,14 +15381,15 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
             try {
+                const remarks = document.getElementById('creditRemarks').value;
                 const creditData = {
                     userId: currentUser.uid,
                     date: firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('creditDate').value)),
-                    description: document.getElementById('creditDescription').value,
+                    description: remarks || document.getElementById('creditSource').value || 'Credit',
                     source: document.getElementById('creditSource').value,
                     mode: document.getElementById('creditMode').value,
                     amount: parseFloat(document.getElementById('creditAmount').value),
-                    remarks: document.getElementById('creditRemarks').value,
+                    remarks: remarks,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
@@ -15344,7 +15405,29 @@
 
                 creditData.attachments = attachments;
 
+                // Add to credits collection
                 await db.collection('credits').add(creditData);
+
+                // Add to book_entries if books are checked
+                const checkedBooks = document.querySelectorAll('.credit-book-check:checked');
+                for (let checkbox of checkedBooks) {
+                    const bookId = checkbox.value;
+                    const bookEntryData = {
+                        bookId,
+                        userId: currentUser.uid,
+                        type: 'credit',
+                        amount: creditData.amount,
+                        date: creditData.date,
+                        mode: creditData.mode,
+                        remarks: creditData.remarks,
+                        description: creditData.description,
+                        attachments: creditData.attachments,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    await db.collection('book_entries').add(bookEntryData);
+                }
+
                 window.uploadedFiles = []; // Clear queue
                 document.querySelector('.modal-overlay')?.remove();
                 showToast('Success', 'Credit added successfully!');
@@ -16028,12 +16111,22 @@
                     <div class="modal-body">
                         <form id="addPersonalForm">
                             <div class="form-group">
+                                <label class="form-label">${t('amount')}</label>
+                                <input type="number" step="0.01" class="form-input" id="personalAmount" required>
+                            </div>
+                            <div class="form-group">
                                 <label class="form-label">${t('date')}</label>
                                 <input type="date" class="form-input" id="personalDate" required value="${new Date().toISOString().split('T')[0]}">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">${t('description')}</label>
-                                <input type="text" class="form-input" id="personalDescription" required>
+                                <label class="form-label">${t('mode')}</label>
+                                <select class="form-select" id="personalMode" required>
+                                    <option value="Cash">${t('cash')}</option>
+                                    <option value="Online">${t('online')}</option>
+                                    <option value="GPay">${t('gpay')}</option>
+                                    <option value="Credit Card">${t('creditCard')}</option>
+                                    <option value="Bank Transfer">${t('bankTransfer')}</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">${t('category')}</label>
@@ -16049,20 +16142,6 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">${t('mode')}</label>
-                                <select class="form-select" id="personalMode" required>
-                                    <option value="Cash">${t('cash')}</option>
-                                    <option value="Online">${t('online')}</option>
-                                    <option value="GPay">${t('gpay')}</option>
-                                    <option value="Credit Card">${t('creditCard')}</option>
-                                    <option value="Bank Transfer">${t('bankTransfer')}</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">${t('amount')}</label>
-                                <input type="number" step="0.01" class="form-input" id="personalAmount" required>
-                            </div>
-                            <div class="form-group">
                                 <label class="form-label">${t('remarks')} (Optional)</label>
                                 <textarea class="form-textarea" id="personalRemarks" rows="3"></textarea>
                             </div>
@@ -16071,6 +16150,18 @@
                                 <input type="file" class="form-input" id="personalAttachments" multiple accept="image">
                                 <small class="text-secondary" style="display: block; margin-top: 4px;">Max 5 files, 9MB each</small>
                                 <div id="personalAttachmentPreview" class="attachment-grid" style="margin-top: 0.5rem;"></div>
+                            </div>
+                            <div class="form-group" style="border-top: 1px solid var(--border); padding-top: 1rem;">
+                                <label class="form-label"><i class="fas fa-book"></i> Add to Book (Optional)</label>
+                                <div id="personalBookSelector" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+                                    ${(dataState.books || []).filter(b => b.status !== 'deleted').map(b => `
+                                        <label style="display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border: 1px solid var(--border); border-radius: 1rem; cursor: pointer; font-size: 0.85rem; background: var(--bg-light);">
+                                            <input type="checkbox" class="personal-book-check" value="${b.id}" data-book-name="${escapeHTML(b.name)}">
+                                            ${escapeHTML(b.name)}
+                                        </label>
+                                    `).join('')}
+                                    ${(dataState.books || []).filter(b => b.status !== 'deleted').length === 0 ? '<small style="color: var(--text-gray);">No books created yet</small>' : ''}
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -16141,14 +16232,15 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
             try {
+                const remarks = document.getElementById('personalRemarks').value;
                 const expenseData = {
                     userId: currentUser.uid,
                     date: firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('personalDate').value)),
-                    description: document.getElementById('personalDescription').value,
+                    description: remarks || document.getElementById('personalCategory').value || 'Expense',
                     category: document.getElementById('personalCategory').value,
                     mode: document.getElementById('personalMode').value,
                     amount: parseFloat(document.getElementById('personalAmount').value),
-                    remarks: document.getElementById('personalRemarks').value,
+                    remarks: remarks,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
@@ -16164,7 +16256,29 @@
 
                 expenseData.attachments = attachments;
 
+                // Add to personal_expenses collection
                 await db.collection('personal_expenses').add(expenseData);
+
+                // Add to book_entries if books are checked
+                const checkedBooks = document.querySelectorAll('.personal-book-check:checked');
+                for (let checkbox of checkedBooks) {
+                    const bookId = checkbox.value;
+                    const bookEntryData = {
+                        bookId,
+                        userId: currentUser.uid,
+                        type: 'expense',
+                        amount: expenseData.amount,
+                        date: expenseData.date,
+                        mode: expenseData.mode,
+                        remarks: expenseData.remarks,
+                        description: expenseData.description,
+                        attachments: expenseData.attachments,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    await db.collection('book_entries').add(bookEntryData);
+                }
+
                 window.uploadedFiles = []; // Clear queue
                 document.querySelector('.modal-overlay')?.remove();
                 showToast('Success', 'Expense added successfully!');
@@ -16598,6 +16712,7 @@
         window.activeBookId = null;
 
         async function renderBooks() {
+            window.activeBookId = null;
             const content = document.getElementById('mainContent');
             content.innerHTML = `
                 <div class="page-header">
