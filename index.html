@@ -1319,14 +1319,17 @@
             display: flex;
         }
 
-        .modal {
+        .modal,
+        .modal-content {
             background: var(--bg-white);
-            border-radius: 2rem;
-            box-shadow: inset 0px 0px 20px 0px rgb(0 0 0 / 62%);
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             max-width: 600px;
             width: 100%;
             max-height: 90vh;
             overflow-y: auto;
+            border: 1px solid var(--border);
+            color: var(--text-dark);
         }
 
         .modal-header {
@@ -17466,6 +17469,10 @@
                     booksToExport = booksToExport.filter(b => bookIds.includes(b.id));
                 }
 
+                if (!window.jspdf || !window.jspdf.jsPDF) {
+                    throw new Error("PDF export library (jsPDF) is not loaded correctly. Please check your internet connection.");
+                }
+                const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
 
                 // Colorful Header
