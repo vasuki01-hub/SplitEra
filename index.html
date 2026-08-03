@@ -7337,6 +7337,8 @@
             groupExpenses: [],
             groupInvites: [],
             allGroupInvites: [], // All invites for groups the user is in
+            books: [],
+            bookEntries: [],
             listeners: [],
             isLoaded: {
                 credits: false,
@@ -7344,7 +7346,9 @@
                 groups: false,
                 groupExpenses: false,
                 groupInvites: false,
-                allGroupInvites: false
+                allGroupInvites: false,
+                books: false,
+                bookEntries: false
             },
             paging: {
                 creditsLimit: 50,
@@ -7428,6 +7432,8 @@
             dataState.isLoaded.groups = false;
             dataState.isLoaded.groupExpenses = false;
             dataState.isLoaded.groupInvites = false;
+            dataState.isLoaded.books = false;
+            dataState.isLoaded.bookEntries = false;
 
             // Resolve tracker for initial load
             let resolveInitial;
@@ -7437,7 +7443,9 @@
                 if (dataState.isLoaded.credits &&
                     dataState.isLoaded.personalExpenses &&
                     dataState.isLoaded.groups &&
-                    dataState.isLoaded.groupExpenses) {
+                    dataState.isLoaded.groupExpenses &&
+                    dataState.isLoaded.books &&
+                    dataState.isLoaded.bookEntries) {
                     resolveInitial();
                     refreshDashboardIfNeeded();
                     updateUserHeader();
@@ -7560,6 +7568,38 @@
                 dataState.isLoaded.groupInvites = true;
                 checkInitialLoad();
             }
+
+            // 5. Books Listener
+            const booksUnsub = db.collection('books')
+                .where('userId', '==', userId)
+                .onSnapshot(snapshot => {
+                    dataState.books = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    dataState.isLoaded.books = true;
+                    checkInitialLoad();
+                    debouncedRefresh();
+                }, error => {
+                    console.error("Books listener error:", error);
+                    dataState.books = [];
+                    dataState.isLoaded.books = true;
+                    checkInitialLoad();
+                });
+            dataState.listeners.push(booksUnsub);
+
+            // 6. Book Entries Listener
+            const bookEntriesUnsub = db.collection('book_entries')
+                .where('userId', '==', userId)
+                .onSnapshot(snapshot => {
+                    dataState.bookEntries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    dataState.isLoaded.bookEntries = true;
+                    checkInitialLoad();
+                    debouncedRefresh();
+                }, error => {
+                    console.error("Book entries listener error:", error);
+                    dataState.bookEntries = [];
+                    dataState.isLoaded.bookEntries = true;
+                    checkInitialLoad();
+                });
+            dataState.listeners.push(bookEntriesUnsub);
 
             // Fallback resolve after 5 seconds to prevent hanging
             setTimeout(resolveInitial, 5000);
@@ -12449,6 +12489,7 @@
                                     <a href="#" class="nav-link active" data-page="dashboard">${t('dashboard')}</a>
                                     <a href="#" class="nav-link" data-page="credits">${t('creditBalance')}</a>
                                     <a href="#" class="nav-link" data-page="personal">${t('personal')}</a>
+                                    <a href="#" class="nav-link" data-page="books">${t('books') || 'Books'}</a>
                                     <a href="#" class="nav-link" data-page="groups">${t('groups')}</a>
                                     <a href="#" class="nav-link" data-page="calendar">${t('calendar')}</a>
                                     <a href="#" class="nav-link" data-page="details">${t('details')}</a>
@@ -12555,6 +12596,10 @@
                                 <i class="fas fa-receipt"></i>
                                 <span>${t('personal')}</span>
                             </a>
+                            <a href="#" class="mobile-nav-item" data-page="books" onclick="mobileNavigate('books'); return false;">
+                                <i class="fas fa-book"></i>
+                                <span>${t('books') || 'Books'}</span>
+                            </a>
                             <a href="#" class="mobile-nav-item" data-page="groups" onclick="mobileNavigate('groups'); return false;">
                                 <i class="fas fa-users"></i>
                                 <span>${t('groups')}</span>
@@ -12624,6 +12669,7 @@
                 case 'dashboard': renderDashboard(); break;
                 case 'credits': renderCredits(); break;
                 case 'personal': renderPersonal(); break;
+                case 'books': renderBooks(); break;
                 case 'groups': renderGroups(); break;
                 case 'calendar': renderCalendar(); break;
                 case 'details': renderDetails(); break;
@@ -14361,7 +14407,7 @@
          * Groups data by date, calculates user shares for group expenses, and renders the calendar months.
          */
         async function loadCalendarData() {
-            if (!dataState.isLoaded.credits || !dataState.isLoaded.personalExpenses || !dataState.isLoaded.groups || !dataState.isLoaded.groupExpenses) {
+            if (!dataState.isLoaded.credits || !dataState.isLoaded.personalExpenses || !dataState.isLoaded.groups || !dataState.isLoaded.groupExpenses || !dataState.isLoaded.books || !dataState.isLoaded.bookEntries) {
                 showLoading();
                 return;
             }
@@ -14374,29 +14420,50 @@
                 let credits = [...dataState.credits];
                 let personal = [...dataState.personalExpenses];
                 let groupExpenses = [...dataState.groupExpenses];
+                let bookEntries = [...(dataState.bookEntries || [])];
                 const groups = dataState.groups;
+                const booksMap = {};
+                (dataState.books || []).forEach(b => booksMap[b.id] = b);
 
                 if (fromDate || toDate) {
                     credits = filterByDateRange(credits, fromDate, toDate);
                     personal = filterByDateRange(personal, fromDate, toDate);
                     groupExpenses = filterByDateRange(groupExpenses, fromDate, toDate);
+                    bookEntries = filterByDateRange(bookEntries, fromDate, toDate);
                 }
 
                 // Group by date
                 const dateMap = {};
 
                 credits.forEach(item => {
-                    const dateKey = item.date.toDate().toDateString();
+                    const dateKey = safeDate(item.date).toDateString();
                     if (!dateMap[dateKey]) dateMap[dateKey] = { credits: 0, personal: 0, groupShare: 0, items: [] };
                     dateMap[dateKey].credits += parseFloat(item.amount) || 0;
                     dateMap[dateKey].items.push({ ...item, type: 'credit' });
                 });
 
                 personal.forEach(item => {
-                    const dateKey = item.date.toDate().toDateString();
+                    const dateKey = safeDate(item.date).toDateString();
                     if (!dateMap[dateKey]) dateMap[dateKey] = { credits: 0, personal: 0, groupShare: 0, items: [] };
                     dateMap[dateKey].personal += parseFloat(item.amount) || 0;
                     dateMap[dateKey].items.push({ ...item, type: 'personal' });
+                });
+
+                bookEntries.forEach(item => {
+                    const book = booksMap[item.bookId];
+                    if (!book || book.status === 'deleted') return;
+
+                    const dateKey = safeDate(item.date).toDateString();
+                    if (!dateMap[dateKey]) dateMap[dateKey] = { credits: 0, personal: 0, groupShare: 0, items: [] };
+
+                    const amt = parseFloat(item.amount) || 0;
+                    if (item.type === 'credit') {
+                        dateMap[dateKey].credits += amt;
+                        dateMap[dateKey].items.push({ ...item, type: 'credit', description: `[Book: ${book.name}] ${item.remarks || item.description || ''}` });
+                    } else {
+                        dateMap[dateKey].personal += amt;
+                        dateMap[dateKey].items.push({ ...item, type: 'personal', description: `[Book: ${book.name}] ${item.remarks || item.description || ''}` });
+                    }
                 });
 
                 // Calculate user's share for each group expense
@@ -14678,6 +14745,7 @@
                                 <option value="credit" selected>Credits</option>
                                 <option value="personal" selected>Personal</option>
                                 <option value="group" selected>Group</option>
+                                <option value="book" selected>Books</option>
                             </select>
                             <div class="searchable-dropdown" id="detailsTypeContainer"></div>
                         </div>
@@ -16519,8 +16587,1008 @@
             }
         }
 
-        // Continue with Groups, Calendar, Details, and Settings pages...
-        // (To be continued in the response due to length limit)
+        // ==========================================
+        // BOOKS SECTION LOGIC & RENDER FUNCTIONS
+        // ==========================================
+
+        window.currentBookTab = 'all';
+        window.activeBookId = null;
+
+        async function renderBooks() {
+            const content = document.getElementById('mainContent');
+            content.innerHTML = `
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">${t('books') || 'Books'}</h1>
+                        <p class="page-subtitle">${t('booksSubtitle') || 'Manage your custom ledger books'}</p>
+                    </div>
+                </div>
+
+                <!-- Combined Summary Banner for All Books -->
+                <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                    <div class="stat-card blue">
+                        <div class="stat-icon"><i class="fas fa-balance-scale"></i></div>
+                        <div class="stat-value" id="allBooksNetBalance">${formatCurrency(0)}</div>
+                        <div class="stat-label">Net Balance (All Books)</div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
+                        <div class="stat-value" id="allBooksTotalCredit">${formatCurrency(0)}</div>
+                        <div class="stat-label">Total Credit (All Books)</div>
+                    </div>
+                    <div class="stat-card red">
+                        <div class="stat-icon"><i class="fas fa-arrow-up"></i></div>
+                        <div class="stat-value" id="allBooksTotalExpense">${formatCurrency(0)}</div>
+                        <div class="stat-label">Total Expenses (All Books)</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
+                        <h2 class="card-title">${t('myBooks') || 'My Books'}</h2>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                            <button class="btn btn-primary btn-sm" onclick="exportSelectedBooksPDF()" style="background: #4949f0;">
+                                <i class="fas fa-file-pdf"></i> Export PDF
+                            </button>
+                            <button class="btn btn-success btn-sm" onclick="exportSelectedBooksExcel()">
+                                <i class="fas fa-file-excel"></i> Export Excel
+                            </button>
+                            <button class="btn btn-primary btn-sm" onclick="openCreateBookModal()">
+                                <i class="fas fa-plus"></i> ${t('createBook') || '+ Create Book'}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="filters" style="margin-bottom: 1rem;">
+                        <div class="filter-group" style="flex: 1;">
+                            <input type="text" class="form-input" id="booksSearchInput" placeholder="Search books..." oninput="loadBooksList()">
+                        </div>
+                    </div>
+
+                    <div id="booksContainer"></div>
+                </div>
+            `;
+
+            await loadBooksList();
+        }
+
+        async function loadBooksList() {
+            if (!dataState.isLoaded.books || !dataState.isLoaded.bookEntries) {
+                showLoading();
+                return;
+            }
+            hideLoading();
+
+            try {
+                const searchTerm = document.getElementById('booksSearchInput')?.value?.toLowerCase() || '';
+                const now = Date.now();
+                const FIFTEEN_MINS = 15 * 60 * 1000;
+
+                const activeBooks = [];
+                const deletedBooks = [];
+                const booksToPurge = [];
+
+                (dataState.books || []).forEach(b => {
+                    if (b.status === 'deleted') {
+                        const deletedAt = b.deletedAt?.toMillis?.() || b.deletedAt || 0;
+                        if (now - deletedAt > FIFTEEN_MINS) {
+                            booksToPurge.push(b.id);
+                        } else {
+                            deletedBooks.push(b);
+                        }
+                    } else {
+                        activeBooks.push(b);
+                    }
+                });
+
+                if (booksToPurge.length > 0) {
+                    purgeDeletedBooks(booksToPurge);
+                }
+
+                // Calculate combined totals for active books
+                let totalCredit = 0;
+                let totalExpense = 0;
+
+                const activeBookIds = new Set(activeBooks.map(b => b.id));
+                (dataState.bookEntries || []).forEach(e => {
+                    if (activeBookIds.has(e.bookId)) {
+                        const amt = parseFloat(e.amount) || 0;
+                        if (e.type === 'credit') totalCredit += amt;
+                        else if (e.type === 'expense') totalExpense += amt;
+                    }
+                });
+
+                const netBalance = totalCredit - totalExpense;
+
+                const netEl = document.getElementById('allBooksNetBalance');
+                const credEl = document.getElementById('allBooksTotalCredit');
+                const expEl = document.getElementById('allBooksTotalExpense');
+                if (netEl) netEl.textContent = formatCurrency(netBalance);
+                if (credEl) credEl.textContent = formatCurrency(totalCredit);
+                if (expEl) expEl.textContent = formatCurrency(totalExpense);
+
+                // Filter books by search term
+                let filteredBooks = activeBooks;
+                if (searchTerm) {
+                    filteredBooks = activeBooks.filter(b =>
+                        (b.name || '').toLowerCase().includes(searchTerm) ||
+                        (b.description || '').toLowerCase().includes(searchTerm)
+                    );
+                }
+
+                filteredBooks.sort((a, b) => safeDateMillis(b.creationDate || b.createdAt) - safeDateMillis(a.creationDate || a.createdAt));
+
+                const container = document.getElementById('booksContainer');
+                if (!container) return;
+
+                let html = '';
+
+                if (filteredBooks.length === 0) {
+                    html += `
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class="fas fa-book"></i></div>
+                            <div class="empty-title">No Books Found</div>
+                            <div class="empty-message">Click "+ Create Book" to get started!</div>
+                        </div>
+                    `;
+                } else {
+                    html += `<div style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="selectAllBooksCheck" onchange="toggleSelectAllBooks(this.checked)">
+                        <label for="selectAllBooksCheck" style="font-size: 0.85rem; cursor: pointer;">Select All Books for Export</label>
+                    </div>`;
+
+                    html += '<div class="groups-grid">';
+                    for (let book of filteredBooks) {
+                        const entries = (dataState.bookEntries || []).filter(e => e.bookId === book.id);
+                        const bCredit = entries.filter(e => e.type === 'credit').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+                        const bExpense = entries.filter(e => e.type === 'expense').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+                        const bNet = bCredit - bExpense;
+                        const createdStr = book.creationDate ? safeDate(book.creationDate).toLocaleDateString() : (book.createdAt ? safeDate(book.createdAt).toLocaleDateString() : '-');
+
+                        html += `
+                            <div class="group-card" onclick="viewBookDetails('${book.id}')" role="button" tabindex="0">
+                                <div class="group-header">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <input type="checkbox" class="book-export-check" data-book-id="${book.id}" onclick="event.stopPropagation()">
+                                        <h3 style="margin: 0;">${escapeHTML(book.name)}</h3>
+                                    </div>
+                                    <span class="badge badge-secondary">${createdStr}</span>
+                                </div>
+                                <div class="group-body">
+                                    <p><strong>Net Balance:</strong> <span style="font-weight: 700; color: ${bNet >= 0 ? 'var(--success)' : 'var(--danger)'};">${formatCurrency(bNet)}</span></p>
+                                    <p style="font-size: 0.85rem; color: var(--text-gray);">Credits: ${formatCurrency(bCredit)} | Expenses: ${formatCurrency(bExpense)}</p>
+                                    ${book.description ? `<p><small>${escapeHTML(book.description)}</small></p>` : ''}
+                                </div>
+                                <div class="group-footer" style="gap: 0.4rem;">
+                                    <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); viewBookDetails('${book.id}')" style="flex: 1;">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); editBook('${book.id}')">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteBook('${book.id}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    html += '</div>';
+                }
+
+                // Recover deleted books section
+                if (deletedBooks.length > 0) {
+                    html += `
+                        <div style="margin-top: 30px; border-top: 2px dashed var(--border); padding-top: 20px;">
+                            <h3 style="color: var(--warning); margin-bottom: 15px;"><i class="fas fa-trash-restore"></i> Recently Deleted Books</h3>
+                            <div class="groups-grid">
+                    `;
+                    for (let book of deletedBooks) {
+                        const deletedAtMillis = book.deletedAt?.toMillis?.() || book.deletedAt || Date.now();
+                        const timeRemainingStr = new Date(deletedAtMillis + FIFTEEN_MINS).toLocaleTimeString();
+                        html += `
+                            <div class="group-card" style="opacity: 0.8; border: 1px solid var(--warning);">
+                                <div class="group-header" style="background: rgba(255, 152, 0, 0.1);">
+                                    <h3 style="color: var(--warning);">${escapeHTML(book.name)}</h3>
+                                    <span class="badge badge-warning">Deleted</span>
+                                </div>
+                                <div class="group-body">
+                                    <p style="color: var(--text-gray);"><i class="fas fa-clock"></i> Permanently deletes at: <strong>${timeRemainingStr}</strong></p>
+                                    <p><small>Books can be recovered within 15 minutes of deletion.</small></p>
+                                </div>
+                                <div class="group-footer" style="justify-content: flex-end;">
+                                    <button class="btn btn-warning btn-sm" onclick="recoverBook('${book.id}')">
+                                        <i class="fas fa-undo"></i> Recover
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    html += `</div></div>`;
+                }
+
+                container.innerHTML = html;
+            } catch (error) {
+                console.error("Load books error:", error);
+                showToast('Error', error.message, 'error');
+            }
+        }
+
+        function toggleSelectAllBooks(checked) {
+            document.querySelectorAll('.book-export-check').forEach(cb => cb.checked = checked);
+        }
+
+        function getSelectedBookIdsForExport() {
+            const checkedBoxes = document.querySelectorAll('.book-export-check:checked');
+            if (checkedBoxes.length === 0) return null; // Means export all if none checked
+            return Array.from(checkedBoxes).map(cb => cb.getAttribute('data-book-id'));
+        }
+
+        // CREATE / EDIT BOOK MODAL
+        function openCreateBookModal(bookId = null) {
+            const isEdit = !!bookId;
+            const book = isEdit ? (dataState.books || []).find(b => b.id === bookId) : null;
+
+            const modalHtml = `
+                <div class="modal-overlay show" id="bookModal">
+                    <div class="modal-content" style="max-width: 500px;">
+                        <div class="modal-header">
+                            <h3>${isEdit ? 'Edit Book' : 'Create Book'}</h3>
+                            <button class="modal-close" onclick="closeBookModal()">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="bookForm" onsubmit="saveBook(event, '${bookId || ''}')">
+                                <div class="form-group">
+                                    <label class="form-label">Name of Book *</label>
+                                    <input type="text" class="form-input" id="bookNameInput" value="${book ? escapeHTML(book.name) : ''}" required placeholder="e.g. Travel, Home">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Date of Creation *</label>
+                                    <input type="date" class="form-input" id="bookDateInput" value="${book ? (book.creationDate ? new Date(safeDateMillis(book.creationDate)).toISOString().split('T')[0] : '') : new Date().toISOString().split('T')[0]}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Description</label>
+                                    <textarea class="form-input" id="bookDescInput" rows="3" placeholder="Optional description...">${book ? escapeHTML(book.description || '') : ''}</textarea>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+                                    <button type="button" class="btn btn-secondary" onclick="closeBookModal()">Cancel</button>
+                                    <button type="submit" class="btn btn-primary">${isEdit ? 'Save Changes' : 'Create Book'}</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            closeBookModal();
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+        function closeBookModal() {
+            const modal = document.getElementById('bookModal');
+            if (modal) modal.remove();
+        }
+
+        async function saveBook(e, bookId = '') {
+            e.preventDefault();
+            const name = document.getElementById('bookNameInput').value.trim();
+            const dateVal = document.getElementById('bookDateInput').value;
+            const description = document.getElementById('bookDescInput').value.trim();
+
+            if (!name || !dateVal) {
+                showToast('Error', 'Please fill in required fields', 'error');
+                return;
+            }
+
+            showLoading();
+            try {
+                const bookData = {
+                    name,
+                    creationDate: firebase.firestore.Timestamp.fromDate(new Date(dateVal)),
+                    description,
+                    userId: currentUser.uid,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                if (bookId) {
+                    await db.collection('books').doc(bookId).update(bookData);
+                    showToast('Success', 'Book updated successfully!');
+                } else {
+                    bookData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    bookData.status = 'active';
+                    await db.collection('books').add(bookData);
+                    showToast('Success', 'Book created successfully!');
+                }
+
+                closeBookModal();
+                await loadBooksList();
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function editBook(bookId) {
+            openCreateBookModal(bookId);
+        }
+
+        async function deleteBook(bookId) {
+            const modalHtml = `
+                <div class="modal-overlay show" id="deleteBookModal">
+                    <div class="modal-content" style="max-width: 400px; text-align: center;">
+                        <div class="modal-header">
+                            <h3>Confirm Delete</h3>
+                            <button class="modal-close" onclick="closeDeleteBookModal()">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Are you sure you want to delete this book?</p>
+                            <p><small style="color: var(--text-gray);">You can recover it within 15 minutes.</small></p>
+                            <div style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 1.5rem;">
+                                <button class="btn btn-secondary" onclick="closeDeleteBookModal()">Cancel</button>
+                                <button class="btn btn-danger" onclick="confirmDeleteBook('${bookId}')">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            closeDeleteBookModal();
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+        function closeDeleteBookModal() {
+            const modal = document.getElementById('deleteBookModal');
+            if (modal) modal.remove();
+        }
+
+        async function confirmDeleteBook(bookId) {
+            closeDeleteBookModal();
+            showLoading();
+            try {
+                await db.collection('books').doc(bookId).update({
+                    status: 'deleted',
+                    deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    deletedBy: currentUser.uid
+                });
+                showToast('Success', 'Book deleted. You can recover it within 15 minutes.');
+                await loadBooksList();
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function recoverBook(bookId) {
+            showLoading();
+            try {
+                await db.collection('books').doc(bookId).update({
+                    status: firebase.firestore.FieldValue.delete(),
+                    deletedAt: firebase.firestore.FieldValue.delete(),
+                    deletedBy: firebase.firestore.FieldValue.delete()
+                });
+                showToast('Success', 'Book recovered successfully!');
+                await loadBooksList();
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function purgeDeletedBooks(bookIds) {
+            try {
+                for (const bookId of bookIds) {
+                    const entriesSnapshot = await db.collection('book_entries')
+                        .where('bookId', '==', bookId)
+                        .get();
+                    const batch = db.batch();
+                    entriesSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+                    await batch.commit();
+                    await db.collection('books').doc(bookId).delete();
+                }
+            } catch (error) {
+                console.error("Purge books error:", error);
+            }
+        }
+
+        // INDIVIDUAL BOOK DETAIL SCREEN
+        async function viewBookDetails(bookId) {
+            window.activeBookId = bookId;
+            const book = (dataState.books || []).find(b => b.id === bookId);
+            if (!book) {
+                showToast('Error', 'Book not found', 'error');
+                return;
+            }
+
+            const content = document.getElementById('mainContent');
+            const createdStr = book.creationDate ? safeDate(book.creationDate).toLocaleDateString() : (book.createdAt ? safeDate(book.createdAt).toLocaleDateString() : '-');
+
+            content.innerHTML = `
+                <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <button class="btn btn-secondary btn-sm" onclick="renderBooks()" style="margin-bottom: 0.5rem;">
+                            <i class="fas fa-arrow-left"></i> Back to Books
+                        </button>
+                        <h1 class="page-title">${escapeHTML(book.name)}</h1>
+                        <p class="page-subtitle">Created: ${createdStr}</p>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-primary btn-sm" onclick="exportSingleBookPDF('${book.id}')" style="background: #4949f0;">
+                            <i class="fas fa-file-pdf"></i> Export PDF
+                        </button>
+                        <button class="btn btn-success btn-sm" onclick="exportSingleBookExcel('${book.id}')">
+                            <i class="fas fa-file-excel"></i> Export Excel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Book Specific Summary Banner -->
+                <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                    <div class="stat-card blue">
+                        <div class="stat-icon"><i class="fas fa-wallet"></i></div>
+                        <div class="stat-value" id="bookDetailNetBalance">${formatCurrency(0)}</div>
+                        <div class="stat-label">Book Net Balance</div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
+                        <div class="stat-value" id="bookDetailTotalCredit">${formatCurrency(0)}</div>
+                        <div class="stat-label">Total Credit</div>
+                    </div>
+                    <div class="stat-card red">
+                        <div class="stat-icon"><i class="fas fa-arrow-up"></i></div>
+                        <div class="stat-value" id="bookDetailTotalExpense">${formatCurrency(0)}</div>
+                        <div class="stat-label">Total Expenses</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <!-- Tab Sub-sections -->
+                    <div class="tabs" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+                        <button class="btn btn-sm ${window.currentBookTab === 'all' ? 'btn-primary' : 'btn-secondary'}" onclick="switchBookTab('${book.id}', 'all')">All</button>
+                        <button class="btn btn-sm ${window.currentBookTab === 'credits' ? 'btn-primary' : 'btn-secondary'}" onclick="switchBookTab('${book.id}', 'credits')">Credits</button>
+                        <button class="btn btn-sm ${window.currentBookTab === 'expenses' ? 'btn-primary' : 'btn-secondary'}" onclick="switchBookTab('${book.id}', 'expenses')">Expenses</button>
+                    </div>
+
+                    <!-- Filters inside Book -->
+                    <div class="filters" style="margin-bottom: 1rem; gap: 0.5rem; flex-wrap: wrap;">
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.2rem;">
+                            <label style="font-size: 0.75rem;">Payment Mode</label>
+                            <select class="form-select" id="bookModeFilter" onchange="loadBookEntriesTable('${book.id}')">
+                                <option value="all">All Modes</option>
+                                <option value="Cash">Cash</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                                <option value="Credit Card">Credit Card</option>
+                                <option value="Online/UPI">Online/UPI</option>
+                                <option value="GPay">GPay</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.2rem;">
+                            <label style="font-size: 0.75rem;">From Date</label>
+                            <input type="date" class="form-input" id="bookFromDate" onchange="loadBookEntriesTable('${book.id}')">
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.2rem;">
+                            <label style="font-size: 0.75rem;">To Date</label>
+                            <input type="date" class="form-input" id="bookToDate" onchange="loadBookEntriesTable('${book.id}')">
+                        </div>
+                    </div>
+
+                    <div id="bookEntriesContainer"></div>
+
+                    <!-- Contextual Floating / Prominent + Add Entry Button -->
+                    <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+                        <button class="btn btn-primary" onclick="handleAddEntryClick('${book.id}')" style="border-radius: 50px; padding: 0.6rem 1.4rem;">
+                            <i class="fas fa-plus"></i> Add Entry
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            await loadBookEntriesTable(bookId);
+        }
+
+        function switchBookTab(bookId, tabName) {
+            window.currentBookTab = tabName;
+            viewBookDetails(bookId);
+        }
+
+        async function loadBookEntriesTable(bookId) {
+            const container = document.getElementById('bookEntriesContainer');
+            if (!container) return;
+
+            const modeFilter = document.getElementById('bookModeFilter')?.value || 'all';
+            const fromDate = document.getElementById('bookFromDate')?.value || '';
+            const toDate = document.getElementById('bookToDate')?.value || '';
+
+            let entries = (dataState.bookEntries || []).filter(e => e.bookId === bookId);
+
+            // Filter by sub-section tab
+            if (window.currentBookTab === 'credits') {
+                entries = entries.filter(e => e.type === 'credit');
+            } else if (window.currentBookTab === 'expenses') {
+                entries = entries.filter(e => e.type === 'expense');
+            }
+
+            // Calculate Book level stats
+            const allBookEntries = (dataState.bookEntries || []).filter(e => e.bookId === bookId);
+            const totalCredit = allBookEntries.filter(e => e.type === 'credit').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+            const totalExpense = allBookEntries.filter(e => e.type === 'expense').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+            const netBalance = totalCredit - totalExpense;
+
+            const netEl = document.getElementById('bookDetailNetBalance');
+            const credEl = document.getElementById('bookDetailTotalCredit');
+            const expEl = document.getElementById('bookDetailTotalExpense');
+            if (netEl) netEl.textContent = formatCurrency(netBalance);
+            if (credEl) credEl.textContent = formatCurrency(totalCredit);
+            if (expEl) expEl.textContent = formatCurrency(totalExpense);
+
+            // Filter by Mode & Date
+            if (modeFilter !== 'all') {
+                entries = entries.filter(e => {
+                    if (modeFilter === 'Online/UPI' || modeFilter === 'GPay') {
+                        return e.mode === 'Online/UPI' || e.mode === 'GPay' || e.mode === 'Online';
+                    }
+                    return e.mode === modeFilter;
+                });
+            }
+
+            if (fromDate || toDate) {
+                entries = filterByDateRange(entries, fromDate, toDate);
+            }
+
+            entries.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+
+            if (entries.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-receipt" style="font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.3;"></i>
+                        <p>No entries found for this book</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Group entries by Month
+            const grouped = groupByMonth(entries);
+            let html = '';
+
+            Object.keys(grouped).sort().reverse().forEach(monthKey => {
+                const [year, monthNum] = monthKey.split('-');
+                const monthName = getMonthName(parseInt(monthNum) - 1);
+                const monthMonthEntries = grouped[monthKey];
+                const monthSum = monthMonthEntries.reduce((s, item) => item.type === 'credit' ? s + parseFloat(item.amount) : s - parseFloat(item.amount), 0);
+
+                html += `
+                    <div class="month-group" style="margin-bottom: 1.5rem;">
+                        <div class="month-header" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-hover); padding: 0.6rem 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" onchange="toggleSelectMonthBookEntries(this, '${monthKey}')">
+                                <strong>${monthName} ${year}</strong>
+                            </div>
+                            <span style="font-weight: 700; color: ${monthSum >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                                ${formatCurrency(monthSum)}
+                            </span>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="table compact-table">
+                                <thead>
+                                    <tr>
+                                        <th>Select</th>
+                                        <th>Date</th>
+                                        <th>Mode</th>
+                                        <th>Remarks</th>
+                                        <th>Amount</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${monthMonthEntries.map(e => `
+                                        <tr>
+                                            <td><input type="checkbox" class="book-entry-check month-${monthKey}" data-entry-id="${e.id}"></td>
+                                            <td>${safeDate(e.date).toLocaleDateString()}</td>
+                                            <td><span class="badge badge-secondary">${escapeHTML(e.mode || '-')}</span></td>
+                                            <td>${escapeHTML(e.remarks || e.description || '-')}</td>
+                                            <td style="font-weight: 600; color: ${e.type === 'credit' ? 'var(--success)' : 'var(--danger)'};">
+                                                ${e.type === 'credit' ? '+' : '-'}${formatCurrency(e.amount)}
+                                            </td>
+                                            <td>
+                                                <div class="actions">
+                                                    <button class="action-btn" onclick="editBookEntry('${e.id}')" title="Edit">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="action-btn danger" onclick="deleteBookEntry('${e.id}', '${bookId}')" title="Delete">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function toggleSelectMonthBookEntries(masterCb, monthKey) {
+            document.querySelectorAll(`.book-entry-check.month-${monthKey}`).forEach(cb => cb.checked = masterCb.checked);
+        }
+
+        // CONTEXTUAL + ADD ENTRY CLICK
+        function handleAddEntryClick(bookId) {
+            if (window.currentBookTab === 'credits') {
+                openBookEntryModal(bookId, 'credit');
+            } else if (window.currentBookTab === 'expenses') {
+                openBookEntryModal(bookId, 'expense');
+            } else {
+                // All tab -> show choices modal
+                const modalHtml = `
+                    <div class="modal-overlay show" id="entryTypeChooseModal">
+                        <div class="modal-content" style="max-width: 350px; text-align: center;">
+                            <div class="modal-header">
+                                <h3>Choose Entry Type</h3>
+                                <button class="modal-close" onclick="closeChooseEntryModal()">&times;</button>
+                            </div>
+                            <div class="modal-body" style="display: flex; gap: 1rem; justify-content: center; padding: 1.5rem;">
+                                <button class="btn btn-success" style="flex: 1; padding: 1rem;" onclick="closeChooseEntryModal(); openBookEntryModal('${bookId}', 'credit');">
+                                    <i class="fas fa-arrow-down" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem;"></i> Credit
+                                </button>
+                                <button class="btn btn-danger" style="flex: 1; padding: 1rem;" onclick="closeChooseEntryModal(); openBookEntryModal('${bookId}', 'expense');">
+                                    <i class="fas fa-arrow-up" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem;"></i> Expense
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                closeChooseEntryModal();
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+            }
+        }
+
+        function closeChooseEntryModal() {
+            const modal = document.getElementById('entryTypeChooseModal');
+            if (modal) modal.remove();
+        }
+
+        // CREDIT & EXPENSE FORM MODAL FOR BOOK
+        window.selectedBookEntryFiles = [];
+
+        function openBookEntryModal(bookId, entryType, entryId = null) {
+            window.selectedBookEntryFiles = [];
+            const isEdit = !!entryId;
+            const entry = isEdit ? (dataState.bookEntries || []).find(e => e.id === entryId) : null;
+            if (isEdit && entry) {
+                entryType = entry.type;
+            }
+
+            const modalHtml = `
+                <div class="modal-overlay show" id="bookEntryModal">
+                    <div class="modal-content" style="max-width: 500px;">
+                        <div class="modal-header">
+                            <h3>${isEdit ? 'Edit' : 'Add'} ${entryType === 'credit' ? 'Credit' : 'Expense'} Entry</h3>
+                            <button class="modal-close" onclick="closeBookEntryModal()">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="bookEntryForm" onsubmit="saveBookEntry(event, '${bookId}', '${entryType}', '${entryId || ''}')">
+                                <div class="form-group">
+                                    <label class="form-label">Amount *</label>
+                                    <input type="number" step="0.01" class="form-input" id="bookEntryAmount" value="${entry ? entry.amount : ''}" required placeholder="0.00">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Date *</label>
+                                    <input type="date" class="form-input" id="bookEntryDate" value="${entry ? (entry.date ? new Date(safeDateMillis(entry.date)).toISOString().split('T')[0] : '') : new Date().toISOString().split('T')[0]}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Mode *</label>
+                                    <select class="form-select" id="bookEntryMode" required>
+                                        <option value="Cash" ${entry && entry.mode === 'Cash' ? 'selected' : ''}>Cash</option>
+                                        <option value="Bank Transfer" ${entry && entry.mode === 'Bank Transfer' ? 'selected' : ''}>Bank Transfer</option>
+                                        <option value="Credit Card" ${entry && entry.mode === 'Credit Card' ? 'selected' : ''}>Credit Card</option>
+                                        <option value="Online/UPI" ${entry && (entry.mode === 'Online/UPI' || entry.mode === 'GPay' || entry.mode === 'Online') ? 'selected' : ''}>Online/UPI</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Remarks</label>
+                                    <textarea class="form-input" id="bookEntryRemarks" rows="2" placeholder="Remarks or note...">${entry ? escapeHTML(entry.remarks || entry.description || '') : ''}</textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Attachments (Max 5 files, 9 MB each)</label>
+                                    <input type="file" class="form-input" id="bookEntryFiles" multiple accept="image/*,application/pdf" onchange="handleBookEntryFileSelect(event)">
+                                    <div id="bookEntryFilePreview" style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem;"></div>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+                                    <button type="button" class="btn btn-secondary" onclick="closeBookEntryModal()">Cancel</button>
+                                    <button type="submit" class="btn btn-primary">${isEdit ? 'Save Changes' : 'Add Entry'}</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            closeBookEntryModal();
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            if (entry && entry.attachments) {
+                window.selectedBookEntryFiles = [...entry.attachments];
+                renderBookEntryFilePreview();
+            }
+        }
+
+        function closeBookEntryModal() {
+            const modal = document.getElementById('bookEntryModal');
+            if (modal) modal.remove();
+        }
+
+        function handleBookEntryFileSelect(event) {
+            const files = Array.from(event.target.files);
+            const MAX_SIZE = 9 * 1024 * 1024; // 9 MB
+
+            for (const file of files) {
+                if (window.selectedBookEntryFiles.length >= 5) {
+                    showToast('Warning', 'Maximum 5 attachments allowed', 'warning');
+                    break;
+                }
+                if (file.size > MAX_SIZE) {
+                    showToast('Error', `File ${file.name} exceeds 9 MB limit`, 'error');
+                    continue;
+                }
+                window.selectedBookEntryFiles.push(file);
+            }
+            renderBookEntryFilePreview();
+        }
+
+        function renderBookEntryFilePreview() {
+            const container = document.getElementById('bookEntryFilePreview');
+            if (!container) return;
+            container.innerHTML = window.selectedBookEntryFiles.map((fileOrUrl, idx) => {
+                const name = typeof fileOrUrl === 'string' ? 'Attachment ' + (idx + 1) : fileOrUrl.name;
+                return `
+                    <span class="badge badge-secondary" style="display: inline-flex; align-items: center; gap: 4px;">
+                        ${escapeHTML(name)}
+                        <i class="fas fa-times" style="cursor: pointer;" onclick="removeBookEntryFile(${idx})"></i>
+                    </span>
+                `;
+            }).join('');
+        }
+
+        function removeBookEntryFile(index) {
+            window.selectedBookEntryFiles.splice(index, 1);
+            renderBookEntryFilePreview();
+        }
+
+        async function saveBookEntry(e, bookId, entryType, entryId = '') {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('bookEntryAmount').value);
+            const dateVal = document.getElementById('bookEntryDate').value;
+            const mode = document.getElementById('bookEntryMode').value;
+            const remarks = document.getElementById('bookEntryRemarks').value.trim();
+
+            if (!amount || amount <= 0 || !dateVal || !mode) {
+                showToast('Error', 'Please enter a valid amount, date, and mode', 'error');
+                return;
+            }
+
+            showLoading();
+            try {
+                // Upload any new File objects to Firebase Storage
+                const attachmentUrls = [];
+                for (const item of window.selectedBookEntryFiles) {
+                    if (typeof item === 'string') {
+                        attachmentUrls.push(item);
+                    } else if (item instanceof File) {
+                        const ref = storage.ref(`books/${bookId}/${currentUser.uid}/${Date.now()}_${item.name}`);
+                        const snap = await ref.put(item);
+                        const url = await snap.ref.getDownloadURL();
+                        attachmentUrls.push(url);
+                    }
+                }
+
+                const entryData = {
+                    bookId,
+                    userId: currentUser.uid,
+                    type: entryType,
+                    amount,
+                    date: firebase.firestore.Timestamp.fromDate(new Date(dateVal)),
+                    mode,
+                    remarks,
+                    description: remarks,
+                    attachments: attachmentUrls,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                if (entryId) {
+                    await db.collection('book_entries').doc(entryId).update(entryData);
+                    showToast('Success', 'Entry updated successfully!');
+                } else {
+                    entryData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    await db.collection('book_entries').add(entryData);
+                    showToast('Success', 'Entry added successfully!');
+                }
+
+                closeBookEntryModal();
+                await viewBookDetails(bookId);
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function editBookEntry(entryId) {
+            const entry = (dataState.bookEntries || []).find(e => e.id === entryId);
+            if (entry) {
+                openBookEntryModal(entry.bookId, entry.type, entryId);
+            }
+        }
+
+        async function deleteBookEntry(entryId, bookId) {
+            if (!confirm('Are you sure you want to delete this entry?')) return;
+            showLoading();
+            try {
+                await db.collection('book_entries').doc(entryId).delete();
+                showToast('Success', 'Entry deleted!');
+                await viewBookDetails(bookId);
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // EXPORT FUNCTIONS FOR BOOKS
+        function exportSelectedBooksPDF() {
+            const selectedIds = getSelectedBookIdsForExport();
+            exportBooksPDF(selectedIds);
+        }
+
+        function exportSelectedBooksExcel() {
+            const selectedIds = getSelectedBookIdsForExport();
+            exportBooksExcel(selectedIds);
+        }
+
+        function exportSingleBookPDF(bookId) {
+            exportBooksPDF([bookId]);
+        }
+
+        function exportSingleBookExcel(bookId) {
+            exportBooksExcel([bookId]);
+        }
+
+        async function exportBooksPDF(bookIds = null) {
+            showLoading();
+            try {
+                let booksToExport = dataState.books || [];
+                if (bookIds && bookIds.length > 0) {
+                    booksToExport = booksToExport.filter(b => bookIds.includes(b.id));
+                }
+
+                const doc = new jsPDF();
+
+                // Colorful Header
+                doc.setFillColor(41, 128, 185);
+                doc.rect(0, 0, 210, 40, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(22);
+                doc.text("Books Financial Report", 14, 20);
+                doc.setFontSize(11);
+                doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+
+                let finalY = 48;
+
+                for (let i = 0; i < booksToExport.length; i++) {
+                    const book = booksToExport[i];
+                    let entries = (dataState.bookEntries || []).filter(e => e.bookId === book.id);
+
+                    // Respect active filters if exporting single book
+                    if (bookIds && bookIds.length === 1) {
+                        const modeFilter = document.getElementById('bookModeFilter')?.value || 'all';
+                        const fromDate = document.getElementById('bookFromDate')?.value || '';
+                        const toDate = document.getElementById('bookToDate')?.value || '';
+
+                        if (window.currentBookTab === 'credits') entries = entries.filter(e => e.type === 'credit');
+                        if (window.currentBookTab === 'expenses') entries = entries.filter(e => e.type === 'expense');
+                        if (modeFilter !== 'all') entries = entries.filter(e => e.mode === modeFilter);
+                        if (fromDate || toDate) entries = filterByDateRange(entries, fromDate, toDate);
+                    }
+
+                    entries.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+
+                    const totalCredit = entries.filter(e => e.type === 'credit').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+                    const totalExpense = entries.filter(e => e.type === 'expense').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+                    const net = totalCredit - totalExpense;
+
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFontSize(14);
+                    doc.text(`Book: ${book.name}`, 14, finalY);
+                    doc.setFontSize(10);
+                    doc.text(`Net Balance: ${formatCurrency(net, true)} | Credits: ${formatCurrency(totalCredit, true)} | Expenses: ${formatCurrency(totalExpense, true)}`, 14, finalY + 6);
+                    finalY += 12;
+
+                    const tableRows = entries.map(e => [
+                        safeDate(e.date).toLocaleDateString(),
+                        e.type.toUpperCase(),
+                        e.mode || '-',
+                        e.remarks || e.description || '-',
+                        formatCurrency(e.amount, true)
+                    ]);
+
+                    doc.autoTable({
+                        startY: finalY,
+                        head: [['Date', 'Type', 'Mode', 'Remarks', 'Amount']],
+                        body: tableRows.length > 0 ? tableRows : [['-', '-', '-', 'No entries', '-']],
+                        theme: 'grid',
+                        headStyles: { fillColor: [52, 152, 219], lineWidth: 0.1, lineColor: [200, 200, 200] },
+                        styles: { lineWidth: 0.1, lineColor: [200, 200, 200] },
+                        margin: { left: 14, right: 14 }
+                    });
+
+                    finalY = doc.lastAutoTable.finalY + 12;
+                    if (finalY > 260 && i < booksToExport.length - 1) {
+                        doc.addPage();
+                        finalY = 20;
+                    }
+                }
+
+                doc.save(`books-report-${Date.now()}.pdf`);
+                showToast('Success', 'PDF exported successfully!');
+            } catch (error) {
+                showToast('Error', 'Failed to export PDF: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function exportBooksExcel(bookIds = null) {
+            showLoading();
+            try {
+                let booksToExport = dataState.books || [];
+                if (bookIds && bookIds.length > 0) {
+                    booksToExport = booksToExport.filter(b => bookIds.includes(b.id));
+                }
+
+                const workbook = XLSX.utils.book_new();
+
+                booksToExport.forEach(book => {
+                    let entries = (dataState.bookEntries || []).filter(e => e.bookId === book.id);
+
+                    if (bookIds && bookIds.length === 1) {
+                        const modeFilter = document.getElementById('bookModeFilter')?.value || 'all';
+                        const fromDate = document.getElementById('bookFromDate')?.value || '';
+                        const toDate = document.getElementById('bookToDate')?.value || '';
+
+                        if (window.currentBookTab === 'credits') entries = entries.filter(e => e.type === 'credit');
+                        if (window.currentBookTab === 'expenses') entries = entries.filter(e => e.type === 'expense');
+                        if (modeFilter !== 'all') entries = entries.filter(e => e.mode === modeFilter);
+                        if (fromDate || toDate) entries = filterByDateRange(entries, fromDate, toDate);
+                    }
+
+                    entries.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+
+                    const excelData = entries.map(e => ({
+                        Date: safeDate(e.date).toLocaleDateString(),
+                        Type: e.type.toUpperCase(),
+                        Mode: e.mode || '',
+                        Remarks: e.remarks || e.description || '',
+                        Amount: parseFloat(e.amount) || 0
+                    }));
+
+                    const sheetName = (book.name || 'Book').substring(0, 31);
+                    const sheet = XLSX.utils.json_to_sheet(excelData);
+                    XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
+                });
+
+                XLSX.writeFile(workbook, `books-report-${Date.now()}.xlsx`);
+                showToast('Success', 'Excel exported successfully!');
+            } catch (error) {
+                showToast('Error', 'Failed to export Excel: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
 
 
         // Groups Page
@@ -19992,6 +21060,27 @@
                     }).filter(e => e !== null);
 
                     allData = allData.concat(groupEntries);
+                }
+
+                // 4. Process local book entries
+                if (selectedTypes.includes('all') || selectedTypes.includes('book') || selectedTypes.includes('books')) {
+                    const booksMap = {};
+                    (dataState.books || []).forEach(b => booksMap[b.id] = b);
+
+                    const bookEntries = (dataState.bookEntries || []).map(entry => {
+                        const book = booksMap[entry.bookId];
+                        if (!book || book.status === 'deleted') return null;
+
+                        return {
+                            ...entry,
+                            section: entry.type === 'credit' ? 'Book Credit' : 'Book Expense',
+                            sectionType: entry.type === 'credit' ? 'credit' : 'book',
+                            canEdit: true,
+                            groupName: book.name
+                        };
+                    }).filter(e => e !== null);
+
+                    allData = allData.concat(bookEntries);
                 }
 
                 // Apply Filters
