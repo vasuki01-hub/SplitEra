@@ -13450,31 +13450,7 @@
                         });
                     }
 
-                    // Personal details row template
-                    // <tr id="personal-details-${expense.id}" class="expandable-detail-row">
-                    //     <td colspan="5">
-                    //         <div style=" margin-right: 2rem; overflow: auto; padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
-                    <tr id="personal-details-${expense.id}" class="expandable-detail-row">
-                        <td colspan="5">
-                            <div style=" margin-right: 2rem; overflow: auto; padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
-                                <div><strong>${t('category')}:</strong> ${escapeHTML(expense.category || '-')}</div>
-                                <div><strong>${t('remarks') || 'Remarks'}:</strong> ${escapeHTML(expense.remarks || expense.description || '-')}</div>
-                                ${expense.bookName ? `<div><strong>Book:</strong> <span class="badge badge-primary"><i class="fas fa-book"></i> ${escapeHTML(expense.bookName)}</span></div>` : ''}
-                                <div style="margin-top: 0.5rem;">
-                                    <strong>${t('attachments')}:</strong>
-                                    ${expense.attachments && expense.attachments.length > 0 ? `
-                                                                         <div class="attachments" style="margin-top:0.4rem;">
-                                                                             ${expense.attachments.map((url, idx) => `
-                                                                                 <div class="attachment" onclick="viewAttachment(this.dataset.url)" data-url="${escapeHTML(url)}">
-                                                                                     <img src="${escapeHTML(url)}" alt="Attachment ${idx + 1}">
-                                                                                 </div>
-                                                                             `).join('')}
-                                                                         </div>
-                                                                     ` : ' -'}
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
+
 
                     // Bank vs Credit Card Chart
                     const bankCtx = document.getElementById('bankCardsChart');
