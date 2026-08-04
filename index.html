@@ -17266,14 +17266,18 @@
         }
 
         async function purgeDeletedBooks(bookIds) {
+            if (!bookIds.length) return;
             try {
                 for (const bookId of bookIds) {
-                    const entriesSnapshot = await db.collection('book_entries')
-                        .where('bookId', '==', bookId)
-                        .get();
-                    const batch = db.batch();
-                    entriesSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-                    await batch.commit();
+                    const entriesToDelete = (dataState.bookEntries || []).filter(e => e.bookId === bookId);
+
+                    for (let i = 0; i < entriesToDelete.length; i += 500) {
+                        const chunk = entriesToDelete.slice(i, i + 500);
+                        const batch = db.batch();
+                        chunk.forEach(e => batch.delete(db.collection('book_entries').doc(e.id)));
+                        await batch.commit();
+                    }
+
                     await db.collection('books').doc(bookId).delete();
                 }
             } catch (error) {
