@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 
 <head>
@@ -1033,6 +1033,78 @@
         /* First card (Net Balance) spans full width on mobile */
         .books-banner-grid .books-banner-net {
             grid-column: 1 / -1;
+        }
+
+        .books-banner-grid .stat-card {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border: none;
+            border-left-width: 0;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+            color: #fff;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .books-banner-grid .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+        }
+
+        .books-banner-grid .stat-card.blue {
+            background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 55%, #1E40AF 100%);
+        }
+
+        .books-banner-grid .stat-card.green {
+            background: linear-gradient(135deg, #34D399 0%, #10B981 55%, #059669 100%);
+        }
+
+        .books-banner-grid .stat-card.red {
+            background: linear-gradient(135deg, #F87171 0%, #EF4444 55%, #DC2626 100%);
+        }
+
+        .books-banner-grid .stat-card .stat-icon {
+            background: rgba(255, 255, 255, 0.22);
+            color: #fff;
+            flex-shrink: 0;
+            backdrop-filter: blur(4px);
+        }
+
+        .books-banner-grid .stat-card .stat-value,
+        .books-banner-grid .stat-card .stat-label {
+            color: #fff;
+        }
+
+        .books-banner-grid .stat-card .stat-label {
+            opacity: 0.9;
+        }
+
+        .books-banner-grid .books-banner-net {
+            flex-direction: column;
+            text-align: center;
+            justify-content: center;
+        }
+
+        .books-month-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1.1rem;
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, rgba(255, 140, 66, 0.18) 0%, rgba(255, 107, 53, 0.28) 100%);
+            border: 1px solid rgba(255, 140, 66, 0.35);
+            color: var(--text-dark);
+        }
+
+        [data-theme="dark"] .books-month-header {
+            background: linear-gradient(135deg, rgba(255, 140, 66, 0.22) 0%, rgba(230, 122, 51, 0.32) 100%);
+            border-color: rgba(255, 140, 66, 0.45);
+            color: #F9FAFB;
+        }
+
+        .books-month-header strong {
+            color: inherit;
         }
 
         .stat-card {
@@ -10765,27 +10837,6 @@
                                             <p class="ug-card-subtitle">${slide.subtitle}</p>
                                         </div>
                                         <div class="ug-avatar-wrap">
-                                            <tr id="category-remarks-${expense.id}" class="expandable-detail-row">
-                                                     <td colspan="5">
-                                                         <div style=" margin-right: 2rem; overflow: auto; padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
-                                                             <div><strong>${t('category')}:</strong> ${escapeHTML(expense.category || '-')}</div>
-                                                             <div><strong>${t('remarks') || 'Remarks'}:</strong> ${escapeHTML(expense.remarks || expense.description || '-')}</div>
-                                                             ${expense.bookName ? `<div><strong>Book:</strong> <span class="badge badge-primary"><i class="fas fa-book"></i> ${escapeHTML(expense.bookName)}</span></div>` : ''}
-                                                             <div style="margin-top: 0.5rem;">
-                                                                 <strong>${t('attachments')}:</strong>
-                                                                 ${expense.attachments && expense.attachments.length > 0 ? `
-                                                                     <div class="attachments" style="margin-top:0.4rem;">
-                                                                         ${expense.attachments.map((url, idx) => `
-                                                                             <div class="attachment" onclick="viewAttachment(this.dataset.url)" data-url="${escapeHTML(url)}">
-                                                                                 <img src="${escapeHTML(url)}" alt="Attachment ${idx + 1}">
-                                                                             </div>
-                                                                         `).join('')}
-                                                                     </div>
-                                                                 ` : ' -'}
-                                                             </div>
-                                                         </div>
-                                                     </td>
-                                                 </tr>
                                             ${getAvatar3D(slide.avatarType, slide.accentColor)}
                                         </div>
                                     </div>
@@ -14784,7 +14835,6 @@
                                 <option value="credit" selected>Credits</option>
                                 <option value="personal" selected>Personal</option>
                                 <option value="group" selected>Group</option>
-                                <option value="book" selected>Books</option>
                             </select>
                             <div class="searchable-dropdown" id="detailsTypeContainer"></div>
                         </div>
@@ -15360,6 +15410,98 @@
             renderCreditNewAttachments();
         }
 
+        function getBookSelectorHtml(checkboxClass, linkedBookIds = []) {
+            const linkedSet = new Set(linkedBookIds);
+            const activeBooks = (dataState.books || []).filter(b => b.status !== 'deleted');
+            if (activeBooks.length === 0) {
+                return '<small style="color: var(--text-gray);">No books created yet</small>';
+            }
+            return activeBooks.map(b => `
+                <label style="display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; border: 1px solid var(--border); border-radius: 1rem; cursor: pointer; font-size: 0.85rem; background: var(--bg-light);">
+                    <input type="checkbox" class="${checkboxClass}" value="${b.id}" data-book-name="${escapeHTML(b.name)}" ${linkedSet.has(b.id) ? 'checked' : ''}>
+                    ${escapeHTML(b.name)}
+                </label>
+            `).join('');
+        }
+
+        async function syncCreditBookEntries(creditId, creditData) {
+            const checkedBookIds = Array.from(document.querySelectorAll('.edit-credit-book-check:checked')).map(cb => cb.value);
+            const linkedEntries = (dataState.bookEntries || []).filter(e => e.creditId === creditId);
+            const linkedBookIds = linkedEntries.map(e => e.bookId);
+
+            await Promise.all(linkedEntries
+                .filter(e => !checkedBookIds.includes(e.bookId))
+                .map(e => db.collection('book_entries').doc(e.id).delete()));
+
+            await Promise.all(linkedEntries
+                .filter(e => checkedBookIds.includes(e.bookId))
+                .map(e => db.collection('book_entries').doc(e.id).update({
+                    amount: creditData.amount,
+                    date: creditData.date,
+                    mode: creditData.mode,
+                    remarks: creditData.remarks,
+                    description: creditData.description,
+                    attachments: creditData.attachments,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                })));
+
+            await Promise.all(checkedBookIds
+                .filter(bookId => !linkedBookIds.includes(bookId))
+                .map(bookId => db.collection('book_entries').add({
+                    bookId,
+                    userId: currentUser.uid,
+                    creditId,
+                    type: 'credit',
+                    amount: creditData.amount,
+                    date: creditData.date,
+                    mode: creditData.mode,
+                    remarks: creditData.remarks,
+                    description: creditData.description,
+                    attachments: creditData.attachments,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                })));
+        }
+
+        async function syncPersonalBookEntries(expenseId, expenseData) {
+            const checkedBookIds = Array.from(document.querySelectorAll('.edit-personal-book-check:checked')).map(cb => cb.value);
+            const linkedEntries = (dataState.bookEntries || []).filter(e => e.personalExpenseId === expenseId);
+            const linkedBookIds = linkedEntries.map(e => e.bookId);
+
+            await Promise.all(linkedEntries
+                .filter(e => !checkedBookIds.includes(e.bookId))
+                .map(e => db.collection('book_entries').doc(e.id).delete()));
+
+            await Promise.all(linkedEntries
+                .filter(e => checkedBookIds.includes(e.bookId))
+                .map(e => db.collection('book_entries').doc(e.id).update({
+                    amount: expenseData.amount,
+                    date: expenseData.date,
+                    mode: expenseData.mode,
+                    remarks: expenseData.remarks,
+                    description: expenseData.description,
+                    attachments: expenseData.attachments,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                })));
+
+            await Promise.all(checkedBookIds
+                .filter(bookId => !linkedBookIds.includes(bookId))
+                .map(bookId => db.collection('book_entries').add({
+                    bookId,
+                    userId: currentUser.uid,
+                    personalExpenseId: expenseId,
+                    type: 'expense',
+                    amount: expenseData.amount,
+                    date: expenseData.date,
+                    mode: expenseData.mode,
+                    remarks: expenseData.remarks,
+                    description: expenseData.description,
+                    attachments: expenseData.attachments,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                })));
+        }
+
         async function saveCredit(btn) {
             if (!btn) btn = event.currentTarget || event.target.closest('button');
             btn.disabled = true;
@@ -15435,6 +15577,7 @@
                 editingRowId = id;
 
                 const date = credit.date.toDate().toISOString().split('T')[0];
+                const linkedBookIds = (dataState.bookEntries || []).filter(e => e.creditId === id).map(e => e.bookId);
 
                 //Build modal — keep same element IDs so saveEditCredit works unchanged
                 const modal = document.createElement('div');
@@ -15480,6 +15623,12 @@
                             <div class="form-group">
                                 <label class="form-label">${t('remarks') || 'Remarks'} (Optional)</label>
                                 <textarea class="form-textarea" id="edit-remarks-${id}" rows="2">${escapeHTML(credit.remarks || '')}</textarea>
+                            </div>
+                            <div class="form-group" style="border-top: 1px solid var(--border); padding-top: 1rem;">
+                                <label class="form-label"><i class="fas fa-book"></i> Add to Book (Optional)</label>
+                                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+                                    ${getBookSelectorHtml('edit-credit-book-check', linkedBookIds)}
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">${t('attachments')} (Optional)</label>
@@ -15594,6 +15743,7 @@
                 }
 
                 await db.collection('credits').doc(id).update(updateData);
+                await syncCreditBookEntries(id, updateData);
                 window.uploadedFiles = []; // Clear queue
                 editingRowId = null;
                 const modal = document.getElementById(`edit-credit-modal-${id}`);
@@ -16038,7 +16188,6 @@
                                                     <td colspan="5">
                                                         <div style=" margin-right: 2rem; overflow: auto; padding: 0.75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border);">
                                                             <div><strong>${t('category')}:</strong> ${escapeHTML(expense.category || '-')}</div>
-                                                            <div><strong>${t('description')}:</strong> ${escapeHTML(expense.description || '-')}</div>
                                                             <div><strong>${t('remarks')}:</strong> ${escapeHTML(expense.remarks || '-')}</div>
                                                             <div style="margin-top: 0.5rem;">
                                                                 <strong>${t('attachments')}:</strong>
@@ -16294,6 +16443,7 @@
                 editingRowId = id;
 
                 const date = expense.date.toDate().toISOString().split('T')[0];
+                const linkedBookIds = (dataState.bookEntries || []).filter(e => e.personalExpenseId === id).map(e => e.bookId);
 
                 // Build modal — keep same element IDs so saveEditPersonal works unchanged
                 const modal = document.createElement('div');
@@ -16344,6 +16494,12 @@
                             <div class="form-group">
                                 <label class="form-label">${t('remarks') || 'Remarks'} (Optional)</label>
                                 <textarea class="form-textarea" id="edit-remarks-${id}" rows="2">${escapeHTML(expense.remarks || '')}</textarea>
+                            </div>
+                            <div class="form-group" style="border-top: 1px solid var(--border); padding-top: 1rem;">
+                                <label class="form-label"><i class="fas fa-book"></i> Add to Book (Optional)</label>
+                                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+                                    ${getBookSelectorHtml('edit-personal-book-check', linkedBookIds)}
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">${t('attachments')} (Optional)</label>
@@ -16459,6 +16615,7 @@
                 }
 
                 await db.collection('personal_expenses').doc(id).update(updateData);
+                await syncPersonalBookEntries(id, updateData);
                 window.uploadedFiles = []; // Clear queue
                 editingRowId = null;
                 const modal = document.getElementById(`edit-personal-modal-${id}`);
@@ -16732,20 +16889,26 @@
 
                 <!-- Combined Summary Banner for All Books -->
                 <div class="books-banner-grid">
-                    <div class="stat-card blue books-banner-net" style="justify-content: center; text-align: center; flex-direction: column; gap: 0.25rem;">
+                    <div class="stat-card blue books-banner-net">
                         <div class="stat-icon" style="margin: 0 auto;"><i class="fas fa-balance-scale"></i></div>
-                        <div class="stat-value" id="allBooksNetBalance">${formatCurrency(0)}</div>
-                        <div class="stat-label">Net Balance</div>
+                        <div class="stat-content" style="text-align: center;">
+                            <div class="stat-value" id="allBooksNetBalance">${formatCurrency(0)}</div>
+                            <div class="stat-label">Net Balance</div>
+                        </div>
                     </div>
                     <div class="stat-card green">
-                        <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
-                        <div class="stat-value" id="allBooksTotalCredit">${formatCurrency(0)}</div>
-                        <div class="stat-label">Total Credit</div>
+                        <div class="stat-icon green"><i class="fas fa-arrow-down"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="allBooksTotalCredit">${formatCurrency(0)}</div>
+                            <div class="stat-label">Total Credit</div>
+                        </div>
                     </div>
                     <div class="stat-card red">
-                        <div class="stat-icon"><i class="fas fa-arrow-up"></i></div>
-                        <div class="stat-value" id="allBooksTotalExpense">${formatCurrency(0)}</div>
-                        <div class="stat-label">Total Expenses</div>
+                        <div class="stat-icon red"><i class="fas fa-arrow-up"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="allBooksTotalExpense">${formatCurrency(0)}</div>
+                            <div class="stat-label">Total Expenses</div>
+                        </div>
                     </div>
                 </div>
 
@@ -17151,20 +17314,26 @@
 
                 <!-- Book Specific Summary Banner -->
                 <div class="books-banner-grid">
-                    <div class="stat-card blue books-banner-net" style="justify-content: center; text-align: center; flex-direction: column; gap: 0.25rem;">
+                    <div class="stat-card blue books-banner-net">
                         <div class="stat-icon" style="margin: 0 auto;"><i class="fas fa-wallet"></i></div>
-                        <div class="stat-value" id="bookDetailNetBalance">${formatCurrency(0)}</div>
-                        <div class="stat-label">Net Balance</div>
+                        <div class="stat-content" style="text-align: center;">
+                            <div class="stat-value" id="bookDetailNetBalance">${formatCurrency(0)}</div>
+                            <div class="stat-label">Net Balance</div>
+                        </div>
                     </div>
                     <div class="stat-card green">
-                        <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
-                        <div class="stat-value" id="bookDetailTotalCredit">${formatCurrency(0)}</div>
-                        <div class="stat-label">Total Credit</div>
+                        <div class="stat-icon green"><i class="fas fa-arrow-down"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="bookDetailTotalCredit">${formatCurrency(0)}</div>
+                            <div class="stat-label">Total Credit</div>
+                        </div>
                     </div>
                     <div class="stat-card red">
-                        <div class="stat-icon"><i class="fas fa-arrow-up"></i></div>
-                        <div class="stat-value" id="bookDetailTotalExpense">${formatCurrency(0)}</div>
-                        <div class="stat-label">Total Expenses</div>
+                        <div class="stat-icon red"><i class="fas fa-arrow-up"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="bookDetailTotalExpense">${formatCurrency(0)}</div>
+                            <div class="stat-label">Total Expenses</div>
+                        </div>
                     </div>
                 </div>
 
@@ -17296,7 +17465,7 @@
 
                 html += `
                     <div class="month-group" style="margin-bottom: 1.5rem;">
-                        <div class="month-header" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-hover); padding: 0.6rem 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
+                        <div class="month-header books-month-header">
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <input type="checkbox" onchange="toggleSelectMonthBookEntries(this, '${monthKey}')">
                                 <strong>${monthName} ${year}</strong>
@@ -21258,27 +21427,6 @@
                     }).filter(e => e !== null);
 
                     allData = allData.concat(groupEntries);
-                }
-
-                // 4. Process local book entries
-                if (selectedTypes.includes('all') || selectedTypes.includes('book') || selectedTypes.includes('books')) {
-                    const booksMap = {};
-                    (dataState.books || []).forEach(b => booksMap[b.id] = b);
-
-                    const bookEntries = (dataState.bookEntries || []).map(entry => {
-                        const book = booksMap[entry.bookId];
-                        if (!book || book.status === 'deleted') return null;
-
-                        return {
-                            ...entry,
-                            section: entry.type === 'credit' ? 'Book Credit' : 'Book Expense',
-                            sectionType: entry.type === 'credit' ? 'credit' : 'book',
-                            canEdit: true,
-                            groupName: book.name
-                        };
-                    }).filter(e => e !== null);
-
-                    allData = allData.concat(bookEntries);
                 }
 
                 // Apply Filters
