@@ -2242,6 +2242,7 @@
 
         /* Individual notification item */
         .notif-item {
+            margin: 5px;
             backdrop-filter: blur(2rem);
             background: #f5f5dc4d;
             border-radius: 8rem;
@@ -2260,7 +2261,7 @@
         }
 
         .notif-item.unread {
-            background: #fed3b9e8;
+            background: #ffba90ad;
         }
 
         .notif-item.unread::before {
@@ -8329,14 +8330,9 @@
                 .where('userId', '==', userId)
                 .limit(dataState.paging.creditsLimit)
                 .onSnapshot(snapshot => {
-                    // Sort client-side by date descending
-                    dataState.credits = snapshot.docs
-                        .map(doc => ({ id: doc.id, ...doc.data() }))
-                        .sort((a, b) => {
-                            const dateA = a.date?.toDate?.() || new Date(a.date || 0);
-                            const dateB = b.date?.toDate?.() || new Date(b.date || 0);
-                            return dateB - dateA;
-                        });
+                    dataState.credits = sortByNewestFirst(
+                        snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                    );
                     dataState.isLoaded.credits = true;
                     dataState.paging.hasMoreCredits = snapshot.docs.length >= dataState.paging.creditsLimit;
                     debouncedRefresh();
@@ -8354,14 +8350,9 @@
                 .where('userId', '==', userId)
                 .limit(dataState.paging.personalLimit)
                 .onSnapshot(snapshot => {
-                    // Sort client-side by date descending
-                    dataState.personalExpenses = snapshot.docs
-                        .map(doc => ({ id: doc.id, ...doc.data() }))
-                        .sort((a, b) => {
-                            const dateA = a.date?.toDate?.() || new Date(a.date || 0);
-                            const dateB = b.date?.toDate?.() || new Date(b.date || 0);
-                            return dateB - dateA;
-                        });
+                    dataState.personalExpenses = sortByNewestFirst(
+                        snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                    );
                     dataState.isLoaded.personalExpenses = true;
                     dataState.paging.hasMorePersonal = snapshot.docs.length >= dataState.paging.personalLimit;
                     debouncedRefresh();
@@ -10329,6 +10320,10 @@
                 }
 
                 grouped[key].push(item);
+            });
+
+            Object.keys(grouped).forEach(key => {
+                grouped[key] = sortByNewestFirst(grouped[key]);
             });
 
             return grouped;
@@ -14506,7 +14501,11 @@
                     ...personal.map(p => ({ ...p, type: t('personal'), originalType: 'Personal' })),
                     // For group expenses in the dashboard PDF, show ONLY the current user's share (to match dashboard UI)
                     ...groupsData.map(g => ({ ...g, amount: parseFloat(g.userShareAmount || 0), type: t('groups'), originalType: 'Group' }))
-                ].sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                ].sort((a, b) => {
+                    const createdDiff = safeDateMillis(b.createdAt || b.date) - safeDateMillis(a.createdAt || a.date);
+                    if (createdDiff !== 0) return createdDiff;
+                    return safeDateMillis(b.date) - safeDateMillis(a.date);
+                });
 
                 const grouped = groupByMonth(allData);
 
@@ -15758,8 +15757,8 @@
                     );
                 }
 
-                // Sort by date descending
-                filtered.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                // Sort by newest first (createdAt, then date)
+                filtered = sortByNewestFirst(filtered);
 
                 // Render table
                 const container = document.getElementById('detailsTableContainer');
@@ -15914,7 +15913,7 @@
 
                 credits = filterByDateRange(credits, fromDate, toDate);
                 credits = filterByPaymentModes(credits, getSelectedCreditsPaymentModes());
-                credits.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                credits = sortByNewestFirst(credits);
 
                 // Calculate totals
                 const totalAmount = credits.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
@@ -16228,6 +16227,7 @@
                     mode: creditData.mode,
                     remarks: creditData.remarks,
                     description: creditData.description,
+                    source: creditData.source,
                     attachments: creditData.attachments,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 })));
@@ -16244,6 +16244,7 @@
                     mode: creditData.mode,
                     remarks: creditData.remarks,
                     description: creditData.description,
+                    source: creditData.source,
                     attachments: creditData.attachments,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -16515,6 +16516,7 @@
                 const updateData = {
                     date: firebase.firestore.Timestamp.fromDate(new Date(document.getElementById(`edit-date-${id}`).value)),
                     description: document.getElementById(`edit-description-${id}`).value,
+                    source: document.getElementById(`edit-source-${id}`).value,
                     mode: document.getElementById(`edit-mode-${id}`).value,
                     remarks: document.getElementById(`edit-remarks-${id}`).value,
                     amount: parseFloat(document.getElementById(`edit-amount-${id}`).value),
@@ -16531,13 +16533,19 @@
 
                 await db.collection('credits').doc(id).update(updateData);
                 await syncCreditBookEntries(id, updateData);
+
+                const creditIndex = dataState.credits.findIndex(c => c.id === id);
+                if (creditIndex !== -1) {
+                    dataState.credits[creditIndex] = { id, ...dataState.credits[creditIndex], ...updateData };
+                    dataState.credits = sortByNewestFirst(dataState.credits);
+                }
+
                 window.uploadedFiles = []; // Clear queue
                 editingRowId = null;
                 const modal = document.getElementById(`edit-credit-modal-${id}`);
                 if (modal) modal.remove();
                 showToast('Success', 'Credit updated successfully!');
-                // Render credits directly for immediate update
-                renderCredits();
+                await loadCredits();
             } catch (error) {
                 showToast('Error', error.message, 'error');
                 if (btn) {
@@ -16654,7 +16662,7 @@
                 // Apply filters
                 credits = filterByDateRange(credits, fromDate, toDate);
                 credits = filterByPaymentModes(credits, getSelectedCreditsPaymentModes());
-                credits.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                credits = sortByNewestFirst(credits);
 
                 // Header with orange color
                 doc.setFillColor(255, 140, 66);
@@ -16762,7 +16770,7 @@
                 let credits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 credits = filterByDateRange(credits, fromDate, toDate);
                 credits = filterByPaymentModes(credits, getSelectedCreditsPaymentModes());
-                credits.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                credits = sortByNewestFirst(credits);
 
                 const excelData = credits.map(credit => ({
                     _date: safeDate(credit.date),
@@ -16911,7 +16919,7 @@
                 expenses = filterBySearch(expenses, searchTerm, ['description', 'category', 'mode', 'remarks', 'amount']);
                 expenses = filterByDateRange(expenses, fromDate, toDate);
                 expenses = filterByPaymentModes(expenses, getSelectedPersonalPaymentModes());
-                expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                expenses = sortByNewestFirst(expenses);
 
                 const total = expenses.reduce((sum, e) => sum + e.amount, 0);
                 document.getElementById('totalPersonalAmount').textContent = formatCurrency(total);
@@ -17517,7 +17525,7 @@
                 // Apply filters
                 expenses = filterByDateRange(expenses, fromDate, toDate);
                 expenses = filterByPaymentModes(expenses, getSelectedPersonalPaymentModes());
-                expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                expenses = sortByNewestFirst(expenses);
 
                 doc.setFillColor(255, 140, 66);
                 doc.rect(0, 0, 210, 30, 'F');
@@ -17615,7 +17623,7 @@
                 let expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 expenses = filterByDateRange(expenses, fromDate, toDate);
                 expenses = filterByPaymentModes(expenses, getSelectedPersonalPaymentModes());
-                expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                expenses = sortByNewestFirst(expenses);
 
                 const excelData = expenses.map(expense => ({
                     _date: safeDate(expense.date),
@@ -18236,7 +18244,7 @@
                 entries = filterByDateRange(entries, fromDate, toDate);
             }
 
-            entries.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+            entries = sortByNewestFirst(entries);
 
             if (entries.length === 0) {
                 container.innerHTML = `
@@ -18663,7 +18671,7 @@
                         if (fromDate || toDate) entries = filterByDateRange(entries, fromDate, toDate);
                     }
 
-                    entries.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                    entries = sortByNewestFirst(entries);
 
                     const totalCredit = entries.filter(e => e.type === 'credit').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
                     const totalExpense = entries.filter(e => e.type === 'expense').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
@@ -18734,7 +18742,7 @@
                         if (fromDate || toDate) entries = filterByDateRange(entries, fromDate, toDate);
                     }
 
-                    entries.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                    entries = sortByNewestFirst(entries);
 
                     const excelData = entries.map(e => ({
                         Date: safeDate(e.date).toLocaleDateString(),
@@ -22240,9 +22248,7 @@
                 }
 
                 allData = filterByPaymentModes(allData, getSelectedDetailsPaymentModes());
-
-                // Sort by date descending
-                allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                allData = sortByNewestFirst(allData);
 
                 if (allData.length === 0) {
                     container.innerHTML = `
@@ -24332,7 +24338,7 @@
 
                 let expenses = expensesSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                 expenses = filterByDateRange(expenses, fromDate, toDate);
-                expenses.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                expenses = sortByNewestFirst(expenses);
 
                 const breakdowns = calculateExpenseBreakdown(expenses, allMemberIds, memberMap);
 
@@ -25165,7 +25171,7 @@
                 allData = filterByDateRange(allData, fromDate, toDate);
                 allData = filterByPaymentModes(allData, getSelectedDetailsPaymentModes());
                 // Sort data by date in descending order
-                allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                allData = sortByNewestFirst(allData);
 
                 // Add header to PDF with green background
                 doc.setFillColor(16, 185, 129);
@@ -25371,7 +25377,7 @@
                 if (searchTerm) allData = filterBySearch(allData, searchTerm, ['description', 'mode', 'remarks', 'amount', 'section']);
                 allData = filterByDateRange(allData, fromDate, toDate);
                 allData = filterByPaymentModes(allData, getSelectedDetailsPaymentModes());
-                allData.sort((a, b) => safeDateMillis(b.date) - safeDateMillis(a.date));
+                allData = sortByNewestFirst(allData);
 
                 const excelData = allData.map(item => ({
                     _date: safeDate(item.date),
@@ -27477,6 +27483,10 @@
                 }
 
                 grouped[key].push(item);
+            });
+
+            Object.keys(grouped).forEach(key => {
+                grouped[key] = sortByNewestFirst(grouped[key]);
             });
 
             return grouped;
